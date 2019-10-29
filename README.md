@@ -14,6 +14,8 @@ This allows us to compile all contracts with one command.
 The following contracts are available for use. You can view the source code under `src`
 and a precompiled wasm ready for deployment under `contract.wasm`. Take a look here:
 
+* [escrow](https://github.com/confio/cosmwasm-examples/tree/master/escrow) - A basic escrow with timeout and partial release
+
 ## Development
 
 ### Starting a contract
