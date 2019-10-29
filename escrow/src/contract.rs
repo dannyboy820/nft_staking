@@ -38,8 +38,8 @@ pub struct State {
 
 impl State {
     fn is_expired(&self, params: &Params) -> bool {
-        (self.end_height != 0 && params.block.height >= self.end_height) ||
-            (self.end_time != 0 && params.block.time >= self.end_time)
+        (self.end_height != 0 && params.block.height >= self.end_height)
+            || (self.end_time != 0 && params.block.time >= self.end_time)
     }
 }
 
@@ -55,13 +55,12 @@ pub fn init<T: Storage>(store: &mut T, params: Params, msg: Vec<u8>) -> Result<R
         end_time: msg.end_time,
     };
     if state.is_expired(&params) {
-        ContractErr { msg: "creating expired escrow".to_string() }.fail()
+        ContractErr {
+            msg: "creating expired escrow".to_string(),
+        }
+        .fail()
     } else {
-        store.set(
-            CONFIG_KEY,
-            &to_vec(&state)
-                .context(SerializeErr {})?,
-        );
+        store.set(CONFIG_KEY, &to_vec(&state).context(SerializeErr {})?);
         Ok(Response::default())
     }
 }
@@ -83,7 +82,10 @@ fn try_approve(params: Params, state: State, quantity: Option<Vec<Coin>>) -> Res
     if params.message.signer != state.arbiter {
         Unauthorized {}.fail()
     } else if state.is_expired(&params) {
-        ContractErr { msg: "escrow expired".to_string() }.fail()
+        ContractErr {
+            msg: "escrow expired".to_string(),
+        }
+        .fail()
     } else {
         let amount = match quantity {
             None => params.contract.balance,
@@ -105,7 +107,10 @@ fn try_approve(params: Params, state: State, quantity: Option<Vec<Coin>>) -> Res
 fn try_refund(params: Params, state: State) -> Result<Response> {
     // anyone can try to refund, as long as the contract is expired
     if !state.is_expired(&params) {
-        ContractErr { msg: "escrow not yet expired".to_string() }.fail()
+        ContractErr {
+            msg: "escrow not yet expired".to_string(),
+        }
+        .fail()
     } else {
         let res = Response {
             messages: vec![CosmosMsg::Send {
@@ -120,7 +125,6 @@ fn try_refund(params: Params, state: State) -> Result<Response> {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -134,10 +138,17 @@ mod tests {
             recipient: String::from("benefits"),
             end_height: height,
             end_time: time,
-        }).unwrap()
+        })
+        .unwrap()
     }
 
-    fn mock_params_height(signer: &str, sent: &[Coin], balance: &[Coin], height: i64, time: i64) -> Params {
+    fn mock_params_height(
+        signer: &str,
+        sent: &[Coin],
+        balance: &[Coin],
+        height: i64,
+        time: i64,
+    ) -> Params {
         let mut params = mock_params(signer, sent, balance);
         params.block.height = height;
         params.block.time = time;
@@ -183,7 +194,8 @@ mod tests {
         let params = mock_params_height("creator", &coin("1000", "earth"), &[], 876, 0);
         let res = init(&mut store, params, bad_msg);
         assert!(res.is_err());
-        if let Err(Error::ParseErr { .. }) = res {} else {
+        if let Err(Error::ParseErr { .. }) = res {
+        } else {
             assert!(false, "wrong error type");
         }
     }
@@ -200,16 +212,28 @@ mod tests {
 
         // beneficiary cannot release it
         let msg = to_vec(&HandleMsg::Approve { quantity: None }).unwrap();
-        let params = mock_params_height("beneficiary", &coin("0", "earth"), &coin("1000", "earth"), 900, 0);
+        let params = mock_params_height(
+            "beneficiary",
+            &coin("0", "earth"),
+            &coin("1000", "earth"),
+            900,
+            0,
+        );
         let handle_res = handle(&mut store, params, msg.clone());
         match handle_res {
             Ok(_) => panic!("expected error"),
-            Err(Error::Unauthorized {..}) => {},
+            Err(Error::Unauthorized { .. }) => {}
             Err(e) => panic!("unexpected error: {:?}", e),
         }
 
         // verifier cannot release it when expired
-        let params = mock_params_height("verifies", &coin("0", "earth"), &coin("1000", "earth"), 1100, 0);
+        let params = mock_params_height(
+            "verifies",
+            &coin("0", "earth"),
+            &coin("1000", "earth"),
+            1100,
+            0,
+        );
         let handle_res = handle(&mut store, params, msg.clone());
         match handle_res {
             Ok(_) => panic!("expected error"),
@@ -218,7 +242,13 @@ mod tests {
         }
 
         // complete release by verfier, before expiration
-        let params = mock_params_height("verifies", &coin("0", "earth"), &coin("1000", "earth"), 999, 0);
+        let params = mock_params_height(
+            "verifies",
+            &coin("0", "earth"),
+            &coin("1000", "earth"),
+            999,
+            0,
+        );
         let handle_res = handle(&mut store, params, msg.clone()).unwrap();
         assert_eq!(1, handle_res.messages.len());
         let msg = handle_res.messages.get(0).expect("no message");
@@ -239,8 +269,17 @@ mod tests {
         }
 
         // partial release by verfier, before expiration
-        let partial_msg = to_vec(&HandleMsg::Approve { quantity: Some(coin("500", "earth")) }).unwrap();
-        let params = mock_params_height("verifies", &coin("0", "earth"), &coin("1000", "earth"), 999, 0);
+        let partial_msg = to_vec(&HandleMsg::Approve {
+            quantity: Some(coin("500", "earth")),
+        })
+        .unwrap();
+        let params = mock_params_height(
+            "verifies",
+            &coin("0", "earth"),
+            &coin("1000", "earth"),
+            999,
+            0,
+        );
         let handle_res = handle(&mut store, params, partial_msg).unwrap();
         assert_eq!(1, handle_res.messages.len());
         let msg = handle_res.messages.get(0).expect("no message");
@@ -273,16 +312,30 @@ mod tests {
 
         // cannot release when unexpired
         let msg = to_vec(&HandleMsg::Refund {}).unwrap();
-        let params = mock_params_height("anybody", &coin("0", "earth"), &coin("1000", "earth"), 800, 0);
+        let params = mock_params_height(
+            "anybody",
+            &coin("0", "earth"),
+            &coin("1000", "earth"),
+            800,
+            0,
+        );
         let handle_res = handle(&mut store, params, msg.clone());
         match handle_res {
             Ok(_) => panic!("expected error"),
-            Err(Error::ContractErr { msg, .. }) => assert_eq!(msg, "escrow not yet expired".to_string()),
+            Err(Error::ContractErr { msg, .. }) => {
+                assert_eq!(msg, "escrow not yet expired".to_string())
+            }
             Err(e) => panic!("unexpected error: {:?}", e),
         }
 
         // anyone can release after expiration
-        let params = mock_params_height("anybody", &coin("0", "earth"), &coin("1000", "earth"), 1001, 0);
+        let params = mock_params_height(
+            "anybody",
+            &coin("0", "earth"),
+            &coin("1000", "earth"),
+            1001,
+            0,
+        );
         let handle_res = handle(&mut store, params, msg.clone()).unwrap();
         assert_eq!(1, handle_res.messages.len());
         let msg = handle_res.messages.get(0).expect("no message");

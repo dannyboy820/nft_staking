@@ -1,6 +1,6 @@
 use cosmwasm::mock::MockStorage;
-use cosmwasm::serde::{to_vec};
-use cosmwasm::types::{Coin, coin, ContractResult, mock_params, CosmosMsg, Params};
+use cosmwasm::serde::to_vec;
+use cosmwasm::types::{coin, mock_params, Coin, ContractResult, CosmosMsg, Params};
 use cosmwasm_vm::{call_handle, call_init, Instance};
 
 use escrow::contract::{HandleMsg, InitMsg};
@@ -21,10 +21,17 @@ fn init_msg(height: i64, time: i64) -> Vec<u8> {
         recipient: String::from("benefits"),
         end_height: height,
         end_time: time,
-    }).unwrap()
+    })
+    .unwrap()
 }
 
-fn mock_params_height(signer: &str, sent: &[Coin], balance: &[Coin], height: i64, time: i64) -> Params {
+fn mock_params_height(
+    signer: &str,
+    sent: &[Coin],
+    balance: &[Coin],
+    height: i64,
+    time: i64,
+) -> Params {
     let mut params = mock_params(signer, sent, balance);
     params.block.height = height;
     params.block.time = time;
@@ -52,7 +59,9 @@ fn cannot_initialize_expired() {
     let res = call_init(&mut instance, &params, &msg).unwrap();
     match res {
         ContractResult::Ok(_) => panic!("expected error"),
-        ContractResult::Err(msg) => assert_eq!(msg, "Contract error: creating expired escrow".to_string()),
+        ContractResult::Err(msg) => {
+            assert_eq!(msg, "Contract error: creating expired escrow".to_string())
+        }
     }
 }
 
@@ -66,7 +75,9 @@ fn fails_on_bad_init_data() {
     let res = call_init(&mut instance, &params, &bad_msg).unwrap();
     match res {
         ContractResult::Ok(_) => panic!("expected error"),
-        ContractResult::Err(msg) => assert_eq!(msg, "Parse error: missing field `arbiter`".to_string()),
+        ContractResult::Err(msg) => {
+            assert_eq!(msg, "Parse error: missing field `arbiter`".to_string())
+        }
     }
 }
 
@@ -83,7 +94,13 @@ fn handle_approve() {
 
     // beneficiary cannot release it
     let msg = to_vec(&HandleMsg::Approve { quantity: None }).unwrap();
-    let params = mock_params_height("beneficiary", &coin("0", "earth"), &coin("1000", "earth"), 900, 0);
+    let params = mock_params_height(
+        "beneficiary",
+        &coin("0", "earth"),
+        &coin("1000", "earth"),
+        900,
+        0,
+    );
     let handle_res = call_handle(&mut instance, &params, &msg).unwrap();
     match handle_res {
         ContractResult::Ok(_) => panic!("expected error"),
@@ -91,7 +108,13 @@ fn handle_approve() {
     }
 
     // verifier cannot release it when expired
-    let params = mock_params_height("verifies", &coin("0", "earth"), &coin("1000", "earth"), 1100, 0);
+    let params = mock_params_height(
+        "verifies",
+        &coin("0", "earth"),
+        &coin("1000", "earth"),
+        1100,
+        0,
+    );
     let handle_res = call_handle(&mut instance, &params, &msg).unwrap();
     match handle_res {
         ContractResult::Ok(_) => panic!("expected error"),
@@ -99,7 +122,13 @@ fn handle_approve() {
     }
 
     // complete release by verfier, before expiration
-    let params = mock_params_height("verifies", &coin("0", "earth"), &coin("1000", "earth"), 999, 0);
+    let params = mock_params_height(
+        "verifies",
+        &coin("0", "earth"),
+        &coin("1000", "earth"),
+        999,
+        0,
+    );
     let handle_res = call_handle(&mut instance, &params, &msg).unwrap().unwrap();
     assert_eq!(1, handle_res.messages.len());
     let msg = handle_res.messages.get(0).expect("no message");
@@ -120,9 +149,20 @@ fn handle_approve() {
     }
 
     // partial release by verfier, before expiration
-    let partial_msg = to_vec(&HandleMsg::Approve { quantity: Some(coin("500", "earth")) }).unwrap();
-    let params = mock_params_height("verifies", &coin("0", "earth"), &coin("1000", "earth"), 999, 0);
-    let handle_res = call_handle(&mut instance, &params, &partial_msg).unwrap().unwrap();
+    let partial_msg = to_vec(&HandleMsg::Approve {
+        quantity: Some(coin("500", "earth")),
+    })
+    .unwrap();
+    let params = mock_params_height(
+        "verifies",
+        &coin("0", "earth"),
+        &coin("1000", "earth"),
+        999,
+        0,
+    );
+    let handle_res = call_handle(&mut instance, &params, &partial_msg)
+        .unwrap()
+        .unwrap();
     assert_eq!(1, handle_res.messages.len());
     let msg = handle_res.messages.get(0).expect("no message");
     match &msg {
@@ -155,15 +195,29 @@ fn handle_refund() {
 
     // cannot release when unexpired
     let msg = to_vec(&HandleMsg::Refund {}).unwrap();
-    let params = mock_params_height("anybody", &coin("0", "earth"), &coin("1000", "earth"), 800, 0);
+    let params = mock_params_height(
+        "anybody",
+        &coin("0", "earth"),
+        &coin("1000", "earth"),
+        800,
+        0,
+    );
     let handle_res = call_handle(&mut instance, &params, &msg).unwrap();
     match handle_res {
         ContractResult::Ok(_) => panic!("expected error"),
-        ContractResult::Err(msg) => assert_eq!(msg, "Contract error: escrow not yet expired".to_string()),
+        ContractResult::Err(msg) => {
+            assert_eq!(msg, "Contract error: escrow not yet expired".to_string())
+        }
     }
 
     // anyone can release after expiration
-    let params = mock_params_height("anybody", &coin("0", "earth"), &coin("1000", "earth"), 1001, 0);
+    let params = mock_params_height(
+        "anybody",
+        &coin("0", "earth"),
+        &coin("1000", "earth"),
+        1001,
+        0,
+    );
     let handle_res = call_handle(&mut instance, &params, &msg).unwrap().unwrap();
     assert_eq!(1, handle_res.messages.len());
     let msg = handle_res.messages.get(0).expect("no message");
