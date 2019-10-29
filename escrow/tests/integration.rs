@@ -1,10 +1,9 @@
 use cosmwasm::mock::MockStorage;
-use cosmwasm::serde::{from_slice, to_vec};
-use cosmwasm::storage::Storage;
-use cosmwasm::types::{coin, mock_params, CosmosMsg};
+use cosmwasm::serde::{to_vec};
+use cosmwasm::types::{Coin, coin, ContractResult, mock_params, CosmosMsg, Params};
 use cosmwasm_vm::{call_handle, call_init, Instance};
 
-use escrow::contract::{HandleMsg, InitMsg, State, CONFIG_KEY};
+use escrow::contract::{HandleMsg, InitMsg};
 
 /**
 This integration test tries to run and call the generated wasm.
@@ -16,34 +15,94 @@ Then running `cargo test` will validate we can properly call into that generated
 **/
 static WASM: &[u8] = include_bytes!("../../target/wasm32-unknown-unknown/release/escrow.wasm");
 
-// Note this is very similar in scope and size to proper_handle in contracts.rs tests
-// Making it as easy to write vm external integration tests as rust unit tests
+fn init_msg(height: i64, time: i64) -> Vec<u8> {
+    to_vec(&InitMsg {
+        arbiter: String::from("verifies"),
+        recipient: String::from("benefits"),
+        end_height: height,
+        end_time: time,
+    }).unwrap()
+}
+
+fn mock_params_height(signer: &str, sent: &[Coin], balance: &[Coin], height: i64, time: i64) -> Params {
+    let mut params = mock_params(signer, sent, balance);
+    params.block.height = height;
+    params.block.time = time;
+    params
+}
+
 #[test]
-fn successful_init_and_handle() {
-    assert!(WASM.len() > 100000);
+fn proper_initialization() {
     let storage = MockStorage::new();
     let mut instance = Instance::from_code(&WASM, storage).unwrap();
 
-    // prepare arguments
-    let params = mock_params("creator", &coin("1000", "earth"), &[]);
-    let msg = to_vec(&InitMsg {
-        verifier: String::from("verifies"),
-        beneficiary: String::from("benefits"),
-    })
-    .unwrap();
+    let msg = init_msg(1000, 0);
+    let params = mock_params_height("creator", &coin("1000", "earth"), &[], 876, 0);
+    let res = call_init(&mut instance, &params, &msg).unwrap().unwrap();
+    assert_eq!(0, res.messages.len());
+}
 
-    // call and check
+#[test]
+fn cannot_initialize_expired() {
+    let storage = MockStorage::new();
+    let mut instance = Instance::from_code(&WASM, storage).unwrap();
+
+    let msg = init_msg(1000, 0);
+    let params = mock_params_height("creator", &coin("1000", "earth"), &[], 1001, 0);
     let res = call_init(&mut instance, &params, &msg).unwrap();
-    let msgs = res.unwrap().messages;
-    assert_eq!(msgs.len(), 0);
+    match res {
+        ContractResult::Ok(_) => panic!("expected error"),
+        ContractResult::Err(msg) => assert_eq!(msg, "Contract error: creating expired escrow".to_string()),
+    }
+}
 
-    // now try to handle this one
-    let params = mock_params("verifies", &coin("15", "earth"), &coin("1015", "earth"));
-    let msg = to_vec(&HandleMsg {}).unwrap();
-    let res = call_handle(&mut instance, &params, &msg).unwrap();
-    let msgs = res.unwrap().messages;
-    assert_eq!(1, msgs.len());
-    let msg = msgs.get(0).expect("no message");
+#[test]
+fn fails_on_bad_init_data() {
+    let storage = MockStorage::new();
+    let mut instance = Instance::from_code(&WASM, storage).unwrap();
+
+    let bad_msg = b"{}".to_vec();
+    let params = mock_params_height("creator", &coin("1000", "earth"), &[], 876, 0);
+    let res = call_init(&mut instance, &params, &bad_msg).unwrap();
+    match res {
+        ContractResult::Ok(_) => panic!("expected error"),
+        ContractResult::Err(msg) => assert_eq!(msg, "Parse error: missing field `arbiter`".to_string()),
+    }
+}
+
+#[test]
+fn handle_approve() {
+    let storage = MockStorage::new();
+    let mut instance = Instance::from_code(&WASM, storage).unwrap();
+
+    // initialize the store
+    let msg = init_msg(1000, 0);
+    let params = mock_params_height("creator", &coin("1000", "earth"), &[], 876, 0);
+    let init_res = call_init(&mut instance, &params, &msg).unwrap().unwrap();
+    assert_eq!(0, init_res.messages.len());
+
+    // beneficiary cannot release it
+    let msg = to_vec(&HandleMsg::Approve { quantity: None }).unwrap();
+    let params = mock_params_height("beneficiary", &coin("0", "earth"), &coin("1000", "earth"), 900, 0);
+    let handle_res = call_handle(&mut instance, &params, &msg).unwrap();
+    match handle_res {
+        ContractResult::Ok(_) => panic!("expected error"),
+        ContractResult::Err(msg) => assert_eq!(msg, "Unauthorized".to_string()),
+    }
+
+    // verifier cannot release it when expired
+    let params = mock_params_height("verifies", &coin("0", "earth"), &coin("1000", "earth"), 1100, 0);
+    let handle_res = call_handle(&mut instance, &params, &msg).unwrap();
+    match handle_res {
+        ContractResult::Ok(_) => panic!("expected error"),
+        ContractResult::Err(msg) => assert_eq!(msg, "Contract error: escrow expired".to_string()),
+    }
+
+    // complete release by verfier, before expiration
+    let params = mock_params_height("verifies", &coin("0", "earth"), &coin("1000", "earth"), 999, 0);
+    let handle_res = call_handle(&mut instance, &params, &msg).unwrap().unwrap();
+    assert_eq!(1, handle_res.messages.len());
+    let msg = handle_res.messages.get(0).expect("no message");
     match &msg {
         CosmosMsg::Send {
             from_address,
@@ -55,46 +114,72 @@ fn successful_init_and_handle() {
             assert_eq!(1, amount.len());
             let coin = amount.get(0).expect("No coin");
             assert_eq!(coin.denom, "earth");
-            assert_eq!(coin.amount, "1015");
+            assert_eq!(coin.amount, "1000");
         }
         _ => panic!("Unexpected message type"),
     }
 
-    // we can check the storage as well
-    instance.with_storage(|store| {
-        let foo = store.get(b"foo");
-        assert!(foo.is_none());
-        let data = store.get(CONFIG_KEY).expect("no data stored");
-        let state: State = from_slice(&data).unwrap();
-        assert_eq!(state.verifier, String::from("verifies"));
-    });
+    // partial release by verfier, before expiration
+    let partial_msg = to_vec(&HandleMsg::Approve { quantity: Some(coin("500", "earth")) }).unwrap();
+    let params = mock_params_height("verifies", &coin("0", "earth"), &coin("1000", "earth"), 999, 0);
+    let handle_res = call_handle(&mut instance, &params, &partial_msg).unwrap().unwrap();
+    assert_eq!(1, handle_res.messages.len());
+    let msg = handle_res.messages.get(0).expect("no message");
+    match &msg {
+        CosmosMsg::Send {
+            from_address,
+            to_address,
+            amount,
+        } => {
+            assert_eq!("cosmos2contract", from_address);
+            assert_eq!("benefits", to_address);
+            assert_eq!(1, amount.len());
+            let coin = amount.get(0).expect("No coin");
+            assert_eq!(coin.denom, "earth");
+            assert_eq!(coin.amount, "500");
+        }
+        _ => panic!("Unexpected message type"),
+    }
 }
 
 #[test]
-fn failed_handle() {
+fn handle_refund() {
     let storage = MockStorage::new();
     let mut instance = Instance::from_code(&WASM, storage).unwrap();
 
     // initialize the store
-    let init_msg = to_vec(&InitMsg {
-        verifier: String::from("verifies"),
-        beneficiary: String::from("benefits"),
-    })
-    .unwrap();
-    let init_params = mock_params("creator", &coin("1000", "earth"), &coin("1000", "earth"));
-    let init_res = call_init(&mut instance, &init_params, &init_msg).unwrap();
-    let init_msgs = init_res.unwrap().messages;
-    assert_eq!(0, init_msgs.len());
+    let msg = init_msg(1000, 0);
+    let params = mock_params_height("creator", &coin("1000", "earth"), &[], 876, 0);
+    let init_res = call_init(&mut instance, &params, &msg).unwrap().unwrap();
+    assert_eq!(0, init_res.messages.len());
 
-    // beneficiary can release it
-    let handle_params = mock_params("benefits", &[], &coin("1000", "earth"));
-    let handle_res = call_handle(&mut instance, &handle_params, b"").unwrap();
-    assert!(handle_res.is_err());
+    // cannot release when unexpired
+    let msg = to_vec(&HandleMsg::Refund {}).unwrap();
+    let params = mock_params_height("anybody", &coin("0", "earth"), &coin("1000", "earth"), 800, 0);
+    let handle_res = call_handle(&mut instance, &params, &msg).unwrap();
+    match handle_res {
+        ContractResult::Ok(_) => panic!("expected error"),
+        ContractResult::Err(msg) => assert_eq!(msg, "Contract error: escrow not yet expired".to_string()),
+    }
 
-    // state should be saved
-    instance.with_storage(|store| {
-        let data = store.get(CONFIG_KEY).expect("no data stored");
-        let state: State = from_slice(&data).unwrap();
-        assert_eq!(state.verifier, String::from("verifies"));
-    });
+    // anyone can release after expiration
+    let params = mock_params_height("anybody", &coin("0", "earth"), &coin("1000", "earth"), 1001, 0);
+    let handle_res = call_handle(&mut instance, &params, &msg).unwrap().unwrap();
+    assert_eq!(1, handle_res.messages.len());
+    let msg = handle_res.messages.get(0).expect("no message");
+    match &msg {
+        CosmosMsg::Send {
+            from_address,
+            to_address,
+            amount,
+        } => {
+            assert_eq!("cosmos2contract", from_address);
+            assert_eq!("creator", to_address);
+            assert_eq!(1, amount.len());
+            let coin = amount.get(0).expect("No coin");
+            assert_eq!(coin.denom, "earth");
+            assert_eq!(coin.amount, "1000");
+        }
+        _ => panic!("Unexpected message type"),
+    }
 }

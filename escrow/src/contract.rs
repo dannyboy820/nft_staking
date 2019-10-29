@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use snafu::{OptionExt, ResultExt};
 
-use cosmwasm::errors::{ContractErr, Error, ParseErr, Result, SerializeErr, Unauthorized};
+use cosmwasm::errors::{ContractErr, ParseErr, Result, SerializeErr, Unauthorized};
 use cosmwasm::serde::{from_slice, to_vec};
 use cosmwasm::storage::Storage;
 use cosmwasm::types::{Coin, CosmosMsg, Params, Response};
@@ -124,6 +124,7 @@ fn try_refund(params: Params, state: State) -> Result<Response> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use cosmwasm::errors::Error;
     use cosmwasm::mock::MockStorage;
     use cosmwasm::types::{coin, mock_params};
 
