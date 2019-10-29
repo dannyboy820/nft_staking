@@ -15,6 +15,9 @@ backtraces = []
 cranelift = []
 singlepass = []
 
+[workspace]
+members = ["escrow"]
+
 [profile.release]
 opt-level = 3
 debug = false
