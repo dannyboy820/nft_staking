@@ -21,7 +21,7 @@ and a precompiled wasm ready for deployment under `contract.wasm`. Take a look h
 If you want to add a contract, first fork this repo and create a branch for your PR.
 I suggest setting it up via [cosmwasm-template](https://github.com/confio/cosmwasm-template):
 
-``cargo generate --git https://github.com/confio/cosmwasm-template.git --name FOO`
+`cargo generate --git https://github.com/confio/cosmwasm-template.git --name FOO`
 
 Then make sure it is listen in `Cargo.toml`:
 
