@@ -7,34 +7,33 @@ workflows:
 
 jobs:
   contracts:
-    hackatom:
-      docker:
-        - image: rustlang/rust:1.38
-      steps:
-        - checkout
-        - run:
-            name: Version information
-            command: rustc --version; cargo --version; rustup --version
-        - restore_cache:
-            keys:
-              - v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
-        - run:
-            name: Add wasm32 target
-            command: rustup target add wasm32-unknown-unknown
-        - run:
-            name: Build wasm binaries
-            command: cargo wasm --locked
-        - run:
-            name: Run all tests (rust unit tests, vm integration tests)
-            env: RUST_BACKTRACE=1
-            command: cargo test-all --locked
-        - save_cache:
-            paths:
-              - /usr/local/cargo/registry
-              - target/debug/.fingerprint
-              - target/debug/build
-              - target/debug/deps
-              - target/wasm32-unknown-unknown/release/.fingerprint
-              - target/wasm32-unknown-unknown/release/build
-              - target/wasm32-unknown-unknown/release/deps
-            key: v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
+    docker:
+      - image: rust:1.38
+    steps:
+      - checkout
+      - run:
+          name: Version information
+          command: rustc --version; cargo --version; rustup --version
+      - restore_cache:
+          keys:
+            - v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
+      - run:
+          name: Add wasm32 target
+          command: rustup target add wasm32-unknown-unknown
+      - run:
+          name: Build wasm binaries
+          command: cargo wasm --locked
+      - run:
+          name: Run all tests (rust unit tests, vm integration tests)
+          env: RUST_BACKTRACE=1
+          command: cargo test-all --locked
+      - save_cache:
+          paths:
+            - /usr/local/cargo/registry
+            - target/debug/.fingerprint
+            - target/debug/build
+            - target/debug/deps
+            - target/wasm32-unknown-unknown/release/.fingerprint
+            - target/wasm32-unknown-unknown/release/build
+            - target/wasm32-unknown-unknown/release/deps
+          key: v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
