@@ -168,7 +168,7 @@ mod tests {
         let params = mock_params_height("creator", &coin("1000", "earth"), &[], 1001, 0);
         let res = init(&mut store, params, msg);
         assert!(res.is_err());
-        if let Err(Error::ContractErr { msg }) = res {
+        if let Err(Error::ContractErr { msg, .. }) = res {
             assert_eq!(msg, "creating expired escrow".to_string());
         } else {
             assert!(false, "wrong error type");
@@ -182,7 +182,7 @@ mod tests {
         let params = mock_params_height("creator", &coin("1000", "earth"), &[], 876, 0);
         let res = init(&mut store, params, bad_msg);
         assert!(res.is_err());
-        if let Err(Error::ParseErr { source: _ }) = res {} else {
+        if let Err(Error::ParseErr { .. }) = res {} else {
             assert!(false, "wrong error type");
         }
     }
@@ -203,7 +203,7 @@ mod tests {
         let handle_res = handle(&mut store, params, msg.clone());
         match handle_res {
             Ok(_) => panic!("expected error"),
-            Err(Error::Unauthorized {}) => {},
+            Err(Error::Unauthorized {..}) => {},
             Err(e) => panic!("unexpected error: {:?}", e),
         }
 
@@ -212,7 +212,7 @@ mod tests {
         let handle_res = handle(&mut store, params, msg.clone());
         match handle_res {
             Ok(_) => panic!("expected error"),
-            Err(Error::ContractErr { msg }) => assert_eq!(msg, "escrow expired".to_string()),
+            Err(Error::ContractErr { msg, .. }) => assert_eq!(msg, "escrow expired".to_string()),
             Err(e) => panic!("unexpected error: {:?}", e),
         }
 
@@ -276,7 +276,7 @@ mod tests {
         let handle_res = handle(&mut store, params, msg.clone());
         match handle_res {
             Ok(_) => panic!("expected error"),
-            Err(Error::ContractErr { msg }) => assert_eq!(msg, "escrow not yet expired".to_string()),
+            Err(Error::ContractErr { msg, .. }) => assert_eq!(msg, "escrow not yet expired".to_string()),
             Err(e) => panic!("unexpected error: {:?}", e),
         }
 
