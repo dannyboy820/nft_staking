@@ -23,12 +23,18 @@ I suggest setting it up via [cosmwasm-template](https://github.com/confio/cosmwa
 
 `cargo generate --git https://github.com/confio/cosmwasm-template.git --name FOO`
 
-Then make sure it is listen in `Cargo.toml`:
+Make sure it is listen in `Cargo.toml`:
 
 ```toml
-[workspaces]
+[workspace]
 members = ["FOO", "...."]
 ```
+
+And fix up the reference in `tests/integration.rs` by adding one more `..` to the target directory:
+
+From: `static WASM: &[u8] = include_bytes!("../target/wasm32-unknown-unknown/`
+
+To: `static WASM: &[u8] = include_bytes!("../../target/wasm32-unknown-unknown/`
 
 Once you add this, you can start writing your code and testing it.
 

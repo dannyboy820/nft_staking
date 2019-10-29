@@ -4,10 +4,16 @@ version = "0.1.0"
 authors = ["Ethan Frey <ethanfrey@users.noreply.github.com>"]
 edition = "2018"
 # this is not meant to be published as a crate
-public = false
+publish = false
 
 [lib]
 crate-type = ["cdylib", "rlib"]
+
+[features]
+# these are placeholders for common features in the contracts, so we can use them with cargo test --all
+backtraces = []
+cranelift = []
+singlepass = []
 
 [profile.release]
 opt-level = 3
