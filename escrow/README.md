@@ -52,7 +52,7 @@ cargo wasm
 
 # this runs unit tests with helpful backtraces
 RUST_BACKTRACES=1 cargo unit-test
-RUST_BACKTRACES=1 cargo test -lib --features backtraces
+RUST_BACKTRACES=1 cargo test --lib --features backtraces
 
 # this runs integration tests with cranelift backend (uses rust stable)
 cargo test
