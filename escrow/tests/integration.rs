@@ -13,7 +13,7 @@ cargo wasm && wasm-gc ./target/wasm32-unknown-unknown/release/escrow.wasm
 
 Then running `cargo test` will validate we can properly call into that generated data.
 **/
-static WASM: &[u8] = include_bytes!("../../target/wasm32-unknown-unknown/release/escrow.wasm");
+static WASM: &[u8] = include_bytes!("../target/wasm32-unknown-unknown/release/escrow.wasm");
 
 fn init_msg(height: i64, time: i64) -> Vec<u8> {
     to_vec(&InitMsg {
