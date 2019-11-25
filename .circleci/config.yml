@@ -21,15 +21,17 @@ jobs:
           name: Add wasm32 target
           command: rustup target add wasm32-unknown-unknown
       - run:
-          name: Build and test all examples
-          command: ./build_test_all.sh
+          name: Build and test escrow
+          working_directory: ~/cosmwasm-examples/escrow
+          env: RUST_BACKTRACE=1
+          command: cargo wasm --locked && cargo test --locked
       - save_cache:
           paths:
             - /usr/local/cargo/registry
-            - target/debug/.fingerprint
-            - target/debug/build
-            - target/debug/deps
-            - target/wasm32-unknown-unknown/release/.fingerprint
-            - target/wasm32-unknown-unknown/release/build
-            - target/wasm32-unknown-unknown/release/deps
+            - escrow/target/debug/.fingerprint
+            - escrow/target/debug/build
+            - escrow/target/debug/deps
+            - escrow/target/wasm32-unknown-unknown/release/.fingerprint
+            - escrow/target/wasm32-unknown-unknown/release/build
+            - escrow/target/wasm32-unknown-unknown/release/deps
           key: v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}

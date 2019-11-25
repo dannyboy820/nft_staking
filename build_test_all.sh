@@ -2,8 +2,9 @@
 set -o errexit -o nounset -o pipefail
 command -v shellcheck > /dev/null && shellcheck "$0"
 
-# This script is mainly for CI, but should work on a dev machine as well.
-# Iterates over all example projects and tests them
+# Iterates over all example projects, builds and tests them.
+# This script is for development purposes only. In the CI, each example project
+# is configured separately.
 
 export RUST_BACKTRACE=1
 
