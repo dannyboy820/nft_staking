@@ -1,3 +1,0 @@
-[alias]
-wasm = "build --all --release --target wasm32-unknown-unknown"
-test-all = "test --all --features backtraces"
