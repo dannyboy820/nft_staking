@@ -1,10 +1,13 @@
+use std::str::from_utf8;
+
 use serde::{Deserialize, Serialize};
 use snafu::{OptionExt, ResultExt};
 
-use cosmwasm::errors::{ContractErr, ParseErr, Result, SerializeErr, Unauthorized};
+use cosmwasm::errors::{ContractErr, ParseErr, Result, SerializeErr, Unauthorized, Utf8Err};
+use cosmwasm::query::perform_raw_query;
 use cosmwasm::serde::{from_slice, to_vec};
 use cosmwasm::storage::Storage;
-use cosmwasm::types::{Coin, CosmosMsg, Params, Response};
+use cosmwasm::types::{Coin, CosmosMsg, Params, QueryResponse, RawQuery, Response};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct InitMsg {
@@ -25,6 +28,19 @@ pub enum HandleMsg {
         quantity: Option<Vec<Coin>>,
     },
     Refund {},
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum QueryMsg {
+    Raw(RawQuery),
+}
+
+// raw_query is a helper to generate a serialized format of a raw_query
+// meant for test code and integration tests
+pub fn raw_query(key: &[u8]) -> Result<Vec<u8>> {
+    let key = from_utf8(key).context(Utf8Err {})?.to_string();
+    to_vec(&QueryMsg::Raw(RawQuery { key })).context(SerializeErr { kind: "QueryMsg" })
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -128,6 +144,13 @@ fn try_refund(params: Params, state: State) -> Result<Response> {
     }
 }
 
+pub fn query<T: Storage>(store: &T, msg: Vec<u8>) -> Result<QueryResponse> {
+    let msg: QueryMsg = from_slice(&msg).context(ParseErr { kind: "QueryMsg" })?;
+    match msg {
+        QueryMsg::Raw(raw) => perform_raw_query(store, raw),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -166,9 +189,10 @@ mod tests {
         let res = init(&mut store, params, msg).unwrap();
         assert_eq!(0, res.messages.len());
 
-        // it worked, let's check the state
-        let data = store.get(CONFIG_KEY).expect("no data stored");
-        let state: State = from_slice(&data).unwrap();
+        // it worked, let's query the state
+        let mut q_res = query(&store, raw_query(CONFIG_KEY).unwrap()).unwrap();
+        let model = q_res.results.pop().expect("no data stored");
+        let state: State = from_slice(&model.val).unwrap();
         assert_eq!(state, State{
             arbiter: String::from("verifies"),
             recipient: String::from("benefits"),
