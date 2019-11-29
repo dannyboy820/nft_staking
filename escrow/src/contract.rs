@@ -1,12 +1,15 @@
+use std::str::from_utf8;
+
 use serde::{Deserialize, Serialize};
 use snafu::{OptionExt, ResultExt};
 
-use cosmwasm::errors::{ContractErr, ParseErr, Result, SerializeErr, Unauthorized};
+use cosmwasm::errors::{ContractErr, ParseErr, Result, SerializeErr, Unauthorized, Utf8Err};
+use cosmwasm::query::perform_raw_query;
 use cosmwasm::serde::{from_slice, to_vec};
 use cosmwasm::storage::Storage;
-use cosmwasm::types::{Coin, CosmosMsg, Params, Response};
+use cosmwasm::types::{Coin, CosmosMsg, Params, QueryResponse, RawQuery, Response};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct InitMsg {
     pub arbiter: String,
     pub recipient: String,
@@ -17,7 +20,7 @@ pub struct InitMsg {
     pub end_time: i64,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(rename_all = "lowercase")]
 pub enum HandleMsg {
     Approve {
@@ -27,7 +30,20 @@ pub enum HandleMsg {
     Refund {},
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum QueryMsg {
+    Raw(RawQuery),
+}
+
+// raw_query is a helper to generate a serialized format of a raw_query
+// meant for test code and integration tests
+pub fn raw_query(key: &[u8]) -> Result<Vec<u8>> {
+    let key = from_utf8(key).context(Utf8Err {})?.to_string();
+    to_vec(&QueryMsg::Raw(RawQuery { key })).context(SerializeErr { kind: "QueryMsg" })
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct State {
     pub arbiter: String,
     pub recipient: String,
@@ -46,7 +62,7 @@ impl State {
 pub static CONFIG_KEY: &[u8] = b"config";
 
 pub fn init<T: Storage>(store: &mut T, params: Params, msg: Vec<u8>) -> Result<Response> {
-    let msg: InitMsg = from_slice(&msg).context(ParseErr {})?;
+    let msg: InitMsg = from_slice(&msg).context(ParseErr { kind: "InitMsg" })?;
     let state = State {
         arbiter: msg.arbiter,
         recipient: msg.recipient,
@@ -56,21 +72,24 @@ pub fn init<T: Storage>(store: &mut T, params: Params, msg: Vec<u8>) -> Result<R
     };
     if state.is_expired(&params) {
         ContractErr {
-            msg: "creating expired escrow".to_string(),
+            msg: "creating expired escrow",
         }
         .fail()
     } else {
-        store.set(CONFIG_KEY, &to_vec(&state).context(SerializeErr {})?);
+        store.set(
+            CONFIG_KEY,
+            &to_vec(&state).context(SerializeErr { kind: "State" })?,
+        );
         Ok(Response::default())
     }
 }
 
 pub fn handle<T: Storage>(store: &mut T, params: Params, msg: Vec<u8>) -> Result<Response> {
-    let msg: HandleMsg = from_slice(&msg).context(ParseErr {})?;
+    let msg: HandleMsg = from_slice(&msg).context(ParseErr { kind: "HandleMsg" })?;
     let data = store.get(CONFIG_KEY).context(ContractErr {
-        msg: "uninitialized data".to_string(),
+        msg: "uninitialized data",
     })?;
-    let state: State = from_slice(&data).context(ParseErr {})?;
+    let state: State = from_slice(&data).context(ParseErr { kind: "State" })?;
 
     match msg {
         HandleMsg::Approve { quantity } => try_approve(params, state, quantity),
@@ -83,12 +102,12 @@ fn try_approve(params: Params, state: State, quantity: Option<Vec<Coin>>) -> Res
         Unauthorized {}.fail()
     } else if state.is_expired(&params) {
         ContractErr {
-            msg: "escrow expired".to_string(),
+            msg: "escrow expired",
         }
         .fail()
     } else {
         let amount = match quantity {
-            None => params.contract.balance,
+            None => params.contract.balance.unwrap_or_default(),
             Some(coins) => coins,
         };
         let res = Response {
@@ -108,7 +127,7 @@ fn try_refund(params: Params, state: State) -> Result<Response> {
     // anyone can try to refund, as long as the contract is expired
     if !state.is_expired(&params) {
         ContractErr {
-            msg: "escrow not yet expired".to_string(),
+            msg: "escrow not yet expired",
         }
         .fail()
     } else {
@@ -116,12 +135,19 @@ fn try_refund(params: Params, state: State) -> Result<Response> {
             messages: vec![CosmosMsg::Send {
                 from_address: params.contract.address,
                 to_address: state.source,
-                amount: params.contract.balance,
+                amount: params.contract.balance.unwrap_or_default(),
             }],
             log: Some("returned funds".to_string()),
             data: None,
         };
         Ok(res)
+    }
+}
+
+pub fn query<T: Storage>(store: &T, msg: Vec<u8>) -> Result<QueryResponse> {
+    let msg: QueryMsg = from_slice(&msg).context(ParseErr { kind: "QueryMsg" })?;
+    match msg {
+        QueryMsg::Raw(raw) => perform_raw_query(store, raw),
     }
 }
 
@@ -163,14 +189,20 @@ mod tests {
         let res = init(&mut store, params, msg).unwrap();
         assert_eq!(0, res.messages.len());
 
-        // it worked, let's check the state
-        let data = store.get(CONFIG_KEY).expect("no data stored");
-        let state: State = from_slice(&data).unwrap();
-        assert_eq!(state.arbiter, String::from("verifies"));
-        assert_eq!(state.recipient, String::from("benefits"));
-        assert_eq!(state.source, String::from("creator"));
-        assert_eq!(state.end_height, 1000);
-        assert_eq!(state.end_time, 0);
+        // it worked, let's query the state
+        let mut q_res = query(&store, raw_query(CONFIG_KEY).unwrap()).unwrap();
+        let model = q_res.results.pop().expect("no data stored");
+        let state: State = from_slice(&model.val).unwrap();
+        assert_eq!(
+            state,
+            State {
+                arbiter: String::from("verifies"),
+                recipient: String::from("benefits"),
+                source: String::from("creator"),
+                end_height: 1000,
+                end_time: 0,
+            }
+        );
     }
 
     #[test]
@@ -252,21 +284,14 @@ mod tests {
         let handle_res = handle(&mut store, params, msg.clone()).unwrap();
         assert_eq!(1, handle_res.messages.len());
         let msg = handle_res.messages.get(0).expect("no message");
-        match &msg {
-            CosmosMsg::Send {
-                from_address,
-                to_address,
-                amount,
-            } => {
-                assert_eq!("cosmos2contract", from_address);
-                assert_eq!("benefits", to_address);
-                assert_eq!(1, amount.len());
-                let coin = amount.get(0).expect("No coin");
-                assert_eq!(coin.denom, "earth");
-                assert_eq!(coin.amount, "1000");
+        assert_eq!(
+            msg,
+            &CosmosMsg::Send {
+                from_address: "cosmos2contract".to_string(),
+                to_address: "benefits".to_string(),
+                amount: coin("1000", "earth"),
             }
-            _ => panic!("Unexpected message type"),
-        }
+        );
 
         // partial release by verfier, before expiration
         let partial_msg = to_vec(&HandleMsg::Approve {
@@ -283,21 +308,14 @@ mod tests {
         let handle_res = handle(&mut store, params, partial_msg).unwrap();
         assert_eq!(1, handle_res.messages.len());
         let msg = handle_res.messages.get(0).expect("no message");
-        match &msg {
-            CosmosMsg::Send {
-                from_address,
-                to_address,
-                amount,
-            } => {
-                assert_eq!("cosmos2contract", from_address);
-                assert_eq!("benefits", to_address);
-                assert_eq!(1, amount.len());
-                let coin = amount.get(0).expect("No coin");
-                assert_eq!(coin.denom, "earth");
-                assert_eq!(coin.amount, "500");
+        assert_eq!(
+            msg,
+            &CosmosMsg::Send {
+                from_address: "cosmos2contract".to_string(),
+                to_address: "benefits".to_string(),
+                amount: coin("500", "earth"),
             }
-            _ => panic!("Unexpected message type"),
-        }
+        );
     }
 
     #[test]
@@ -339,20 +357,13 @@ mod tests {
         let handle_res = handle(&mut store, params, msg.clone()).unwrap();
         assert_eq!(1, handle_res.messages.len());
         let msg = handle_res.messages.get(0).expect("no message");
-        match &msg {
-            CosmosMsg::Send {
-                from_address,
-                to_address,
-                amount,
-            } => {
-                assert_eq!("cosmos2contract", from_address);
-                assert_eq!("creator", to_address);
-                assert_eq!(1, amount.len());
-                let coin = amount.get(0).expect("No coin");
-                assert_eq!(coin.denom, "earth");
-                assert_eq!(coin.amount, "1000");
+        assert_eq!(
+            msg,
+            &CosmosMsg::Send {
+                from_address: "cosmos2contract".to_string(),
+                to_address: "creator".to_string(),
+                amount: coin("1000", "earth"),
             }
-            _ => panic!("Unexpected message type"),
-        }
+        );
     }
 }

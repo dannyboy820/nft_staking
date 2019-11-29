@@ -1,5 +1,7 @@
 # Cosmwasm Examples
 
+[![CircleCI](https://circleci.com/gh/confio/cosmwasm-examples/tree/master.svg?style=shield)](https://circleci.com/gh/confio/cosmwasm-examples/tree/master)
+
 This repo is a collection of contracts built with the
 [cosmwasm](https://github.com/confio/cosmwasm) framework.
 Anyone building on cosmwasm is encouraged to submit their contracts
