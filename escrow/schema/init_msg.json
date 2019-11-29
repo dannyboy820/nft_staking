@@ -1,0 +1,27 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "InitMsg",
+  "type": "object",
+  "required": [
+    "arbiter",
+    "end_height",
+    "end_time",
+    "recipient"
+  ],
+  "properties": {
+    "arbiter": {
+      "type": "string"
+    },
+    "end_height": {
+      "type": "integer",
+      "format": "int64"
+    },
+    "end_time": {
+      "type": "integer",
+      "format": "int64"
+    },
+    "recipient": {
+      "type": "string"
+    }
+  }
+}
