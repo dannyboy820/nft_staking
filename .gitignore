@@ -1,2 +1,5 @@
 *.iml
 **/*.rs.bk
+
+# macOS stuff
+.DS_Store
