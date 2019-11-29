@@ -46,7 +46,7 @@ impl State {
 pub static CONFIG_KEY: &[u8] = b"config";
 
 pub fn init<T: Storage>(store: &mut T, params: Params, msg: Vec<u8>) -> Result<Response> {
-    let msg: InitMsg = from_slice(&msg).context(ParseErr {})?;
+    let msg: InitMsg = from_slice(&msg).context(ParseErr {kind: "InitMsg"})?;
     let state = State {
         arbiter: msg.arbiter,
         recipient: msg.recipient,
@@ -56,21 +56,21 @@ pub fn init<T: Storage>(store: &mut T, params: Params, msg: Vec<u8>) -> Result<R
     };
     if state.is_expired(&params) {
         ContractErr {
-            msg: "creating expired escrow".to_string(),
+            msg: "creating expired escrow",
         }
         .fail()
     } else {
-        store.set(CONFIG_KEY, &to_vec(&state).context(SerializeErr {})?);
+        store.set(CONFIG_KEY, &to_vec(&state).context(SerializeErr {kind: "State"})?);
         Ok(Response::default())
     }
 }
 
 pub fn handle<T: Storage>(store: &mut T, params: Params, msg: Vec<u8>) -> Result<Response> {
-    let msg: HandleMsg = from_slice(&msg).context(ParseErr {})?;
+    let msg: HandleMsg = from_slice(&msg).context(ParseErr {kind: "HandleMsg"})?;
     let data = store.get(CONFIG_KEY).context(ContractErr {
-        msg: "uninitialized data".to_string(),
+        msg: "uninitialized data",
     })?;
-    let state: State = from_slice(&data).context(ParseErr {})?;
+    let state: State = from_slice(&data).context(ParseErr {kind: "State"})?;
 
     match msg {
         HandleMsg::Approve { quantity } => try_approve(params, state, quantity),
@@ -83,12 +83,12 @@ fn try_approve(params: Params, state: State, quantity: Option<Vec<Coin>>) -> Res
         Unauthorized {}.fail()
     } else if state.is_expired(&params) {
         ContractErr {
-            msg: "escrow expired".to_string(),
+            msg: "escrow expired",
         }
         .fail()
     } else {
         let amount = match quantity {
-            None => params.contract.balance,
+            None => params.contract.balance.unwrap_or_default(),
             Some(coins) => coins,
         };
         let res = Response {
@@ -108,7 +108,7 @@ fn try_refund(params: Params, state: State) -> Result<Response> {
     // anyone can try to refund, as long as the contract is expired
     if !state.is_expired(&params) {
         ContractErr {
-            msg: "escrow not yet expired".to_string(),
+            msg: "escrow not yet expired",
         }
         .fail()
     } else {
@@ -116,7 +116,7 @@ fn try_refund(params: Params, state: State) -> Result<Response> {
             messages: vec![CosmosMsg::Send {
                 from_address: params.contract.address,
                 to_address: state.source,
-                amount: params.contract.balance,
+                amount: params.contract.balance.unwrap_or_default(),
             }],
             log: Some("returned funds".to_string()),
             data: None,
