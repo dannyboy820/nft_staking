@@ -3,35 +3,39 @@ workflows:
   version: 2
   test:
     jobs:
-      - contracts
+      - escrow
 
 jobs:
-  contracts:
+  escrow:
     docker:
       - image: rust:1.38
+    working_directory: ~/project/escrow
     steps:
-      - checkout
+      - checkout:
+          path: ~/project
       - run:
           name: Version information
           command: rustc --version; cargo --version; rustup --version
       - restore_cache:
           keys:
-            - v4-cargo-cache-{{ arch }}-{{ checksum "escrow/Cargo.lock" }}
+            - v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
       - run:
           name: Add wasm32 target
           command: rustup target add wasm32-unknown-unknown
       - run:
-          name: Build and test escrow
-          working_directory: ~/project/escrow
+          name: Build
+          command: cargo wasm --locked
+      - run:
+          name: Integration Tests
           env: RUST_BACKTRACE=1
-          command: cargo wasm --locked && cargo test --locked
+          command: cargo test --locked
       - save_cache:
           paths:
             - /usr/local/cargo/registry
-            - escrow/target/debug/.fingerprint
-            - escrow/target/debug/build
-            - escrow/target/debug/deps
-            - escrow/target/wasm32-unknown-unknown/release/.fingerprint
-            - escrow/target/wasm32-unknown-unknown/release/build
-            - escrow/target/wasm32-unknown-unknown/release/deps
-          key: v4-cargo-cache-{{ arch }}-{{ checksum "escrow/Cargo.lock" }}
+            - target/debug/.fingerprint
+            - target/debug/build
+            - target/debug/deps
+            - target/wasm32-unknown-unknown/release/.fingerprint
+            - target/wasm32-unknown-unknown/release/build
+            - target/wasm32-unknown-unknown/release/deps
+          key: v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
