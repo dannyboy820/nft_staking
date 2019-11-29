@@ -42,7 +42,11 @@ fn get_balance<T: Storage>(store: &T, address: &str) -> u64 {
     let data = store
         .get(&raw_address)
         .expect("no data stored for this address");
-    let state: AddressState = from_slice(&data).context(ParseErr {}).unwrap();
+    let state: AddressState = from_slice(&data)
+        .context(ParseErr {
+            kind: "AddressState",
+        })
+        .unwrap();
     return state.balance;
 }
 
@@ -170,7 +174,9 @@ mod init {
         let result = init(&mut store, params, msg);
         match result {
             Ok(_) => panic!("expected error"),
-            Err(Error::ContractErr { msg, .. }) => assert_eq!(msg, "Name is not in the expected format (3-30 UTF-8 bytes)"),
+            Err(Error::ContractErr { msg, .. }) => {
+                assert_eq!(msg, "Name is not in the expected format (3-30 UTF-8 bytes)")
+            }
             Err(e) => panic!("unexpected error: {:?}", e),
         }
     }
@@ -189,7 +195,9 @@ mod init {
         let result = init(&mut store, params, msg);
         match result {
             Ok(_) => panic!("expected error"),
-            Err(Error::ContractErr { msg, .. }) => assert_eq!(msg, "Name is not in the expected format (3-30 UTF-8 bytes)"),
+            Err(Error::ContractErr { msg, .. }) => {
+                assert_eq!(msg, "Name is not in the expected format (3-30 UTF-8 bytes)")
+            }
             Err(e) => panic!("unexpected error: {:?}", e),
         }
     }
@@ -208,7 +216,9 @@ mod init {
         let result = init(&mut store, params, msg);
         match result {
             Ok(_) => panic!("expected error"),
-            Err(Error::ContractErr { msg, .. }) => assert_eq!(msg, "Ticker symbol is not in expected format [A-Z]{3,6}"),
+            Err(Error::ContractErr { msg, .. }) => {
+                assert_eq!(msg, "Ticker symbol is not in expected format [A-Z]{3,6}")
+            }
             Err(e) => panic!("unexpected error: {:?}", e),
         }
     }
@@ -227,7 +237,9 @@ mod init {
         let result = init(&mut store, params, msg);
         match result {
             Ok(_) => panic!("expected error"),
-            Err(Error::ContractErr { msg, .. }) => assert_eq!(msg, "Ticker symbol is not in expected format [A-Z]{3,6}"),
+            Err(Error::ContractErr { msg, .. }) => {
+                assert_eq!(msg, "Ticker symbol is not in expected format [A-Z]{3,6}")
+            }
             Err(e) => panic!("unexpected error: {:?}", e),
         }
     }
@@ -246,7 +258,9 @@ mod init {
         let result = init(&mut store, params, msg);
         match result {
             Ok(_) => panic!("expected error"),
-            Err(Error::ContractErr { msg, .. }) => assert_eq!(msg, "Ticker symbol is not in expected format [A-Z]{3,6}"),
+            Err(Error::ContractErr { msg, .. }) => {
+                assert_eq!(msg, "Ticker symbol is not in expected format [A-Z]{3,6}")
+            }
             Err(e) => panic!("unexpected error: {:?}", e),
         }
     }
@@ -473,7 +487,7 @@ mod transfer {
         let transfer_result = handle(&mut store, params2, transfer_msg);
         match transfer_result {
             Ok(_) => panic!("expected error"),
-            Err(Error::ContractErr { msg, .. }) => {
+            Err(Error::DynContractErr { msg, .. }) => {
                 assert_eq!(msg, "Insufficient funds: balance=11, required=12")
             }
             Err(e) => panic!("unexpected error: {:?}", e),

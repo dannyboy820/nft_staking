@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use snafu::{OptionExt, ResultExt};
 
-use cosmwasm::errors::{ContractErr, ParseErr, Result, SerializeErr};
+use cosmwasm::errors::{ContractErr, DynContractErr, ParseErr, Result, SerializeErr};
 use cosmwasm::serde::{from_slice, to_vec};
 use cosmwasm::storage::Storage;
 use cosmwasm::types::{Params, Response};
@@ -48,7 +48,7 @@ pub const KEY_SYMBOL: &[u8] = b"symbol";
 pub const KEY_DECIMALS: &[u8] = b"decimals";
 
 pub fn init<T: Storage>(store: &mut T, _params: Params, msg: Vec<u8>) -> Result<Response> {
-    let msg: InitMsg = from_slice(&msg).context(ParseErr {})?;
+    let msg: InitMsg = from_slice(&msg).context(ParseErr { kind: "InitMsg" })?;
 
     // Name
     if !is_valid_name(&msg.name) {
@@ -86,7 +86,9 @@ pub fn init<T: Storage>(store: &mut T, _params: Params, msg: Vec<u8>) -> Result<
             &to_vec(&AddressState {
                 balance: row.amount,
             })
-            .context(SerializeErr {})?,
+            .context(SerializeErr {
+                kind: "AddressState",
+            })?,
         );
         total += row.amount;
     }
@@ -96,7 +98,7 @@ pub fn init<T: Storage>(store: &mut T, _params: Params, msg: Vec<u8>) -> Result<
 }
 
 pub fn handle<T: Storage>(store: &mut T, params: Params, msg: Vec<u8>) -> Result<Response> {
-    let msg: HandleMsg = from_slice(&msg).context(ParseErr {})?;
+    let msg: HandleMsg = from_slice(&msg).context(ParseErr { kind: "HandleMsg" })?;
 
     match msg {
         HandleMsg::Transfer { recipient, amount } => {
@@ -115,12 +117,14 @@ fn try_transfer<T: Storage>(
     let recipient_address_raw = parse_20bytes_from_hex(&recipient)?;
 
     let account_data = store.get(&sender_address_raw).context(ContractErr {
-        msg: "Account not found for this message sender".to_string(),
+        msg: "Account not found for this message sender",
     })?;
-    let mut sender_account: AddressState = from_slice(&account_data).context(ParseErr {})?;
+    let mut sender_account: AddressState = from_slice(&account_data).context(ParseErr {
+        kind: "AddressState",
+    })?;
 
     if sender_account.balance < amount {
-        return ContractErr {
+        return DynContractErr {
             msg: format!(
                 "Insufficient funds: balance={}, required={}",
                 sender_account.balance, amount
@@ -130,7 +134,9 @@ fn try_transfer<T: Storage>(
     }
 
     let mut recipient_account = match store.get(&recipient_address_raw) {
-        Some(data) => from_slice(&data).context(ParseErr {})?,
+        Some(data) => from_slice(&data).context(ParseErr {
+            kind: "AddressState",
+        })?,
         None => AddressState { balance: 0 },
     };
 
@@ -139,11 +145,15 @@ fn try_transfer<T: Storage>(
 
     store.set(
         &sender_address_raw,
-        &to_vec(&sender_account).context(SerializeErr {})?,
+        &to_vec(&sender_account).context(SerializeErr {
+            kind: "AddressState",
+        })?,
     );
     store.set(
         &recipient_address_raw,
-        &to_vec(&recipient_account).context(SerializeErr {})?,
+        &to_vec(&recipient_account).context(SerializeErr {
+            kind: "AddressState",
+        })?,
     );
 
     let res = Response {
@@ -159,7 +169,7 @@ fn parse_20bytes_from_hex(data: &str) -> Result<[u8; 20]> {
     let mut out = [0u8; 20];
     match hex::decode_to_slice(data, &mut out as &mut [u8]) {
         Ok(_) => Ok(out),
-        Err(e) => ContractErr {
+        Err(e) => DynContractErr {
             msg: format!("parsing hash: {}", e.description()),
         }
         .fail(),
