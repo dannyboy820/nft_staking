@@ -2,7 +2,7 @@ use cosmwasm::serde::{from_slice, to_vec};
 use cosmwasm::types::{coin, mock_params, Coin, ContractResult, CosmosMsg, Params};
 use cosmwasm_vm::testing::{handle, init, mock_instance, query};
 
-use escrow::contract::{CONFIG_KEY, HandleMsg, InitMsg, raw_query, State};
+use escrow::contract::{raw_query, HandleMsg, InitMsg, State, CONFIG_KEY};
 
 /**
 This integration test tries to run and call the generated wasm.
@@ -62,13 +62,16 @@ fn proper_initialization() {
     let mut q_res = query(&mut store, raw_query(CONFIG_KEY).unwrap()).unwrap();
     let model = q_res.results.pop().expect("no data stored");
     let state: State = from_slice(&model.val).unwrap();
-    assert_eq!(state, State{
-        arbiter: String::from("verifies"),
-        recipient: String::from("benefits"),
-        source: String::from("creator"),
-        end_height: 1000,
-        end_time: 0,
-    });
+    assert_eq!(
+        state,
+        State {
+            arbiter: String::from("verifies"),
+            recipient: String::from("benefits"),
+            source: String::from("creator"),
+            end_height: 1000,
+            end_time: 0,
+        }
+    );
 }
 
 #[test]
@@ -79,7 +82,7 @@ fn cannot_initialize_expired() {
     let res = init(&mut store, params, msg);
     match res {
         ContractResult::Err(msg) => assert_eq!(msg, "Contract error: creating expired escrow"),
-        _=> panic!("expected error"),
+        _ => panic!("expected error"),
     }
 }
 
@@ -90,8 +93,10 @@ fn fails_on_bad_init_data() {
     let params = mock_params_height("creator", &coin("1000", "earth"), &[], 876, 0);
     let res = init(&mut store, params, bad_msg);
     match res {
-        ContractResult::Err(msg) => assert_eq!(msg, "Error parsing InitMsg: missing field `arbiter`"),
-        _=> panic!("expected error"),
+        ContractResult::Err(msg) => {
+            assert_eq!(msg, "Error parsing InitMsg: missing field `arbiter`")
+        }
+        _ => panic!("expected error"),
     }
 }
 
@@ -117,7 +122,7 @@ fn handle_approve() {
     let handle_res = handle(&mut store, params, msg.clone());
     match handle_res {
         ContractResult::Err(msg) => assert_eq!(msg, "Unauthorized"),
-        _=> panic!("expected error"),
+        _ => panic!("expected error"),
     }
 
     // verifier cannot release it when expired
@@ -131,7 +136,7 @@ fn handle_approve() {
     let handle_res = handle(&mut store, params, msg.clone());
     match handle_res {
         ContractResult::Err(msg) => assert_eq!(msg, "Contract error: escrow expired"),
-        _=> panic!("expected error"),
+        _ => panic!("expected error"),
     }
 
     // complete release by verfier, before expiration
@@ -145,17 +150,20 @@ fn handle_approve() {
     let handle_res = handle(&mut store, params, msg.clone()).unwrap();
     assert_eq!(1, handle_res.messages.len());
     let msg = handle_res.messages.get(0).expect("no message");
-    assert_eq!(msg, &CosmosMsg::Send{
-        from_address: "cosmos2contract".to_string(),
-        to_address: "benefits".to_string(),
-        amount: coin("1000", "earth"),
-    });
+    assert_eq!(
+        msg,
+        &CosmosMsg::Send {
+            from_address: "cosmos2contract".to_string(),
+            to_address: "benefits".to_string(),
+            amount: coin("1000", "earth"),
+        }
+    );
 
     // partial release by verfier, before expiration
     let partial_msg = to_vec(&HandleMsg::Approve {
         quantity: Some(coin("500", "earth")),
     })
-        .unwrap();
+    .unwrap();
     let params = mock_params_height(
         "verifies",
         &coin("0", "earth"),
@@ -166,11 +174,14 @@ fn handle_approve() {
     let handle_res = handle(&mut store, params, partial_msg).unwrap();
     assert_eq!(1, handle_res.messages.len());
     let msg = handle_res.messages.get(0).expect("no message");
-    assert_eq!(msg, &CosmosMsg::Send{
-        from_address: "cosmos2contract".to_string(),
-        to_address: "benefits".to_string(),
-        amount: coin("500", "earth"),
-    });
+    assert_eq!(
+        msg,
+        &CosmosMsg::Send {
+            from_address: "cosmos2contract".to_string(),
+            to_address: "benefits".to_string(),
+            amount: coin("500", "earth"),
+        }
+    );
 }
 
 #[test]
@@ -195,7 +206,7 @@ fn handle_refund() {
     let handle_res = handle(&mut store, params, msg.clone());
     match handle_res {
         ContractResult::Err(msg) => assert_eq!(msg, "Contract error: escrow not yet expired"),
-        _=> panic!("expected error"),
+        _ => panic!("expected error"),
     }
 
     // anyone can release after expiration
@@ -209,211 +220,12 @@ fn handle_refund() {
     let handle_res = handle(&mut store, params, msg.clone()).unwrap();
     assert_eq!(1, handle_res.messages.len());
     let msg = handle_res.messages.get(0).expect("no message");
-    assert_eq!(msg, &CosmosMsg::Send{
-        from_address: "cosmos2contract".to_string(),
-        to_address: "creator".to_string(),
-        amount: coin("1000", "earth"),
-    });
+    assert_eq!(
+        msg,
+        &CosmosMsg::Send {
+            from_address: "cosmos2contract".to_string(),
+            to_address: "creator".to_string(),
+            amount: coin("1000", "earth"),
+        }
+    );
 }
-//
-//
-//#[test]
-//fn proper_initialization() {
-//    let storage = MockStorage::new();
-//    let mut instance = Instance::from_code(&WASM, storage).unwrap();
-//
-//    let msg = init_msg(1000, 0);
-//    let params = mock_params_height("creator", &coin("1000", "earth"), &[], 876, 0);
-//    let res = call_init(&mut instance, &params, &msg).unwrap().unwrap();
-//    assert_eq!(0, res.messages.len());
-//}
-//
-//#[test]
-//fn cannot_initialize_expired() {
-//    let storage = MockStorage::new();
-//    let mut instance = Instance::from_code(&WASM, storage).unwrap();
-//
-//    let msg = init_msg(1000, 0);
-//    let params = mock_params_height("creator", &coin("1000", "earth"), &[], 1001, 0);
-//    let res = call_init(&mut instance, &params, &msg).unwrap();
-//    match res {
-//        ContractResult::Ok(_) => panic!("expected error"),
-//        ContractResult::Err(msg) => {
-//            assert_eq!(msg, "Contract error: creating expired escrow".to_string())
-//        }
-//    }
-//}
-//
-//#[test]
-//fn fails_on_bad_init_data() {
-//    let storage = MockStorage::new();
-//    let mut instance = Instance::from_code(&WASM, storage).unwrap();
-//
-//    let bad_msg = b"{}".to_vec();
-//    let params = mock_params_height("creator", &coin("1000", "earth"), &[], 876, 0);
-//    let res = call_init(&mut instance, &params, &bad_msg).unwrap();
-//    match res {
-//        ContractResult::Ok(_) => panic!("expected error"),
-//        ContractResult::Err(msg) => assert_eq!(
-//            msg,
-//            "Error parsing InitMsg: missing field `arbiter`".to_string()
-//        ),
-//    }
-//}
-//
-//#[test]
-//fn handle_approve() {
-//    let storage = MockStorage::new();
-//    let mut instance = Instance::from_code(&WASM, storage).unwrap();
-//
-//    // initialize the store
-//    let msg = init_msg(1000, 0);
-//    let params = mock_params_height("creator", &coin("1000", "earth"), &[], 876, 0);
-//    let init_res = call_init(&mut instance, &params, &msg).unwrap().unwrap();
-//    assert_eq!(0, init_res.messages.len());
-//
-//    // beneficiary cannot release it
-//    let msg = to_vec(&HandleMsg::Approve { quantity: None }).unwrap();
-//    let params = mock_params_height(
-//        "beneficiary",
-//        &coin("0", "earth"),
-//        &coin("1000", "earth"),
-//        900,
-//        0,
-//    );
-//    let handle_res = call_handle(&mut instance, &params, &msg).unwrap();
-//    match handle_res {
-//        ContractResult::Ok(_) => panic!("expected error"),
-//        ContractResult::Err(msg) => assert_eq!(msg, "Unauthorized".to_string()),
-//    }
-//
-//    // verifier cannot release it when expired
-//    let params = mock_params_height(
-//        "verifies",
-//        &coin("0", "earth"),
-//        &coin("1000", "earth"),
-//        1100,
-//        0,
-//    );
-//    let handle_res = call_handle(&mut instance, &params, &msg).unwrap();
-//    match handle_res {
-//        ContractResult::Ok(_) => panic!("expected error"),
-//        ContractResult::Err(msg) => assert_eq!(msg, "Contract error: escrow expired".to_string()),
-//    }
-//
-//    // complete release by verfier, before expiration
-//    let params = mock_params_height(
-//        "verifies",
-//        &coin("0", "earth"),
-//        &coin("1000", "earth"),
-//        999,
-//        0,
-//    );
-//    let handle_res = call_handle(&mut instance, &params, &msg).unwrap().unwrap();
-//    assert_eq!(1, handle_res.messages.len());
-//    let msg = handle_res.messages.get(0).expect("no message");
-//    match &msg {
-//        CosmosMsg::Send {
-//            from_address,
-//            to_address,
-//            amount,
-//        } => {
-//            assert_eq!("cosmos2contract", from_address);
-//            assert_eq!("benefits", to_address);
-//            assert_eq!(1, amount.len());
-//            let coin = amount.get(0).expect("No coin");
-//            assert_eq!(coin.denom, "earth");
-//            assert_eq!(coin.amount, "1000");
-//        }
-//        _ => panic!("Unexpected message type"),
-//    }
-//
-//    // partial release by verfier, before expiration
-//    let partial_msg = to_vec(&HandleMsg::Approve {
-//        quantity: Some(coin("500", "earth")),
-//    })
-//    .unwrap();
-//    let params = mock_params_height(
-//        "verifies",
-//        &coin("0", "earth"),
-//        &coin("1000", "earth"),
-//        999,
-//        0,
-//    );
-//    let handle_res = call_handle(&mut instance, &params, &partial_msg)
-//        .unwrap()
-//        .unwrap();
-//    assert_eq!(1, handle_res.messages.len());
-//    let msg = handle_res.messages.get(0).expect("no message");
-//    match &msg {
-//        CosmosMsg::Send {
-//            from_address,
-//            to_address,
-//            amount,
-//        } => {
-//            assert_eq!("cosmos2contract", from_address);
-//            assert_eq!("benefits", to_address);
-//            assert_eq!(1, amount.len());
-//            let coin = amount.get(0).expect("No coin");
-//            assert_eq!(coin.denom, "earth");
-//            assert_eq!(coin.amount, "500");
-//        }
-//        _ => panic!("Unexpected message type"),
-//    }
-//}
-//
-//#[test]
-//fn handle_refund() {
-//    let storage = MockStorage::new();
-//    let mut instance = Instance::from_code(&WASM, storage).unwrap();
-//
-//    // initialize the store
-//    let msg = init_msg(1000, 0);
-//    let params = mock_params_height("creator", &coin("1000", "earth"), &[], 876, 0);
-//    let init_res = call_init(&mut instance, &params, &msg).unwrap().unwrap();
-//    assert_eq!(0, init_res.messages.len());
-//
-//    // cannot release when unexpired
-//    let msg = to_vec(&HandleMsg::Refund {}).unwrap();
-//    let params = mock_params_height(
-//        "anybody",
-//        &coin("0", "earth"),
-//        &coin("1000", "earth"),
-//        800,
-//        0,
-//    );
-//    let handle_res = call_handle(&mut instance, &params, &msg).unwrap();
-//    match handle_res {
-//        ContractResult::Ok(_) => panic!("expected error"),
-//        ContractResult::Err(msg) => {
-//            assert_eq!(msg, "Contract error: escrow not yet expired".to_string())
-//        }
-//    }
-//
-//    // anyone can release after expiration
-//    let params = mock_params_height(
-//        "anybody",
-//        &coin("0", "earth"),
-//        &coin("1000", "earth"),
-//        1001,
-//        0,
-//    );
-//    let handle_res = call_handle(&mut instance, &params, &msg).unwrap().unwrap();
-//    assert_eq!(1, handle_res.messages.len());
-//    let msg = handle_res.messages.get(0).expect("no message");
-//    match &msg {
-//        CosmosMsg::Send {
-//            from_address,
-//            to_address,
-//            amount,
-//        } => {
-//            assert_eq!("cosmos2contract", from_address);
-//            assert_eq!("creator", to_address);
-//            assert_eq!(1, amount.len());
-//            let coin = amount.get(0).expect("No coin");
-//            assert_eq!(coin.denom, "earth");
-//            assert_eq!(coin.amount, "1000");
-//        }
-//        _ => panic!("Unexpected message type"),
-//    }
-//}

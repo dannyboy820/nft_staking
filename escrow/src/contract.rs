@@ -193,13 +193,16 @@ mod tests {
         let mut q_res = query(&store, raw_query(CONFIG_KEY).unwrap()).unwrap();
         let model = q_res.results.pop().expect("no data stored");
         let state: State = from_slice(&model.val).unwrap();
-        assert_eq!(state, State{
-            arbiter: String::from("verifies"),
-            recipient: String::from("benefits"),
-            source: String::from("creator"),
-            end_height: 1000,
-            end_time: 0,
-        });
+        assert_eq!(
+            state,
+            State {
+                arbiter: String::from("verifies"),
+                recipient: String::from("benefits"),
+                source: String::from("creator"),
+                end_height: 1000,
+                end_time: 0,
+            }
+        );
     }
 
     #[test]
@@ -281,11 +284,14 @@ mod tests {
         let handle_res = handle(&mut store, params, msg.clone()).unwrap();
         assert_eq!(1, handle_res.messages.len());
         let msg = handle_res.messages.get(0).expect("no message");
-        assert_eq!(msg, &CosmosMsg::Send{
-            from_address: "cosmos2contract".to_string(),
-            to_address: "benefits".to_string(),
-            amount: coin("1000", "earth"),
-        });
+        assert_eq!(
+            msg,
+            &CosmosMsg::Send {
+                from_address: "cosmos2contract".to_string(),
+                to_address: "benefits".to_string(),
+                amount: coin("1000", "earth"),
+            }
+        );
 
         // partial release by verfier, before expiration
         let partial_msg = to_vec(&HandleMsg::Approve {
@@ -302,11 +308,14 @@ mod tests {
         let handle_res = handle(&mut store, params, partial_msg).unwrap();
         assert_eq!(1, handle_res.messages.len());
         let msg = handle_res.messages.get(0).expect("no message");
-        assert_eq!(msg, &CosmosMsg::Send{
-            from_address: "cosmos2contract".to_string(),
-            to_address: "benefits".to_string(),
-            amount: coin("500", "earth"),
-        });
+        assert_eq!(
+            msg,
+            &CosmosMsg::Send {
+                from_address: "cosmos2contract".to_string(),
+                to_address: "benefits".to_string(),
+                amount: coin("500", "earth"),
+            }
+        );
     }
 
     #[test]
@@ -348,10 +357,13 @@ mod tests {
         let handle_res = handle(&mut store, params, msg.clone()).unwrap();
         assert_eq!(1, handle_res.messages.len());
         let msg = handle_res.messages.get(0).expect("no message");
-        assert_eq!(msg, &CosmosMsg::Send{
-            from_address: "cosmos2contract".to_string(),
-            to_address: "creator".to_string(),
-            amount: coin("1000", "earth"),
-        });
+        assert_eq!(
+            msg,
+            &CosmosMsg::Send {
+                from_address: "cosmos2contract".to_string(),
+                to_address: "creator".to_string(),
+                amount: coin("1000", "earth"),
+            }
+        );
     }
 }
