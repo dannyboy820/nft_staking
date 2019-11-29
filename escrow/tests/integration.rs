@@ -75,9 +75,10 @@ fn fails_on_bad_init_data() {
     let res = call_init(&mut instance, &params, &bad_msg).unwrap();
     match res {
         ContractResult::Ok(_) => panic!("expected error"),
-        ContractResult::Err(msg) => {
-            assert_eq!(msg, "Error parsing InitMsg: missing field `arbiter`".to_string())
-        }
+        ContractResult::Err(msg) => assert_eq!(
+            msg,
+            "Error parsing InitMsg: missing field `arbiter`".to_string()
+        ),
     }
 }
 
