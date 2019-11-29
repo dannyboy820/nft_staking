@@ -1,5 +1,6 @@
 use std::str::from_utf8;
 
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use snafu::{OptionExt, ResultExt};
 
@@ -9,7 +10,7 @@ use cosmwasm::serde::{from_slice, to_vec};
 use cosmwasm::storage::Storage;
 use cosmwasm::types::{Coin, CosmosMsg, Params, QueryResponse, RawQuery, Response};
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct InitMsg {
     pub arbiter: String,
     pub recipient: String,
@@ -20,7 +21,7 @@ pub struct InitMsg {
     pub end_time: i64,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum HandleMsg {
     Approve {
@@ -30,7 +31,7 @@ pub enum HandleMsg {
     Refund {},
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum QueryMsg {
     Raw(RawQuery),
@@ -43,7 +44,7 @@ pub fn raw_query(key: &[u8]) -> Result<Vec<u8>> {
     to_vec(&QueryMsg::Raw(RawQuery { key })).context(SerializeErr { kind: "QueryMsg" })
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct State {
     pub arbiter: String,
     pub recipient: String,
