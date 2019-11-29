@@ -1,6 +1,6 @@
 [package]
-name = "token"
-description = "An ERC20 port"
+name = "erc20"
+description = "An implementation of the ERC20 token interface"
 version = "0.1.0"
 authors = ["Simon Warta <webmaster128@users.noreply.github.com>"]
 edition = "2018"
