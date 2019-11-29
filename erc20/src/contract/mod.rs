@@ -28,6 +28,7 @@ pub struct InitMsg {
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum HandleMsg {
+    Approve { spender: String, value: u64 },
     Transfer { recipient: String, amount: u64 },
 }
 
@@ -39,8 +40,11 @@ pub enum HandleMsg {
  * - ascii("symbol") stores the ticker symbol ([A-Z]{3,6} as ASCII)
  * - ascii("decimals") stores the fractional digits (unsigned int8)
  * - ascii("total_supply") stores the total supply (big endian encoded unsigned int64)
- * - `address` stores balance and allowance data (as JSON) for a single address. `address`
+ * - `address` stores balance data (as JSON) for a single address. `address`
  *   is always 20 bytes long and thus can not conflict with other keys.
+ * - `owner` + `spender` stores allowance data (big endian encoded unsigned int64)
+ *   for an owner spender pair address. `owner` + `spender` is always 40 bytes long
+ *   and thus can not conflict with other keys.
  */
 pub const KEY_TOTAL_SUPPLY: &[u8] = b"total_supply";
 pub const KEY_NAME: &[u8] = b"name";
@@ -104,6 +108,7 @@ pub fn handle<T: Storage>(store: &mut T, params: Params, msg: Vec<u8>) -> Result
         HandleMsg::Transfer { recipient, amount } => {
             try_transfer(store, params, &recipient, amount)
         }
+        HandleMsg::Approve { spender, value } => try_approve(store, params, &spender, value),
     }
 }
 
@@ -159,6 +164,24 @@ fn try_transfer<T: Storage>(
     let res = Response {
         messages: vec![],
         log: Some("transfer successfull".to_string()),
+        data: None,
+    };
+    Ok(res)
+}
+
+fn try_approve<T: Storage>(
+    store: &mut T,
+    params: Params,
+    spender: &str,
+    value: u64,
+) -> Result<Response> {
+    let owner_address_raw = parse_20bytes_from_hex(&params.message.signer)?;
+    let spender_address_raw = parse_20bytes_from_hex(&spender)?;
+    let key = [&owner_address_raw[..], &spender_address_raw[..]].concat();
+    store.set(&key, &value.to_be_bytes());
+    let res = Response {
+        messages: vec![],
+        log: Some("approve successfull".to_string()),
         data: None,
     };
     Ok(res)

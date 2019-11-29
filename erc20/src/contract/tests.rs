@@ -50,6 +50,16 @@ fn get_balance<T: Storage>(store: &T, address: &str) -> u64 {
     return state.balance;
 }
 
+fn get_allowance<T: Storage>(store: &T, owner: &str, spender: &str) -> u64 {
+    let owner_raw_address = parse_20bytes_from_hex(owner).unwrap();
+    let spender_raw_address = parse_20bytes_from_hex(spender).unwrap();
+    let key = [&owner_raw_address[..], &spender_raw_address[..]].concat();
+    return match store.get(&key) {
+        Some(data) => u64::from_be_bytes(data[0..8].try_into().unwrap()),
+        None => 0,
+    };
+}
+
 mod init {
     use super::*;
 
@@ -507,5 +517,122 @@ mod transfer {
             33
         );
         assert_eq!(get_total_supply(&store), 66);
+    }
+}
+
+mod approve {
+    use super::*;
+
+    fn make_init_msg() -> InitMsg {
+        return InitMsg {
+            name: "Cash Token".to_string(),
+            symbol: "CASH".to_string(),
+            decimals: 9,
+            initial_balances: vec![
+                InitialBalance {
+                    address: "0000000000000000000000000000000000000000".to_string(),
+                    amount: 11,
+                },
+                InitialBalance {
+                    address: "1111111111111111111111111111111111111111".to_string(),
+                    amount: 22,
+                },
+                InitialBalance {
+                    address: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_string(),
+                    amount: 33,
+                },
+            ],
+        };
+    }
+
+    fn make_spender() -> String {
+        "dadadadadadadadadadadadadadadadadadadada".to_string()
+    }
+
+    #[test]
+    fn has_zero_allowance_by_default() {
+        let mut store = MockStorage::new();
+        let msg = to_vec(&make_init_msg()).unwrap();
+        let params1 = mock_params_height("0000000000000000000000000000000000000000", 450, 550);
+        let res = init(&mut store, params1, msg).unwrap();
+        assert_eq!(0, res.messages.len());
+
+        // Existing owner
+        assert_eq!(
+            get_allowance(
+                &store,
+                "0000000000000000000000000000000000000000",
+                &make_spender()
+            ),
+            0
+        );
+
+        // Non-existing owner
+        assert_eq!(
+            get_allowance(
+                &store,
+                "ab41312435245436564767134131243524565647",
+                &make_spender()
+            ),
+            0
+        );
+    }
+
+    #[test]
+    fn can_set_allowance() {
+        let mut store = MockStorage::new();
+        let msg = to_vec(&make_init_msg()).unwrap();
+        let params1 = mock_params_height("0000000000000000000000000000000000000000", 450, 550);
+        let res = init(&mut store, params1, msg).unwrap();
+        assert_eq!(0, res.messages.len());
+
+        assert_eq!(
+            get_allowance(
+                &store,
+                "aaccdd2323232332aaccdd2323232332ddff3322",
+                &make_spender()
+            ),
+            0
+        );
+
+        // First approval
+        let approve_msg1 = to_vec(&HandleMsg::Approve {
+            spender: make_spender(),
+            value: 334422,
+        })
+        .unwrap();
+        let params2 = mock_params_height("aaccdd2323232332aaccdd2323232332ddff3322", 450, 550);
+        let transfer_result = handle(&mut store, params2, approve_msg1).unwrap();
+        assert_eq!(transfer_result.messages.len(), 0);
+        assert_eq!(transfer_result.log, Some("approve successfull".to_string()));
+
+        assert_eq!(
+            get_allowance(
+                &store,
+                "aaccdd2323232332aaccdd2323232332ddff3322",
+                &make_spender()
+            ),
+            334422
+        );
+
+        // Updated approval
+        let approve_msg2 = to_vec(&HandleMsg::Approve {
+            spender: make_spender(),
+            value: 777888,
+        })
+        .unwrap();
+        let params3 = mock_params_height("aaccdd2323232332aaccdd2323232332ddff3322", 450, 550);
+        let transfer_result = handle(&mut store, params3, approve_msg2).unwrap();
+        assert_eq!(transfer_result.messages.len(), 0);
+        assert_eq!(transfer_result.log, Some("approve successfull".to_string()));
+
+        assert_eq!(
+            get_allowance(
+                &store,
+                "aaccdd2323232332aaccdd2323232332ddff3322",
+                &make_spender()
+            ),
+            777888
+        );
     }
 }
