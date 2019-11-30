@@ -139,8 +139,7 @@ fn try_approve<T: Storage>(
 ) -> Result<Response> {
     let owner_address_raw = parse_20bytes_from_hex(&params.message.signer)?;
     let spender_address_raw = parse_20bytes_from_hex(&spender)?;
-    let key = [&owner_address_raw[..], &spender_address_raw[..]].concat();
-    store.set(&key, &amount.to_be_bytes());
+    write_allowance(store, &owner_address_raw, &spender_address_raw, amount);
     let res = Response {
         messages: vec![],
         log: Some("approve successfull".to_string()),
@@ -196,6 +195,16 @@ fn perform_transfer<T: Storage>(
     );
 
     Ok(())
+}
+
+fn write_allowance<T: Storage>(
+    store: &mut T,
+    owner: &[u8; 20],
+    spender: &[u8; 20],
+    amount: u64,
+) -> () {
+    let key = [&owner[..], &spender[..]].concat();
+    store.set(&key, &amount.to_be_bytes());
 }
 
 fn parse_20bytes_from_hex(data: &str) -> Result<[u8; 20]> {
