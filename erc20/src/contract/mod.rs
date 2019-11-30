@@ -121,45 +121,7 @@ fn try_transfer<T: Storage>(
     let sender_address_raw = parse_20bytes_from_hex(&params.message.signer)?;
     let recipient_address_raw = parse_20bytes_from_hex(&recipient)?;
 
-    let account_data = store.get(&sender_address_raw).context(ContractErr {
-        msg: "Account not found for this message sender",
-    })?;
-    let mut sender_account: AddressState = from_slice(&account_data).context(ParseErr {
-        kind: "AddressState",
-    })?;
-
-    if sender_account.balance < amount {
-        return DynContractErr {
-            msg: format!(
-                "Insufficient funds: balance={}, required={}",
-                sender_account.balance, amount
-            ),
-        }
-        .fail();
-    }
-
-    let mut recipient_account = match store.get(&recipient_address_raw) {
-        Some(data) => from_slice(&data).context(ParseErr {
-            kind: "AddressState",
-        })?,
-        None => AddressState { balance: 0 },
-    };
-
-    sender_account.balance -= amount;
-    recipient_account.balance += amount;
-
-    store.set(
-        &sender_address_raw,
-        &to_vec(&sender_account).context(SerializeErr {
-            kind: "AddressState",
-        })?,
-    );
-    store.set(
-        &recipient_address_raw,
-        &to_vec(&recipient_account).context(SerializeErr {
-            kind: "AddressState",
-        })?,
-    );
+    perform_transfer(store, &sender_address_raw, &recipient_address_raw, amount)?;
 
     let res = Response {
         messages: vec![],
@@ -185,6 +147,55 @@ fn try_approve<T: Storage>(
         data: None,
     };
     Ok(res)
+}
+
+fn perform_transfer<T: Storage>(
+    store: &mut T,
+    from: &[u8; 20],
+    to: &[u8; 20],
+    amount: u64,
+) -> Result<()> {
+    let account_data = store.get(from).context(ContractErr {
+        msg: "Account not found for this message sender",
+    })?;
+    let mut from_account: AddressState = from_slice(&account_data).context(ParseErr {
+        kind: "AddressState",
+    })?;
+
+    if from_account.balance < amount {
+        return DynContractErr {
+            msg: format!(
+                "Insufficient funds: balance={}, required={}",
+                from_account.balance, amount
+            ),
+        }
+        .fail();
+    }
+
+    let mut to_account = match store.get(to) {
+        Some(data) => from_slice(&data).context(ParseErr {
+            kind: "AddressState",
+        })?,
+        None => AddressState { balance: 0 },
+    };
+
+    from_account.balance -= amount;
+    to_account.balance += amount;
+
+    store.set(
+        from,
+        &to_vec(&from_account).context(SerializeErr {
+            kind: "AddressState",
+        })?,
+    );
+    store.set(
+        to,
+        &to_vec(&to_account).context(SerializeErr {
+            kind: "AddressState",
+        })?,
+    );
+
+    Ok(())
 }
 
 fn parse_20bytes_from_hex(data: &str) -> Result<[u8; 20]> {
