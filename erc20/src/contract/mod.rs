@@ -28,7 +28,7 @@ pub struct InitMsg {
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum HandleMsg {
-    Approve { spender: String, value: u64 },
+    Approve { spender: String, amount: u64 },
     Transfer { recipient: String, amount: u64 },
 }
 
@@ -105,10 +105,10 @@ pub fn handle<T: Storage>(store: &mut T, params: Params, msg: Vec<u8>) -> Result
     let msg: HandleMsg = from_slice(&msg).context(ParseErr { kind: "HandleMsg" })?;
 
     match msg {
+        HandleMsg::Approve { spender, amount } => try_approve(store, params, &spender, amount),
         HandleMsg::Transfer { recipient, amount } => {
             try_transfer(store, params, &recipient, amount)
         }
-        HandleMsg::Approve { spender, value } => try_approve(store, params, &spender, value),
     }
 }
 
@@ -173,12 +173,12 @@ fn try_approve<T: Storage>(
     store: &mut T,
     params: Params,
     spender: &str,
-    value: u64,
+    amount: u64,
 ) -> Result<Response> {
     let owner_address_raw = parse_20bytes_from_hex(&params.message.signer)?;
     let spender_address_raw = parse_20bytes_from_hex(&spender)?;
     let key = [&owner_address_raw[..], &spender_address_raw[..]].concat();
-    store.set(&key, &value.to_be_bytes());
+    store.set(&key, &amount.to_be_bytes());
     let res = Response {
         messages: vec![],
         log: Some("approve successfull".to_string()),

@@ -598,7 +598,7 @@ mod approve {
         // First approval
         let approve_msg1 = to_vec(&HandleMsg::Approve {
             spender: make_spender(),
-            value: 334422,
+            amount: 334422,
         })
         .unwrap();
         let params2 = mock_params_height("aaccdd2323232332aaccdd2323232332ddff3322", 450, 550);
@@ -618,7 +618,7 @@ mod approve {
         // Updated approval
         let approve_msg2 = to_vec(&HandleMsg::Approve {
             spender: make_spender(),
-            value: 777888,
+            amount: 777888,
         })
         .unwrap();
         let params3 = mock_params_height("aaccdd2323232332aaccdd2323232332ddff3322", 450, 550);
