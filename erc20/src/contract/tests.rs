@@ -332,10 +332,7 @@ mod transfer {
         let params2 = mock_params_height("0000000000000000000000000000000000000000", 450, 550);
         let transfer_result = handle(&mut store, params2, transfer_msg).unwrap();
         assert_eq!(transfer_result.messages.len(), 0);
-        assert_eq!(
-            transfer_result.log,
-            Some("transfer successfull".to_string())
-        );
+        assert_eq!(transfer_result.log, Some("transfer successful".to_string()));
 
         // New state
         assert_eq!(
@@ -385,10 +382,7 @@ mod transfer {
         let params2 = mock_params_height("0000000000000000000000000000000000000000", 450, 550);
         let transfer_result = handle(&mut store, params2, transfer_msg).unwrap();
         assert_eq!(transfer_result.messages.len(), 0);
-        assert_eq!(
-            transfer_result.log,
-            Some("transfer successfull".to_string())
-        );
+        assert_eq!(transfer_result.log, Some("transfer successful".to_string()));
 
         // New state
         assert_eq!(
@@ -442,10 +436,7 @@ mod transfer {
         let params2 = mock_params_height("0000000000000000000000000000000000000000", 450, 550);
         let transfer_result = handle(&mut store, params2, transfer_msg).unwrap();
         assert_eq!(transfer_result.messages.len(), 0);
-        assert_eq!(
-            transfer_result.log,
-            Some("transfer successfull".to_string())
-        );
+        assert_eq!(transfer_result.log, Some("transfer successful".to_string()));
 
         // New state (unchanged)
         assert_eq!(
@@ -603,7 +594,7 @@ mod approve {
         let params2 = mock_params_height("aaccdd2323232332aaccdd2323232332ddff3322", 450, 550);
         let transfer_result = handle(&mut store, params2, approve_msg1).unwrap();
         assert_eq!(transfer_result.messages.len(), 0);
-        assert_eq!(transfer_result.log, Some("approve successfull".to_string()));
+        assert_eq!(transfer_result.log, Some("approve successful".to_string()));
 
         assert_eq!(
             get_allowance(
@@ -623,7 +614,7 @@ mod approve {
         let params3 = mock_params_height("aaccdd2323232332aaccdd2323232332ddff3322", 450, 550);
         let transfer_result = handle(&mut store, params3, approve_msg2).unwrap();
         assert_eq!(transfer_result.messages.len(), 0);
-        assert_eq!(transfer_result.log, Some("approve successfull".to_string()));
+        assert_eq!(transfer_result.log, Some("approve successful".to_string()));
 
         assert_eq!(
             get_allowance(
@@ -686,7 +677,7 @@ mod transfer_from {
         let params2 = mock_params_height(owner, 450, 550);
         let approve_result = handle(&mut store, params2, approve_msg).unwrap();
         assert_eq!(approve_result.messages.len(), 0);
-        assert_eq!(approve_result.log, Some("approve successfull".to_string()));
+        assert_eq!(approve_result.log, Some("approve successful".to_string()));
 
         assert_eq!(get_balance(&store, owner), 11);
         assert_eq!(get_allowance(&store, owner, spender), 4);
@@ -703,7 +694,7 @@ mod transfer_from {
         assert_eq!(transfer_result.messages.len(), 0);
         assert_eq!(
             transfer_result.log,
-            Some("transfer from successfull".to_string())
+            Some("transfer from successful".to_string())
         );
 
         // State changed
@@ -732,7 +723,7 @@ mod transfer_from {
         let params2 = mock_params_height(owner, 450, 550);
         let approve_result = handle(&mut store, params2, approve_msg).unwrap();
         assert_eq!(approve_result.messages.len(), 0);
-        assert_eq!(approve_result.log, Some("approve successfull".to_string()));
+        assert_eq!(approve_result.log, Some("approve successful".to_string()));
 
         assert_eq!(get_balance(&store, owner), 11);
         assert_eq!(get_allowance(&store, owner, spender), 2);
@@ -780,7 +771,7 @@ mod transfer_from {
         let params2 = mock_params_height(owner, 450, 550);
         let approve_result = handle(&mut store, params2, approve_msg).unwrap();
         assert_eq!(approve_result.messages.len(), 0);
-        assert_eq!(approve_result.log, Some("approve successfull".to_string()));
+        assert_eq!(approve_result.log, Some("approve successful".to_string()));
 
         assert_eq!(get_balance(&store, owner), 11);
         assert_eq!(get_allowance(&store, owner, spender), 20);

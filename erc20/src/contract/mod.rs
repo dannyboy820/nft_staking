@@ -143,7 +143,7 @@ fn try_transfer<T: Storage>(
 
     let res = Response {
         messages: vec![],
-        log: Some("transfer successfull".to_string()),
+        log: Some("transfer successful".to_string()),
         data: None,
     };
     Ok(res)
@@ -176,7 +176,7 @@ fn try_transfer_from<T: Storage>(
 
     let res = Response {
         messages: vec![],
-        log: Some("transfer from successfull".to_string()),
+        log: Some("transfer from successful".to_string()),
         data: None,
     };
     Ok(res)
@@ -193,7 +193,7 @@ fn try_approve<T: Storage>(
     write_allowance(store, &owner_address_raw, &spender_address_raw, amount);
     let res = Response {
         messages: vec![],
-        log: Some("approve successfull".to_string()),
+        log: Some("approve successful".to_string()),
         data: None,
     };
     Ok(res)
