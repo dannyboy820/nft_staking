@@ -1,3 +1,5 @@
+use std::convert::TryInto;
+
 use serde::{Deserialize, Serialize};
 use snafu::{OptionExt, ResultExt};
 
@@ -28,8 +30,19 @@ pub struct InitMsg {
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum HandleMsg {
-    Approve { spender: String, amount: u64 },
-    Transfer { recipient: String, amount: u64 },
+    Approve {
+        spender: String,
+        amount: u64,
+    },
+    Transfer {
+        recipient: String,
+        amount: u64,
+    },
+    TransferFrom {
+        owner: String,
+        recipient: String,
+        amount: u64,
+    },
 }
 
 /**
@@ -109,6 +122,11 @@ pub fn handle<T: Storage>(store: &mut T, params: Params, msg: Vec<u8>) -> Result
         HandleMsg::Transfer { recipient, amount } => {
             try_transfer(store, params, &recipient, amount)
         }
+        HandleMsg::TransferFrom {
+            owner,
+            recipient,
+            amount,
+        } => try_transfer_from(store, params, &owner, &recipient, amount),
     }
 }
 
@@ -126,6 +144,39 @@ fn try_transfer<T: Storage>(
     let res = Response {
         messages: vec![],
         log: Some("transfer successfull".to_string()),
+        data: None,
+    };
+    Ok(res)
+}
+
+fn try_transfer_from<T: Storage>(
+    store: &mut T,
+    params: Params,
+    owner: &str,
+    recipient: &str,
+    amount: u64,
+) -> Result<Response> {
+    let spender_address_raw = parse_20bytes_from_hex(&params.message.signer)?;
+    let owner_address_raw = parse_20bytes_from_hex(&owner)?;
+    let recipient_address_raw = parse_20bytes_from_hex(&recipient)?;
+
+    let mut allowance = read_allowance(store, &owner_address_raw, &spender_address_raw)?;
+    if allowance < amount {
+        return DynContractErr {
+            msg: format!(
+                "Insufficient allowance: allowance={}, required={}",
+                allowance, amount
+            ),
+        }
+        .fail();
+    }
+    allowance -= amount;
+    write_allowance(store, &owner_address_raw, &spender_address_raw, allowance);
+    perform_transfer(store, &owner_address_raw, &recipient_address_raw, amount)?;
+
+    let res = Response {
+        messages: vec![],
+        log: Some("transfer from successfull".to_string()),
         data: None,
     };
     Ok(res)
@@ -195,6 +246,21 @@ fn perform_transfer<T: Storage>(
     );
 
     Ok(())
+}
+
+fn read_allowance<T: Storage>(store: &T, owner: &[u8; 20], spender: &[u8; 20]) -> Result<u64> {
+    let key = [&owner[..], &spender[..]].concat();
+    let res = match store.get(&key) {
+        Some(data) => match data[0..8].try_into() {
+            Ok(bytes) => Ok(u64::from_be_bytes(bytes)),
+            Err(_) => ContractErr {
+                msg: "Corrupted data found. 8 byte allowance expected.",
+            }
+            .fail(),
+        },
+        None => Ok(0u64),
+    };
+    return res;
 }
 
 fn write_allowance<T: Storage>(

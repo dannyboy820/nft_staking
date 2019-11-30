@@ -2,7 +2,6 @@ use super::*;
 use cosmwasm::errors::Error;
 use cosmwasm::mock::MockStorage;
 use cosmwasm::types::mock_params;
-use std::convert::TryInto;
 
 fn mock_params_height(signer: &str, height: i64, time: i64) -> Params {
     let mut params = mock_params(signer, &[], &[]);
@@ -634,5 +633,177 @@ mod approve {
             ),
             777888
         );
+    }
+}
+
+mod transfer_from {
+    use super::*;
+
+    fn make_init_msg() -> InitMsg {
+        return InitMsg {
+            name: "Cash Token".to_string(),
+            symbol: "CASH".to_string(),
+            decimals: 9,
+            initial_balances: vec![
+                InitialBalance {
+                    address: "0000000000000000000000000000000000000000".to_string(),
+                    amount: 11,
+                },
+                InitialBalance {
+                    address: "1111111111111111111111111111111111111111".to_string(),
+                    amount: 22,
+                },
+                InitialBalance {
+                    address: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_string(),
+                    amount: 33,
+                },
+            ],
+        };
+    }
+
+    fn make_spender() -> String {
+        "dadadadadadadadadadadadadadadadadadadada".to_string()
+    }
+
+    #[test]
+    fn works() {
+        let mut store = MockStorage::new();
+        let msg = to_vec(&make_init_msg()).unwrap();
+        let params1 = mock_params_height("0000000000000000000000000000000000000000", 450, 550);
+        let res = init(&mut store, params1, msg).unwrap();
+        assert_eq!(0, res.messages.len());
+
+        let owner = "0000000000000000000000000000000000000000";
+        let spender = &make_spender();
+        let recipient = "1212121212121212121212121212121212121212";
+
+        // Set approval
+        let approve_msg = to_vec(&HandleMsg::Approve {
+            spender: make_spender(),
+            amount: 4,
+        })
+        .unwrap();
+        let params2 = mock_params_height(owner, 450, 550);
+        let approve_result = handle(&mut store, params2, approve_msg).unwrap();
+        assert_eq!(approve_result.messages.len(), 0);
+        assert_eq!(approve_result.log, Some("approve successfull".to_string()));
+
+        assert_eq!(get_balance(&store, owner), 11);
+        assert_eq!(get_allowance(&store, owner, spender), 4);
+
+        // Transfer less than allowance but more than balance
+        let fransfer_from_msg = to_vec(&HandleMsg::TransferFrom {
+            owner: owner.to_string(),
+            recipient: recipient.to_string(),
+            amount: 3,
+        })
+        .unwrap();
+        let params3 = mock_params_height(spender, 450, 550);
+        let transfer_result = handle(&mut store, params3, fransfer_from_msg).unwrap();
+        assert_eq!(transfer_result.messages.len(), 0);
+        assert_eq!(
+            transfer_result.log,
+            Some("transfer from successfull".to_string())
+        );
+
+        // State changed
+        assert_eq!(get_balance(&store, owner), 8);
+        assert_eq!(get_allowance(&store, owner, spender), 1);
+    }
+
+    #[test]
+    fn fails_when_allowance_too_low() {
+        let mut store = MockStorage::new();
+        let msg = to_vec(&make_init_msg()).unwrap();
+        let params1 = mock_params_height("0000000000000000000000000000000000000000", 450, 550);
+        let res = init(&mut store, params1, msg).unwrap();
+        assert_eq!(0, res.messages.len());
+
+        let owner = "0000000000000000000000000000000000000000";
+        let spender = &make_spender();
+        let recipient = "1212121212121212121212121212121212121212";
+
+        // Set approval
+        let approve_msg = to_vec(&HandleMsg::Approve {
+            spender: make_spender(),
+            amount: 2,
+        })
+        .unwrap();
+        let params2 = mock_params_height(owner, 450, 550);
+        let approve_result = handle(&mut store, params2, approve_msg).unwrap();
+        assert_eq!(approve_result.messages.len(), 0);
+        assert_eq!(approve_result.log, Some("approve successfull".to_string()));
+
+        assert_eq!(get_balance(&store, owner), 11);
+        assert_eq!(get_allowance(&store, owner, spender), 2);
+
+        // Transfer less than allowance but more than balance
+        let fransfer_from_msg = to_vec(&HandleMsg::TransferFrom {
+            owner: owner.to_string(),
+            recipient: recipient.to_string(),
+            amount: 3,
+        })
+        .unwrap();
+        let params3 = mock_params_height(spender, 450, 550);
+        let transfer_result = handle(&mut store, params3, fransfer_from_msg);
+        match transfer_result {
+            Ok(_) => panic!("expected error"),
+            Err(Error::DynContractErr { msg, .. }) => {
+                assert_eq!(msg, "Insufficient allowance: allowance=2, required=3")
+            }
+            Err(e) => panic!("unexpected error: {:?}", e),
+        }
+
+        // State unchanged
+        assert_eq!(get_balance(&store, owner), 11);
+        assert_eq!(get_allowance(&store, owner, spender), 2);
+    }
+
+    #[test]
+    fn fails_when_allowance_is_set_but_balance_too_low() {
+        let mut store = MockStorage::new();
+        let msg = to_vec(&make_init_msg()).unwrap();
+        let params1 = mock_params_height("0000000000000000000000000000000000000000", 450, 550);
+        let res = init(&mut store, params1, msg).unwrap();
+        assert_eq!(0, res.messages.len());
+
+        let owner = "0000000000000000000000000000000000000000";
+        let spender = &make_spender();
+        let recipient = "1212121212121212121212121212121212121212";
+
+        // Set approval
+        let approve_msg = to_vec(&HandleMsg::Approve {
+            spender: make_spender(),
+            amount: 20,
+        })
+        .unwrap();
+        let params2 = mock_params_height(owner, 450, 550);
+        let approve_result = handle(&mut store, params2, approve_msg).unwrap();
+        assert_eq!(approve_result.messages.len(), 0);
+        assert_eq!(approve_result.log, Some("approve successfull".to_string()));
+
+        assert_eq!(get_balance(&store, owner), 11);
+        assert_eq!(get_allowance(&store, owner, spender), 20);
+
+        // Transfer less than allowance but more than balance
+        let fransfer_from_msg = to_vec(&HandleMsg::TransferFrom {
+            owner: owner.to_string(),
+            recipient: recipient.to_string(),
+            amount: 15,
+        })
+        .unwrap();
+        let params3 = mock_params_height(spender, 450, 550);
+        let transfer_result = handle(&mut store, params3, fransfer_from_msg);
+        match transfer_result {
+            Ok(_) => panic!("expected error"),
+            Err(Error::DynContractErr { msg, .. }) => {
+                assert_eq!(msg, "Insufficient funds: balance=11, required=15")
+            }
+            Err(e) => panic!("unexpected error: {:?}", e),
+        }
+
+        // State unchanged
+        assert_eq!(get_balance(&store, owner), 11);
+        assert_eq!(get_allowance(&store, owner, spender), 20);
     }
 }
