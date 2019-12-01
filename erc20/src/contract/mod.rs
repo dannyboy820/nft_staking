@@ -1,17 +1,12 @@
 use std::convert::TryInto;
 
 use serde::{Deserialize, Serialize};
-use snafu::{OptionExt, ResultExt};
+use snafu::ResultExt;
 
-use cosmwasm::errors::{ContractErr, DynContractErr, ParseErr, Result, SerializeErr};
-use cosmwasm::serde::{from_slice, to_vec};
+use cosmwasm::errors::{ContractErr, DynContractErr, ParseErr, Result};
+use cosmwasm::serde::from_slice;
 use cosmwasm::storage::Storage;
 use cosmwasm::types::{Params, Response};
-
-#[derive(Serialize, Deserialize, Clone, PartialEq)]
-pub struct AddressState {
-    pub balance: u64,
-}
 
 #[derive(Serialize, Deserialize, Clone, PartialEq)]
 pub struct InitialBalance {
@@ -98,15 +93,7 @@ pub fn init<T: Storage>(store: &mut T, _params: Params, msg: Vec<u8>) -> Result<
     let mut total: u64 = 0;
     for row in msg.initial_balances {
         let raw_address = parse_20bytes_from_hex(&row.address)?;
-        store.set(
-            &raw_address,
-            &to_vec(&AddressState {
-                balance: row.amount,
-            })
-            .context(SerializeErr {
-                kind: "AddressState",
-            })?,
-        );
+        store.set(&raw_address, &row.amount.to_be_bytes());
         total += row.amount;
     }
     store.set(KEY_TOTAL_SUPPLY, &total.to_be_bytes());
@@ -205,52 +192,32 @@ fn perform_transfer<T: Storage>(
     to: &[u8; 20],
     amount: u64,
 ) -> Result<()> {
-    let account_data = store.get(from).context(ContractErr {
-        msg: "Account not found for this message sender",
-    })?;
-    let mut from_account: AddressState = from_slice(&account_data).context(ParseErr {
-        kind: "AddressState",
-    })?;
+    let mut from_balance = read_u64(store, from)?;
 
-    if from_account.balance < amount {
+    if from_balance < amount {
         return DynContractErr {
             msg: format!(
                 "Insufficient funds: balance={}, required={}",
-                from_account.balance, amount
+                from_balance, amount
             ),
         }
         .fail();
     }
 
-    let mut to_account = match store.get(to) {
-        Some(data) => from_slice(&data).context(ParseErr {
-            kind: "AddressState",
-        })?,
-        None => AddressState { balance: 0 },
-    };
+    let mut to_balance = read_u64(store, to)?;
 
-    from_account.balance -= amount;
-    to_account.balance += amount;
+    from_balance -= amount;
+    to_balance += amount;
 
-    store.set(
-        from,
-        &to_vec(&from_account).context(SerializeErr {
-            kind: "AddressState",
-        })?,
-    );
-    store.set(
-        to,
-        &to_vec(&to_account).context(SerializeErr {
-            kind: "AddressState",
-        })?,
-    );
+    store.set(from, &from_balance.to_be_bytes());
+    store.set(to, &to_balance.to_be_bytes());
 
     Ok(())
 }
 
 // Reads 8 byte storage value into u64
 // Returns zero if key does not exist. Errors if data found that is not 8 bytes
-fn read_u64<T: Storage>(store: &T, key: &[u8]) -> Result<u64> {
+pub fn read_u64<T: Storage>(store: &T, key: &[u8]) -> Result<u64> {
     return match store.get(key) {
         Some(data) => match data[0..8].try_into() {
             Ok(bytes) => Ok(u64::from_be_bytes(bytes)),

@@ -1,15 +1,12 @@
-use cosmwasm::errors::ParseErr;
-use cosmwasm::serde::{from_slice, to_vec};
+use cosmwasm::serde::to_vec;
 use cosmwasm::storage::Storage;
 use cosmwasm::types::{mock_params, Coin, Params};
 use cosmwasm_vm::testing::{init, mock_instance};
 use std::convert::TryInto;
 
-use snafu::ResultExt;
-
 use erc20::contract::{
-    parse_20bytes_from_hex, AddressState, InitMsg, InitialBalance, KEY_DECIMALS, KEY_NAME,
-    KEY_SYMBOL, KEY_TOTAL_SUPPLY,
+    parse_20bytes_from_hex, read_u64, InitMsg, InitialBalance, KEY_DECIMALS, KEY_NAME, KEY_SYMBOL,
+    KEY_TOTAL_SUPPLY,
 };
 
 static WASM: &[u8] = include_bytes!("../target/wasm32-unknown-unknown/release/erc20.wasm");
@@ -79,15 +76,7 @@ fn get_total_supply<T: Storage>(store: &T) -> u64 {
 
 fn get_balance<T: Storage>(store: &T, address: &str) -> u64 {
     let raw_address = parse_20bytes_from_hex(&address).unwrap();
-    let data = store
-        .get(&raw_address)
-        .expect("no data stored for this address");
-    let state: AddressState = from_slice(&data)
-        .context(ParseErr {
-            kind: "AddressState",
-        })
-        .unwrap();
-    return state.balance;
+    return read_u64(store, &raw_address).unwrap();
 }
 
 #[test]

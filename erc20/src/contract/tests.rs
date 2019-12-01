@@ -1,6 +1,7 @@
 use super::*;
 use cosmwasm::errors::Error;
 use cosmwasm::mock::MockStorage;
+use cosmwasm::serde::to_vec;
 use cosmwasm::types::mock_params;
 
 fn mock_params_height(signer: &str, height: i64, time: i64) -> Params {
@@ -38,15 +39,7 @@ fn get_total_supply<T: Storage>(store: &T) -> u64 {
 
 fn get_balance<T: Storage>(store: &T, address: &str) -> u64 {
     let raw_address = parse_20bytes_from_hex(&address).unwrap();
-    let data = store
-        .get(&raw_address)
-        .expect("no data stored for this address");
-    let state: AddressState = from_slice(&data)
-        .context(ParseErr {
-            kind: "AddressState",
-        })
-        .unwrap();
-    return state.balance;
+    return read_u64(store, &raw_address).unwrap();
 }
 
 fn get_allowance<T: Storage>(store: &T, owner: &str, spender: &str) -> u64 {
