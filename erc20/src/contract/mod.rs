@@ -248,19 +248,24 @@ fn perform_transfer<T: Storage>(
     Ok(())
 }
 
-fn read_allowance<T: Storage>(store: &T, owner: &[u8; 20], spender: &[u8; 20]) -> Result<u64> {
-    let key = [&owner[..], &spender[..]].concat();
-    let res = match store.get(&key) {
+// Reads 8 byte storage value into u64
+// Returns zero if key does not exist. Errors if data found that is not 8 bytes
+fn read_u64<T: Storage>(store: &T, key: &[u8]) -> Result<u64> {
+    return match store.get(key) {
         Some(data) => match data[0..8].try_into() {
             Ok(bytes) => Ok(u64::from_be_bytes(bytes)),
             Err(_) => ContractErr {
-                msg: "Corrupted data found. 8 byte allowance expected.",
+                msg: "Corrupted data found. 8 byte expected.",
             }
             .fail(),
         },
         None => Ok(0u64),
     };
-    return res;
+}
+
+fn read_allowance<T: Storage>(store: &T, owner: &[u8; 20], spender: &[u8; 20]) -> Result<u64> {
+    let key = [&owner[..], &spender[..]].concat();
+    return read_u64(store, &key);
 }
 
 fn write_allowance<T: Storage>(
