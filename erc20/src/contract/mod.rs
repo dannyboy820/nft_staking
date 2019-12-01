@@ -10,21 +10,21 @@ use cosmwasm::types::{Params, Response};
 
 #[derive(Serialize, Deserialize, Clone, PartialEq)]
 pub struct AddressState {
-    balance: u64,
+    pub balance: u64,
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq)]
 pub struct InitialBalance {
-    address: String,
-    amount: u64,
+    pub address: String,
+    pub amount: u64,
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct InitMsg {
-    initial_balances: Vec<InitialBalance>,
-    name: String,
-    symbol: String,
-    decimals: u8,
+    pub name: String,
+    pub symbol: String,
+    pub decimals: u8,
+    pub initial_balances: Vec<InitialBalance>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -273,7 +273,7 @@ fn write_allowance<T: Storage>(
     store.set(&key, &amount.to_be_bytes());
 }
 
-fn parse_20bytes_from_hex(data: &str) -> Result<[u8; 20]> {
+pub fn parse_20bytes_from_hex(data: &str) -> Result<[u8; 20]> {
     use std::error::Error as StdError;
     let mut out = [0u8; 20];
     match hex::decode_to_slice(data, &mut out as &mut [u8]) {
