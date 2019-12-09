@@ -29,27 +29,20 @@ fn get_decimals<T: Storage>(store: &T) -> u8 {
     return value;
 }
 
-fn get_total_supply<T: Storage>(store: &T) -> u64 {
-    let data = store
-        .get(KEY_TOTAL_SUPPLY)
-        .expect("no total_supply data stored");
-    let value = u64::from_be_bytes(data[0..8].try_into().unwrap());
-    return value;
+fn get_total_supply<T: Storage>(store: &T) -> u128 {
+    return read_u128(store, KEY_TOTAL_SUPPLY).unwrap();
 }
 
-fn get_balance<T: Storage>(store: &T, address: &str) -> u64 {
+fn get_balance<T: Storage>(store: &T, address: &str) -> u128 {
     let raw_address = parse_20bytes_from_hex(&address).unwrap();
-    return read_u64(store, &raw_address).unwrap();
+    return read_u128(store, &raw_address).unwrap();
 }
 
-fn get_allowance<T: Storage>(store: &T, owner: &str, spender: &str) -> u64 {
+fn get_allowance<T: Storage>(store: &T, owner: &str, spender: &str) -> u128 {
     let owner_raw_address = parse_20bytes_from_hex(owner).unwrap();
     let spender_raw_address = parse_20bytes_from_hex(spender).unwrap();
     let key = [&owner_raw_address[..], &spender_raw_address[..]].concat();
-    return match store.get(&key) {
-        Some(data) => u64::from_be_bytes(data[0..8].try_into().unwrap()),
-        None => 0,
-    };
+    return read_u128(store, &key).unwrap();
 }
 
 mod init {
@@ -64,7 +57,7 @@ mod init {
             decimals: 9,
             initial_balances: [InitialBalance {
                 address: "0000000000000000000000000000000000000000".to_string(),
-                amount: 11223344,
+                amount: "11223344".to_string(),
             }]
             .to_vec(),
         })
@@ -110,15 +103,15 @@ mod init {
             initial_balances: [
                 InitialBalance {
                     address: "0000000000000000000000000000000000000000".to_string(),
-                    amount: 11,
+                    amount: "11".to_string(),
                 },
                 InitialBalance {
                     address: "1111111111111111111111111111111111111111".to_string(),
-                    amount: 22,
+                    amount: "22".to_string(),
                 },
                 InitialBalance {
                     address: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_string(),
-                    amount: 33,
+                    amount: "33".to_string(),
                 },
             ]
             .to_vec(),
@@ -141,6 +134,95 @@ mod init {
             33
         );
         assert_eq!(get_total_supply(&store), 66);
+    }
+
+    #[test]
+    fn works_with_balance_larger_than_53_bit() {
+        let mut store = MockStorage::new();
+
+        // This value cannot be represented precisely in JavaScript and jq. Both
+        //   node -e "console.log(9007199254740993)"
+        //   echo '{ "value": 9007199254740993 }' | jq
+        // return 9007199254740992
+        let msg = to_vec(&InitMsg {
+            name: "Cash Token".to_string(),
+            symbol: "CASH".to_string(),
+            decimals: 9,
+            initial_balances: [InitialBalance {
+                address: "0000000000000000000000000000000000000000".to_string(),
+                amount: "9007199254740993".to_string(),
+            }]
+            .to_vec(),
+        })
+        .unwrap();
+        let params = mock_params_height("creator", 450, 550);
+        let res = init(&mut store, params, msg).unwrap();
+        assert_eq!(0, res.messages.len());
+
+        assert_eq!(get_name(&store), "Cash Token");
+        assert_eq!(get_symbol(&store), "CASH");
+        assert_eq!(get_decimals(&store), 9);
+        assert_eq!(
+            get_balance(&store, "0000000000000000000000000000000000000000"),
+            9007199254740993
+        );
+        assert_eq!(get_total_supply(&store), 9007199254740993);
+    }
+
+    #[test]
+    // Typical supply like 100 million tokens with 18 decimals exceeds the 64 bit range
+    fn works_with_balance_larger_than_64_bit() {
+        let mut store = MockStorage::new();
+
+        let msg = to_vec(&InitMsg {
+            name: "Cash Token".to_string(),
+            symbol: "CASH".to_string(),
+            decimals: 9,
+            initial_balances: [InitialBalance {
+                address: "0000000000000000000000000000000000000000".to_string(),
+                amount: "100000000000000000000000000".to_string(),
+            }]
+            .to_vec(),
+        })
+        .unwrap();
+        let params = mock_params_height("creator", 450, 550);
+        let res = init(&mut store, params, msg).unwrap();
+        assert_eq!(0, res.messages.len());
+
+        assert_eq!(get_name(&store), "Cash Token");
+        assert_eq!(get_symbol(&store), "CASH");
+        assert_eq!(get_decimals(&store), 9);
+        assert_eq!(
+            get_balance(&store, "0000000000000000000000000000000000000000"),
+            100000000000000000000000000
+        );
+        assert_eq!(get_total_supply(&store), 100000000000000000000000000);
+    }
+
+    #[test]
+    fn fails_for_balance_larger_than_max_u128() {
+        let mut store = MockStorage::new();
+        let msg = to_vec(&InitMsg {
+            name: "Cash Token".to_string(),
+            symbol: "CASH".to_string(),
+            decimals: 9,
+            initial_balances: [InitialBalance {
+                address: "0000000000000000000000000000000000000000".to_string(),
+                // 2**128 = 340282366920938463463374607431768211456
+                amount: "340282366920938463463374607431768211456".to_string(),
+            }]
+            .to_vec(),
+        })
+        .unwrap();
+        let params = mock_params_height("creator", 450, 550);
+        let result = init(&mut store, params, msg);
+        match result {
+            Ok(_) => panic!("expected error"),
+            Err(Error::ContractErr { msg, .. }) => {
+                assert_eq!(msg, "Error while parsing decimal string to u128")
+            }
+            Err(e) => panic!("unexpected error: {:?}", e),
+        }
     }
 
     #[test]
@@ -279,15 +361,15 @@ mod transfer {
             initial_balances: vec![
                 InitialBalance {
                     address: "0000000000000000000000000000000000000000".to_string(),
-                    amount: 11,
+                    amount: "11".to_string(),
                 },
                 InitialBalance {
                     address: "1111111111111111111111111111111111111111".to_string(),
-                    amount: 22,
+                    amount: "22".to_string(),
                 },
                 InitialBalance {
                     address: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_string(),
-                    amount: 33,
+                    amount: "33".to_string(),
                 },
             ],
         };
@@ -319,7 +401,7 @@ mod transfer {
         // Transfer
         let transfer_msg = to_vec(&HandleMsg::Transfer {
             recipient: "1111111111111111111111111111111111111111".to_string(),
-            amount: 1,
+            amount: "1".to_string(),
         })
         .unwrap();
         let params2 = mock_params_height("0000000000000000000000000000000000000000", 450, 550);
@@ -369,7 +451,7 @@ mod transfer {
         // Transfer
         let transfer_msg = to_vec(&HandleMsg::Transfer {
             recipient: "2323232323232323232323232323232323232323".to_string(),
-            amount: 1,
+            amount: "1".to_string(),
         })
         .unwrap();
         let params2 = mock_params_height("0000000000000000000000000000000000000000", 450, 550);
@@ -423,7 +505,7 @@ mod transfer {
         // Transfer
         let transfer_msg = to_vec(&HandleMsg::Transfer {
             recipient: "1111111111111111111111111111111111111111".to_string(),
-            amount: 0,
+            amount: "0".to_string(),
         })
         .unwrap();
         let params2 = mock_params_height("0000000000000000000000000000000000000000", 450, 550);
@@ -473,7 +555,7 @@ mod transfer {
         // Transfer
         let transfer_msg = to_vec(&HandleMsg::Transfer {
             recipient: "1111111111111111111111111111111111111111".to_string(),
-            amount: 12,
+            amount: "12".to_string(),
         })
         .unwrap();
         let params2 = mock_params_height("0000000000000000000000000000000000000000", 450, 550);
@@ -514,15 +596,15 @@ mod approve {
             initial_balances: vec![
                 InitialBalance {
                     address: "0000000000000000000000000000000000000000".to_string(),
-                    amount: 11,
+                    amount: "11".to_string(),
                 },
                 InitialBalance {
                     address: "1111111111111111111111111111111111111111".to_string(),
-                    amount: 22,
+                    amount: "22".to_string(),
                 },
                 InitialBalance {
                     address: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_string(),
-                    amount: 33,
+                    amount: "33".to_string(),
                 },
             ],
         };
@@ -581,7 +663,7 @@ mod approve {
         // First approval
         let approve_msg1 = to_vec(&HandleMsg::Approve {
             spender: make_spender(),
-            amount: 334422,
+            amount: "334422".to_string(),
         })
         .unwrap();
         let params2 = mock_params_height("aaccdd2323232332aaccdd2323232332ddff3322", 450, 550);
@@ -601,7 +683,7 @@ mod approve {
         // Updated approval
         let approve_msg2 = to_vec(&HandleMsg::Approve {
             spender: make_spender(),
-            amount: 777888,
+            amount: "777888".to_string(),
         })
         .unwrap();
         let params3 = mock_params_height("aaccdd2323232332aaccdd2323232332ddff3322", 450, 550);
@@ -631,15 +713,15 @@ mod transfer_from {
             initial_balances: vec![
                 InitialBalance {
                     address: "0000000000000000000000000000000000000000".to_string(),
-                    amount: 11,
+                    amount: "11".to_string(),
                 },
                 InitialBalance {
                     address: "1111111111111111111111111111111111111111".to_string(),
-                    amount: 22,
+                    amount: "22".to_string(),
                 },
                 InitialBalance {
                     address: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_string(),
-                    amount: 33,
+                    amount: "33".to_string(),
                 },
             ],
         };
@@ -664,7 +746,7 @@ mod transfer_from {
         // Set approval
         let approve_msg = to_vec(&HandleMsg::Approve {
             spender: make_spender(),
-            amount: 4,
+            amount: "4".to_string(),
         })
         .unwrap();
         let params2 = mock_params_height(owner, 450, 550);
@@ -679,7 +761,7 @@ mod transfer_from {
         let fransfer_from_msg = to_vec(&HandleMsg::TransferFrom {
             owner: owner.to_string(),
             recipient: recipient.to_string(),
-            amount: 3,
+            amount: "3".to_string(),
         })
         .unwrap();
         let params3 = mock_params_height(spender, 450, 550);
@@ -710,7 +792,7 @@ mod transfer_from {
         // Set approval
         let approve_msg = to_vec(&HandleMsg::Approve {
             spender: make_spender(),
-            amount: 2,
+            amount: "2".to_string(),
         })
         .unwrap();
         let params2 = mock_params_height(owner, 450, 550);
@@ -725,7 +807,7 @@ mod transfer_from {
         let fransfer_from_msg = to_vec(&HandleMsg::TransferFrom {
             owner: owner.to_string(),
             recipient: recipient.to_string(),
-            amount: 3,
+            amount: "3".to_string(),
         })
         .unwrap();
         let params3 = mock_params_height(spender, 450, 550);
@@ -759,7 +841,7 @@ mod transfer_from {
         // Set approval
         let approve_msg = to_vec(&HandleMsg::Approve {
             spender: make_spender(),
-            amount: 20,
+            amount: "20".to_string(),
         })
         .unwrap();
         let params2 = mock_params_height(owner, 450, 550);
@@ -774,7 +856,7 @@ mod transfer_from {
         let fransfer_from_msg = to_vec(&HandleMsg::TransferFrom {
             owner: owner.to_string(),
             recipient: recipient.to_string(),
-            amount: 15,
+            amount: "15".to_string(),
         })
         .unwrap();
         let params3 = mock_params_height(spender, 450, 550);

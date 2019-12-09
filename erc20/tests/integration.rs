@@ -5,7 +5,7 @@ use cosmwasm_vm::testing::{init, mock_instance};
 use std::convert::TryInto;
 
 use erc20::contract::{
-    parse_20bytes_from_hex, read_u64, InitMsg, InitialBalance, KEY_DECIMALS, KEY_NAME, KEY_SYMBOL,
+    parse_20bytes_from_hex, read_u128, InitMsg, InitialBalance, KEY_DECIMALS, KEY_NAME, KEY_SYMBOL,
     KEY_TOTAL_SUPPLY,
 };
 
@@ -19,15 +19,15 @@ fn init_msg() -> Vec<u8> {
         initial_balances: [
             InitialBalance {
                 address: "0000000000000000000000000000000000000000".to_string(),
-                amount: 11,
+                amount: "11".to_string(),
             },
             InitialBalance {
                 address: "1111111111111111111111111111111111111111".to_string(),
-                amount: 22,
+                amount: "22".to_string(),
             },
             InitialBalance {
                 address: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_string(),
-                amount: 33,
+                amount: "33".to_string(),
             },
         ]
         .to_vec(),
@@ -66,17 +66,13 @@ fn get_decimals<T: Storage>(store: &T) -> u8 {
     return value;
 }
 
-fn get_total_supply<T: Storage>(store: &T) -> u64 {
-    let data = store
-        .get(KEY_TOTAL_SUPPLY)
-        .expect("no total_supply data stored");
-    let value = u64::from_be_bytes(data[0..8].try_into().unwrap());
-    return value;
+fn get_total_supply<T: Storage>(store: &T) -> u128 {
+    return read_u128(store, KEY_TOTAL_SUPPLY).unwrap();
 }
 
-fn get_balance<T: Storage>(store: &T, address: &str) -> u64 {
+fn get_balance<T: Storage>(store: &T, address: &str) -> u128 {
     let raw_address = parse_20bytes_from_hex(&address).unwrap();
-    return read_u64(store, &raw_address).unwrap();
+    return read_u128(store, &raw_address).unwrap();
 }
 
 #[test]

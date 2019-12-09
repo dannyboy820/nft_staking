@@ -11,7 +11,7 @@ use cosmwasm::types::{Params, Response};
 #[derive(Serialize, Deserialize, Clone, PartialEq)]
 pub struct InitialBalance {
     pub address: String,
-    pub amount: u64,
+    pub amount: String,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -27,16 +27,16 @@ pub struct InitMsg {
 pub enum HandleMsg {
     Approve {
         spender: String,
-        amount: u64,
+        amount: String,
     },
     Transfer {
         recipient: String,
-        amount: u64,
+        amount: String,
     },
     TransferFrom {
         owner: String,
         recipient: String,
-        amount: u64,
+        amount: String,
     },
 }
 
@@ -90,11 +90,12 @@ pub fn init<T: Storage>(store: &mut T, _params: Params, msg: Vec<u8>) -> Result<
     store.set(KEY_DECIMALS, &msg.decimals.to_be_bytes());
 
     // Initial balances
-    let mut total: u64 = 0;
+    let mut total: u128 = 0;
     for row in msg.initial_balances {
         let raw_address = parse_20bytes_from_hex(&row.address)?;
-        store.set(&raw_address, &row.amount.to_be_bytes());
-        total += row.amount;
+        let amount_raw = parse_u128(&row.amount)?;
+        store.set(&raw_address, &amount_raw.to_be_bytes());
+        total += amount_raw;
     }
     store.set(KEY_TOTAL_SUPPLY, &total.to_be_bytes());
 
@@ -105,15 +106,15 @@ pub fn handle<T: Storage>(store: &mut T, params: Params, msg: Vec<u8>) -> Result
     let msg: HandleMsg = from_slice(&msg).context(ParseErr { kind: "HandleMsg" })?;
 
     match msg {
-        HandleMsg::Approve { spender, amount } => try_approve(store, params, &spender, amount),
+        HandleMsg::Approve { spender, amount } => try_approve(store, params, &spender, &amount),
         HandleMsg::Transfer { recipient, amount } => {
-            try_transfer(store, params, &recipient, amount)
+            try_transfer(store, params, &recipient, &amount)
         }
         HandleMsg::TransferFrom {
             owner,
             recipient,
             amount,
-        } => try_transfer_from(store, params, &owner, &recipient, amount),
+        } => try_transfer_from(store, params, &owner, &recipient, &amount),
     }
 }
 
@@ -121,12 +122,18 @@ fn try_transfer<T: Storage>(
     store: &mut T,
     params: Params,
     recipient: &str,
-    amount: u64,
+    amount: &str,
 ) -> Result<Response> {
     let sender_address_raw = parse_20bytes_from_hex(&params.message.signer)?;
     let recipient_address_raw = parse_20bytes_from_hex(&recipient)?;
+    let amount_raw = parse_u128(amount)?;
 
-    perform_transfer(store, &sender_address_raw, &recipient_address_raw, amount)?;
+    perform_transfer(
+        store,
+        &sender_address_raw,
+        &recipient_address_raw,
+        amount_raw,
+    )?;
 
     let res = Response {
         messages: vec![],
@@ -141,25 +148,31 @@ fn try_transfer_from<T: Storage>(
     params: Params,
     owner: &str,
     recipient: &str,
-    amount: u64,
+    amount: &str,
 ) -> Result<Response> {
     let spender_address_raw = parse_20bytes_from_hex(&params.message.signer)?;
     let owner_address_raw = parse_20bytes_from_hex(&owner)?;
     let recipient_address_raw = parse_20bytes_from_hex(&recipient)?;
+    let amount_raw = parse_u128(amount)?;
 
     let mut allowance = read_allowance(store, &owner_address_raw, &spender_address_raw)?;
-    if allowance < amount {
+    if allowance < amount_raw {
         return DynContractErr {
             msg: format!(
                 "Insufficient allowance: allowance={}, required={}",
-                allowance, amount
+                allowance, amount_raw
             ),
         }
         .fail();
     }
-    allowance -= amount;
+    allowance -= amount_raw;
     write_allowance(store, &owner_address_raw, &spender_address_raw, allowance);
-    perform_transfer(store, &owner_address_raw, &recipient_address_raw, amount)?;
+    perform_transfer(
+        store,
+        &owner_address_raw,
+        &recipient_address_raw,
+        amount_raw,
+    )?;
 
     let res = Response {
         messages: vec![],
@@ -173,11 +186,12 @@ fn try_approve<T: Storage>(
     store: &mut T,
     params: Params,
     spender: &str,
-    amount: u64,
+    amount: &str,
 ) -> Result<Response> {
     let owner_address_raw = parse_20bytes_from_hex(&params.message.signer)?;
     let spender_address_raw = parse_20bytes_from_hex(&spender)?;
-    write_allowance(store, &owner_address_raw, &spender_address_raw, amount);
+    let amount_raw = parse_u128(amount)?;
+    write_allowance(store, &owner_address_raw, &spender_address_raw, amount_raw);
     let res = Response {
         messages: vec![],
         log: Some("approve successful".to_string()),
@@ -190,9 +204,9 @@ fn perform_transfer<T: Storage>(
     store: &mut T,
     from: &[u8; 20],
     to: &[u8; 20],
-    amount: u64,
+    amount: u128,
 ) -> Result<()> {
-    let mut from_balance = read_u64(store, from)?;
+    let mut from_balance = read_u128(store, from)?;
 
     if from_balance < amount {
         return DynContractErr {
@@ -204,7 +218,7 @@ fn perform_transfer<T: Storage>(
         .fail();
     }
 
-    let mut to_balance = read_u64(store, to)?;
+    let mut to_balance = read_u128(store, to)?;
 
     from_balance -= amount;
     to_balance += amount;
@@ -215,31 +229,41 @@ fn perform_transfer<T: Storage>(
     Ok(())
 }
 
-// Reads 8 byte storage value into u64
+// Reads 16 byte storage value into u128
 // Returns zero if key does not exist. Errors if data found that is not 8 bytes
-pub fn read_u64<T: Storage>(store: &T, key: &[u8]) -> Result<u64> {
+pub fn read_u128<T: Storage>(store: &T, key: &[u8]) -> Result<u128> {
     return match store.get(key) {
-        Some(data) => match data[0..8].try_into() {
-            Ok(bytes) => Ok(u64::from_be_bytes(bytes)),
+        Some(data) => match data[0..16].try_into() {
+            Ok(bytes) => Ok(u128::from_be_bytes(bytes)),
             Err(_) => ContractErr {
-                msg: "Corrupted data found. 8 byte expected.",
+                msg: "Corrupted data found. 16 byte expected.",
             }
             .fail(),
         },
-        None => Ok(0u64),
+        None => Ok(0u128),
     };
 }
 
-fn read_allowance<T: Storage>(store: &T, owner: &[u8; 20], spender: &[u8; 20]) -> Result<u64> {
+pub fn parse_u128(decimal: &str) -> Result<u128> {
+    match decimal.parse::<u128>() {
+        Ok(value) => Ok(value),
+        Err(_) => ContractErr {
+            msg: "Error while parsing decimal string to u128",
+        }
+        .fail(),
+    }
+}
+
+fn read_allowance<T: Storage>(store: &T, owner: &[u8; 20], spender: &[u8; 20]) -> Result<u128> {
     let key = [&owner[..], &spender[..]].concat();
-    return read_u64(store, &key);
+    return read_u128(store, &key);
 }
 
 fn write_allowance<T: Storage>(
     store: &mut T,
     owner: &[u8; 20],
     spender: &[u8; 20],
-    amount: u64,
+    amount: u128,
 ) -> () {
     let key = [&owner[..], &spender[..]].concat();
     store.set(&key, &amount.to_be_bytes());
