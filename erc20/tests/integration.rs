@@ -5,7 +5,7 @@ use cosmwasm_vm::testing::{init, mock_instance};
 use std::convert::TryInto;
 
 use erc20::contract::{
-    parse_20bytes_from_hex, read_u128, InitMsg, InitialBalance, KEY_DECIMALS, KEY_NAME, KEY_SYMBOL,
+    address_to_key, read_u128, InitMsg, InitialBalance, KEY_DECIMALS, KEY_NAME, KEY_SYMBOL,
     KEY_TOTAL_SUPPLY,
 };
 
@@ -18,15 +18,15 @@ fn init_msg() -> Vec<u8> {
         symbol: "ASH".to_string(),
         initial_balances: [
             InitialBalance {
-                address: "0000000000000000000000000000000000000000".to_string(),
+                address: "addr0000".to_string(),
                 amount: "11".to_string(),
             },
             InitialBalance {
-                address: "1111111111111111111111111111111111111111".to_string(),
+                address: "addr1111".to_string(),
                 amount: "22".to_string(),
             },
             InitialBalance {
-                address: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_string(),
+                address: "addr4321".to_string(),
                 amount: "33".to_string(),
             },
         ]
@@ -71,8 +71,8 @@ fn get_total_supply<T: Storage>(store: &T) -> u128 {
 }
 
 fn get_balance<T: Storage>(store: &T, address: &str) -> u128 {
-    let raw_address = parse_20bytes_from_hex(&address).unwrap();
-    return read_u128(store, &raw_address).unwrap();
+    let key = address_to_key(&address);
+    return read_u128(store, &key).unwrap();
 }
 
 #[test]
@@ -89,17 +89,8 @@ fn proper_initialization() {
         assert_eq!(get_symbol(store), "ASH");
         assert_eq!(get_decimals(store), 5);
         assert_eq!(get_total_supply(store), 66);
-        assert_eq!(
-            get_balance(store, "0000000000000000000000000000000000000000"),
-            11
-        );
-        assert_eq!(
-            get_balance(store, "1111111111111111111111111111111111111111"),
-            22
-        );
-        assert_eq!(
-            get_balance(store, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
-            33
-        );
+        assert_eq!(get_balance(store, "addr0000"), 11);
+        assert_eq!(get_balance(store, "addr1111"), 22);
+        assert_eq!(get_balance(store, "addr4321"), 33);
     });
 }

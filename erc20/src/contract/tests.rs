@@ -34,13 +34,13 @@ fn get_total_supply<T: Storage>(store: &T) -> u128 {
 }
 
 fn get_balance<T: Storage>(store: &T, address: &str) -> u128 {
-    let raw_address = parse_20bytes_from_hex(&address).unwrap();
-    return read_u128(store, &raw_address).unwrap();
+    let key = address_to_key(&address);
+    return read_u128(store, &key).unwrap();
 }
 
 fn get_allowance<T: Storage>(store: &T, owner: &str, spender: &str) -> u128 {
-    let owner_raw_address = parse_20bytes_from_hex(owner).unwrap();
-    let spender_raw_address = parse_20bytes_from_hex(spender).unwrap();
+    let owner_raw_address = address_to_key(owner);
+    let spender_raw_address = address_to_key(spender);
     let key = [&owner_raw_address[..], &spender_raw_address[..]].concat();
     return read_u128(store, &key).unwrap();
 }
@@ -56,7 +56,7 @@ mod init {
             symbol: "CASH".to_string(),
             decimals: 9,
             initial_balances: [InitialBalance {
-                address: "0000000000000000000000000000000000000000".to_string(),
+                address: "addr0000".to_string(),
                 amount: "11223344".to_string(),
             }]
             .to_vec(),
@@ -69,10 +69,7 @@ mod init {
         assert_eq!(get_name(&store), "Cash Token");
         assert_eq!(get_symbol(&store), "CASH");
         assert_eq!(get_decimals(&store), 9);
-        assert_eq!(
-            get_balance(&store, "0000000000000000000000000000000000000000"),
-            11223344
-        );
+        assert_eq!(get_balance(&store, "addr0000"), 11223344);
         assert_eq!(get_total_supply(&store), 11223344);
     }
 
@@ -102,15 +99,15 @@ mod init {
             decimals: 9,
             initial_balances: [
                 InitialBalance {
-                    address: "0000000000000000000000000000000000000000".to_string(),
+                    address: "addr0000".to_string(),
                     amount: "11".to_string(),
                 },
                 InitialBalance {
-                    address: "1111111111111111111111111111111111111111".to_string(),
+                    address: "addr1111".to_string(),
                     amount: "22".to_string(),
                 },
                 InitialBalance {
-                    address: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_string(),
+                    address: "addrbbbb".to_string(),
                     amount: "33".to_string(),
                 },
             ]
@@ -121,18 +118,9 @@ mod init {
         let res = init(&mut store, params, msg).unwrap();
         assert_eq!(0, res.messages.len());
 
-        assert_eq!(
-            get_balance(&store, "0000000000000000000000000000000000000000"),
-            11
-        );
-        assert_eq!(
-            get_balance(&store, "1111111111111111111111111111111111111111"),
-            22
-        );
-        assert_eq!(
-            get_balance(&store, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
-            33
-        );
+        assert_eq!(get_balance(&store, "addr0000"), 11);
+        assert_eq!(get_balance(&store, "addr1111"), 22);
+        assert_eq!(get_balance(&store, "addrbbbb"), 33);
         assert_eq!(get_total_supply(&store), 66);
     }
 
@@ -149,7 +137,7 @@ mod init {
             symbol: "CASH".to_string(),
             decimals: 9,
             initial_balances: [InitialBalance {
-                address: "0000000000000000000000000000000000000000".to_string(),
+                address: "addr0000".to_string(),
                 amount: "9007199254740993".to_string(),
             }]
             .to_vec(),
@@ -162,10 +150,7 @@ mod init {
         assert_eq!(get_name(&store), "Cash Token");
         assert_eq!(get_symbol(&store), "CASH");
         assert_eq!(get_decimals(&store), 9);
-        assert_eq!(
-            get_balance(&store, "0000000000000000000000000000000000000000"),
-            9007199254740993
-        );
+        assert_eq!(get_balance(&store, "addr0000"), 9007199254740993);
         assert_eq!(get_total_supply(&store), 9007199254740993);
     }
 
@@ -179,7 +164,7 @@ mod init {
             symbol: "CASH".to_string(),
             decimals: 9,
             initial_balances: [InitialBalance {
-                address: "0000000000000000000000000000000000000000".to_string(),
+                address: "addr0000".to_string(),
                 amount: "100000000000000000000000000".to_string(),
             }]
             .to_vec(),
@@ -192,10 +177,7 @@ mod init {
         assert_eq!(get_name(&store), "Cash Token");
         assert_eq!(get_symbol(&store), "CASH");
         assert_eq!(get_decimals(&store), 9);
-        assert_eq!(
-            get_balance(&store, "0000000000000000000000000000000000000000"),
-            100000000000000000000000000
-        );
+        assert_eq!(get_balance(&store, "addr0000"), 100000000000000000000000000);
         assert_eq!(get_total_supply(&store), 100000000000000000000000000);
     }
 
@@ -207,7 +189,7 @@ mod init {
             symbol: "CASH".to_string(),
             decimals: 9,
             initial_balances: [InitialBalance {
-                address: "0000000000000000000000000000000000000000".to_string(),
+                address: "addr0000".to_string(),
                 // 2**128 = 340282366920938463463374607431768211456
                 amount: "340282366920938463463374607431768211456".to_string(),
             }]
@@ -360,15 +342,15 @@ mod transfer {
             decimals: 9,
             initial_balances: vec![
                 InitialBalance {
-                    address: "0000000000000000000000000000000000000000".to_string(),
+                    address: "addr0000".to_string(),
                     amount: "11".to_string(),
                 },
                 InitialBalance {
-                    address: "1111111111111111111111111111111111111111".to_string(),
+                    address: "addr1111".to_string(),
                     amount: "22".to_string(),
                 },
                 InitialBalance {
-                    address: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_string(),
+                    address: "addrbbbb".to_string(),
                     amount: "33".to_string(),
                 },
             ],
@@ -379,49 +361,31 @@ mod transfer {
     fn can_send_to_existing_recipient() {
         let mut store = MockStorage::new();
         let msg = to_vec(&make_init_msg()).unwrap();
-        let params1 = mock_params_height("0000000000000000000000000000000000000000", 450, 550);
+        let params1 = mock_params_height("addr0000", 450, 550);
         let res = init(&mut store, params1, msg).unwrap();
         assert_eq!(0, res.messages.len());
 
         // Initial state
-        assert_eq!(
-            get_balance(&store, "0000000000000000000000000000000000000000"),
-            11
-        );
-        assert_eq!(
-            get_balance(&store, "1111111111111111111111111111111111111111"),
-            22
-        );
-        assert_eq!(
-            get_balance(&store, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
-            33
-        );
+        assert_eq!(get_balance(&store, "addr0000"), 11);
+        assert_eq!(get_balance(&store, "addr1111"), 22);
+        assert_eq!(get_balance(&store, "addrbbbb"), 33);
         assert_eq!(get_total_supply(&store), 66);
 
         // Transfer
         let transfer_msg = to_vec(&HandleMsg::Transfer {
-            recipient: "1111111111111111111111111111111111111111".to_string(),
+            recipient: "addr1111".to_string(),
             amount: "1".to_string(),
         })
         .unwrap();
-        let params2 = mock_params_height("0000000000000000000000000000000000000000", 450, 550);
+        let params2 = mock_params_height("addr0000", 450, 550);
         let transfer_result = handle(&mut store, params2, transfer_msg).unwrap();
         assert_eq!(transfer_result.messages.len(), 0);
         assert_eq!(transfer_result.log, Some("transfer successful".to_string()));
 
         // New state
-        assert_eq!(
-            get_balance(&store, "0000000000000000000000000000000000000000"),
-            10
-        ); // -1
-        assert_eq!(
-            get_balance(&store, "1111111111111111111111111111111111111111"),
-            23
-        ); // +1
-        assert_eq!(
-            get_balance(&store, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
-            33
-        );
+        assert_eq!(get_balance(&store, "addr0000"), 10); // -1
+        assert_eq!(get_balance(&store, "addr1111"), 23); // +1
+        assert_eq!(get_balance(&store, "addrbbbb"), 33);
         assert_eq!(get_total_supply(&store), 66);
     }
 
@@ -429,53 +393,32 @@ mod transfer {
     fn can_send_to_non_existent_recipient() {
         let mut store = MockStorage::new();
         let msg = to_vec(&make_init_msg()).unwrap();
-        let params1 = mock_params_height("0000000000000000000000000000000000000000", 450, 550);
+        let params1 = mock_params_height("addr0000", 450, 550);
         let res = init(&mut store, params1, msg).unwrap();
         assert_eq!(0, res.messages.len());
 
         // Initial state
-        assert_eq!(
-            get_balance(&store, "0000000000000000000000000000000000000000"),
-            11
-        );
-        assert_eq!(
-            get_balance(&store, "1111111111111111111111111111111111111111"),
-            22
-        );
-        assert_eq!(
-            get_balance(&store, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
-            33
-        );
+        assert_eq!(get_balance(&store, "addr0000"), 11);
+        assert_eq!(get_balance(&store, "addr1111"), 22);
+        assert_eq!(get_balance(&store, "addrbbbb"), 33);
         assert_eq!(get_total_supply(&store), 66);
 
         // Transfer
         let transfer_msg = to_vec(&HandleMsg::Transfer {
-            recipient: "2323232323232323232323232323232323232323".to_string(),
+            recipient: "addr2323".to_string(),
             amount: "1".to_string(),
         })
         .unwrap();
-        let params2 = mock_params_height("0000000000000000000000000000000000000000", 450, 550);
+        let params2 = mock_params_height("addr0000", 450, 550);
         let transfer_result = handle(&mut store, params2, transfer_msg).unwrap();
         assert_eq!(transfer_result.messages.len(), 0);
         assert_eq!(transfer_result.log, Some("transfer successful".to_string()));
 
         // New state
-        assert_eq!(
-            get_balance(&store, "0000000000000000000000000000000000000000"),
-            10
-        );
-        assert_eq!(
-            get_balance(&store, "1111111111111111111111111111111111111111"),
-            22
-        );
-        assert_eq!(
-            get_balance(&store, "2323232323232323232323232323232323232323"),
-            1
-        );
-        assert_eq!(
-            get_balance(&store, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
-            33
-        );
+        assert_eq!(get_balance(&store, "addr0000"), 10);
+        assert_eq!(get_balance(&store, "addr1111"), 22);
+        assert_eq!(get_balance(&store, "addr2323"), 1);
+        assert_eq!(get_balance(&store, "addrbbbb"), 33);
         assert_eq!(get_total_supply(&store), 66);
     }
 
@@ -483,49 +426,31 @@ mod transfer {
     fn can_send_zero_amount() {
         let mut store = MockStorage::new();
         let msg = to_vec(&make_init_msg()).unwrap();
-        let params1 = mock_params_height("0000000000000000000000000000000000000000", 450, 550);
+        let params1 = mock_params_height("addr0000", 450, 550);
         let res = init(&mut store, params1, msg).unwrap();
         assert_eq!(0, res.messages.len());
 
         // Initial state
-        assert_eq!(
-            get_balance(&store, "0000000000000000000000000000000000000000"),
-            11
-        );
-        assert_eq!(
-            get_balance(&store, "1111111111111111111111111111111111111111"),
-            22
-        );
-        assert_eq!(
-            get_balance(&store, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
-            33
-        );
+        assert_eq!(get_balance(&store, "addr0000"), 11);
+        assert_eq!(get_balance(&store, "addr1111"), 22);
+        assert_eq!(get_balance(&store, "addrbbbb"), 33);
         assert_eq!(get_total_supply(&store), 66);
 
         // Transfer
         let transfer_msg = to_vec(&HandleMsg::Transfer {
-            recipient: "1111111111111111111111111111111111111111".to_string(),
+            recipient: "addr1111".to_string(),
             amount: "0".to_string(),
         })
         .unwrap();
-        let params2 = mock_params_height("0000000000000000000000000000000000000000", 450, 550);
+        let params2 = mock_params_height("addr0000", 450, 550);
         let transfer_result = handle(&mut store, params2, transfer_msg).unwrap();
         assert_eq!(transfer_result.messages.len(), 0);
         assert_eq!(transfer_result.log, Some("transfer successful".to_string()));
 
         // New state (unchanged)
-        assert_eq!(
-            get_balance(&store, "0000000000000000000000000000000000000000"),
-            11
-        );
-        assert_eq!(
-            get_balance(&store, "1111111111111111111111111111111111111111"),
-            22
-        );
-        assert_eq!(
-            get_balance(&store, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
-            33
-        );
+        assert_eq!(get_balance(&store, "addr0000"), 11);
+        assert_eq!(get_balance(&store, "addr1111"), 22);
+        assert_eq!(get_balance(&store, "addrbbbb"), 33);
         assert_eq!(get_total_supply(&store), 66);
     }
 
@@ -533,32 +458,23 @@ mod transfer {
     fn fails_on_insufficient_balance() {
         let mut store = MockStorage::new();
         let msg = to_vec(&make_init_msg()).unwrap();
-        let params1 = mock_params_height("0000000000000000000000000000000000000000", 450, 550);
+        let params1 = mock_params_height("addr0000", 450, 550);
         let res = init(&mut store, params1, msg).unwrap();
         assert_eq!(0, res.messages.len());
 
         // Initial state
-        assert_eq!(
-            get_balance(&store, "0000000000000000000000000000000000000000"),
-            11
-        );
-        assert_eq!(
-            get_balance(&store, "1111111111111111111111111111111111111111"),
-            22
-        );
-        assert_eq!(
-            get_balance(&store, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
-            33
-        );
+        assert_eq!(get_balance(&store, "addr0000"), 11);
+        assert_eq!(get_balance(&store, "addr1111"), 22);
+        assert_eq!(get_balance(&store, "addrbbbb"), 33);
         assert_eq!(get_total_supply(&store), 66);
 
         // Transfer
         let transfer_msg = to_vec(&HandleMsg::Transfer {
-            recipient: "1111111111111111111111111111111111111111".to_string(),
+            recipient: "addr1111".to_string(),
             amount: "12".to_string(),
         })
         .unwrap();
-        let params2 = mock_params_height("0000000000000000000000000000000000000000", 450, 550);
+        let params2 = mock_params_height("addr0000", 450, 550);
         let transfer_result = handle(&mut store, params2, transfer_msg);
         match transfer_result {
             Ok(_) => panic!("expected error"),
@@ -569,18 +485,9 @@ mod transfer {
         }
 
         // New state (unchanged)
-        assert_eq!(
-            get_balance(&store, "0000000000000000000000000000000000000000"),
-            11
-        );
-        assert_eq!(
-            get_balance(&store, "1111111111111111111111111111111111111111"),
-            22
-        );
-        assert_eq!(
-            get_balance(&store, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
-            33
-        );
+        assert_eq!(get_balance(&store, "addr0000"), 11);
+        assert_eq!(get_balance(&store, "addr1111"), 22);
+        assert_eq!(get_balance(&store, "addrbbbb"), 33);
         assert_eq!(get_total_supply(&store), 66);
     }
 }
@@ -595,15 +502,15 @@ mod approve {
             decimals: 9,
             initial_balances: vec![
                 InitialBalance {
-                    address: "0000000000000000000000000000000000000000".to_string(),
+                    address: "addr0000".to_string(),
                     amount: "11".to_string(),
                 },
                 InitialBalance {
-                    address: "1111111111111111111111111111111111111111".to_string(),
+                    address: "addr1111".to_string(),
                     amount: "22".to_string(),
                 },
                 InitialBalance {
-                    address: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_string(),
+                    address: "addrbbbb".to_string(),
                     amount: "33".to_string(),
                 },
             ],
@@ -618,47 +525,26 @@ mod approve {
     fn has_zero_allowance_by_default() {
         let mut store = MockStorage::new();
         let msg = to_vec(&make_init_msg()).unwrap();
-        let params1 = mock_params_height("0000000000000000000000000000000000000000", 450, 550);
+        let params1 = mock_params_height("addr0000", 450, 550);
         let res = init(&mut store, params1, msg).unwrap();
         assert_eq!(0, res.messages.len());
 
         // Existing owner
-        assert_eq!(
-            get_allowance(
-                &store,
-                "0000000000000000000000000000000000000000",
-                &make_spender()
-            ),
-            0
-        );
+        assert_eq!(get_allowance(&store, "addr0000", &make_spender()), 0);
 
         // Non-existing owner
-        assert_eq!(
-            get_allowance(
-                &store,
-                "ab41312435245436564767134131243524565647",
-                &make_spender()
-            ),
-            0
-        );
+        assert_eq!(get_allowance(&store, "addr4567", &make_spender()), 0);
     }
 
     #[test]
     fn can_set_allowance() {
         let mut store = MockStorage::new();
         let msg = to_vec(&make_init_msg()).unwrap();
-        let params1 = mock_params_height("0000000000000000000000000000000000000000", 450, 550);
+        let params1 = mock_params_height("addr0000", 450, 550);
         let res = init(&mut store, params1, msg).unwrap();
         assert_eq!(0, res.messages.len());
 
-        assert_eq!(
-            get_allowance(
-                &store,
-                "aaccdd2323232332aaccdd2323232332ddff3322",
-                &make_spender()
-            ),
-            0
-        );
+        assert_eq!(get_allowance(&store, "addr7654", &make_spender()), 0);
 
         // First approval
         let approve_msg1 = to_vec(&HandleMsg::Approve {
@@ -666,19 +552,12 @@ mod approve {
             amount: "334422".to_string(),
         })
         .unwrap();
-        let params2 = mock_params_height("aaccdd2323232332aaccdd2323232332ddff3322", 450, 550);
+        let params2 = mock_params_height("addr7654", 450, 550);
         let transfer_result = handle(&mut store, params2, approve_msg1).unwrap();
         assert_eq!(transfer_result.messages.len(), 0);
         assert_eq!(transfer_result.log, Some("approve successful".to_string()));
 
-        assert_eq!(
-            get_allowance(
-                &store,
-                "aaccdd2323232332aaccdd2323232332ddff3322",
-                &make_spender()
-            ),
-            334422
-        );
+        assert_eq!(get_allowance(&store, "addr7654", &make_spender()), 334422);
 
         // Updated approval
         let approve_msg2 = to_vec(&HandleMsg::Approve {
@@ -686,19 +565,12 @@ mod approve {
             amount: "777888".to_string(),
         })
         .unwrap();
-        let params3 = mock_params_height("aaccdd2323232332aaccdd2323232332ddff3322", 450, 550);
+        let params3 = mock_params_height("addr7654", 450, 550);
         let transfer_result = handle(&mut store, params3, approve_msg2).unwrap();
         assert_eq!(transfer_result.messages.len(), 0);
         assert_eq!(transfer_result.log, Some("approve successful".to_string()));
 
-        assert_eq!(
-            get_allowance(
-                &store,
-                "aaccdd2323232332aaccdd2323232332ddff3322",
-                &make_spender()
-            ),
-            777888
-        );
+        assert_eq!(get_allowance(&store, "addr7654", &make_spender()), 777888);
     }
 }
 
@@ -712,15 +584,15 @@ mod transfer_from {
             decimals: 9,
             initial_balances: vec![
                 InitialBalance {
-                    address: "0000000000000000000000000000000000000000".to_string(),
+                    address: "addr0000".to_string(),
                     amount: "11".to_string(),
                 },
                 InitialBalance {
-                    address: "1111111111111111111111111111111111111111".to_string(),
+                    address: "addr1111".to_string(),
                     amount: "22".to_string(),
                 },
                 InitialBalance {
-                    address: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_string(),
+                    address: "addrbbbb".to_string(),
                     amount: "33".to_string(),
                 },
             ],
@@ -735,13 +607,13 @@ mod transfer_from {
     fn works() {
         let mut store = MockStorage::new();
         let msg = to_vec(&make_init_msg()).unwrap();
-        let params1 = mock_params_height("0000000000000000000000000000000000000000", 450, 550);
+        let params1 = mock_params_height("addr0000", 450, 550);
         let res = init(&mut store, params1, msg).unwrap();
         assert_eq!(0, res.messages.len());
 
-        let owner = "0000000000000000000000000000000000000000";
+        let owner = "addr0000";
         let spender = &make_spender();
-        let recipient = "1212121212121212121212121212121212121212";
+        let recipient = "addr1212";
 
         // Set approval
         let approve_msg = to_vec(&HandleMsg::Approve {
@@ -781,13 +653,13 @@ mod transfer_from {
     fn fails_when_allowance_too_low() {
         let mut store = MockStorage::new();
         let msg = to_vec(&make_init_msg()).unwrap();
-        let params1 = mock_params_height("0000000000000000000000000000000000000000", 450, 550);
+        let params1 = mock_params_height("addr0000", 450, 550);
         let res = init(&mut store, params1, msg).unwrap();
         assert_eq!(0, res.messages.len());
 
-        let owner = "0000000000000000000000000000000000000000";
+        let owner = "addr0000";
         let spender = &make_spender();
-        let recipient = "1212121212121212121212121212121212121212";
+        let recipient = "addr1212";
 
         // Set approval
         let approve_msg = to_vec(&HandleMsg::Approve {
@@ -830,13 +702,13 @@ mod transfer_from {
     fn fails_when_allowance_is_set_but_balance_too_low() {
         let mut store = MockStorage::new();
         let msg = to_vec(&make_init_msg()).unwrap();
-        let params1 = mock_params_height("0000000000000000000000000000000000000000", 450, 550);
+        let params1 = mock_params_height("addr0000", 450, 550);
         let res = init(&mut store, params1, msg).unwrap();
         assert_eq!(0, res.messages.len());
 
-        let owner = "0000000000000000000000000000000000000000";
+        let owner = "addr0000";
         let spender = &make_spender();
-        let recipient = "1212121212121212121212121212121212121212";
+        let recipient = "addr1212";
 
         // Set approval
         let approve_msg = to_vec(&HandleMsg::Approve {

@@ -1,6 +1,7 @@
 use std::convert::TryInto;
 
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use snafu::ResultExt;
 
 use cosmwasm::errors::{ContractErr, DynContractErr, ParseErr, Result};
@@ -48,10 +49,10 @@ pub enum HandleMsg {
  * - ascii("symbol") stores the ticker symbol ([A-Z]{3,6} as ASCII)
  * - ascii("decimals") stores the fractional digits (unsigned int8)
  * - ascii("total_supply") stores the total supply (big endian encoded unsigned int64)
- * - `address` stores balance data (as JSON) for a single address. `address`
- *   is always 20 bytes long and thus can not conflict with other keys.
+ * - `address_hash` stores balance data (as JSON) for a single address. `address`
+ *   is always 32 bytes long and thus can not conflict with other keys.
  * - `owner` + `spender` stores allowance data (big endian encoded unsigned int64)
- *   for an owner spender pair address. `owner` + `spender` is always 40 bytes long
+ *   for an owner spender pair address. `owner` + `spender` is always 64 bytes long
  *   and thus can not conflict with other keys.
  */
 pub const KEY_TOTAL_SUPPLY: &[u8] = b"total_supply";
@@ -92,7 +93,7 @@ pub fn init<T: Storage>(store: &mut T, _params: Params, msg: Vec<u8>) -> Result<
     // Initial balances
     let mut total: u128 = 0;
     for row in msg.initial_balances {
-        let raw_address = parse_20bytes_from_hex(&row.address)?;
+        let raw_address = address_to_key(&row.address);
         let amount_raw = parse_u128(&row.amount)?;
         store.set(&raw_address, &amount_raw.to_be_bytes());
         total += amount_raw;
@@ -124,8 +125,8 @@ fn try_transfer<T: Storage>(
     recipient: &str,
     amount: &str,
 ) -> Result<Response> {
-    let sender_address_raw = parse_20bytes_from_hex(&params.message.signer)?;
-    let recipient_address_raw = parse_20bytes_from_hex(&recipient)?;
+    let sender_address_raw = address_to_key(&params.message.signer);
+    let recipient_address_raw = address_to_key(&recipient);
     let amount_raw = parse_u128(amount)?;
 
     perform_transfer(
@@ -150,9 +151,9 @@ fn try_transfer_from<T: Storage>(
     recipient: &str,
     amount: &str,
 ) -> Result<Response> {
-    let spender_address_raw = parse_20bytes_from_hex(&params.message.signer)?;
-    let owner_address_raw = parse_20bytes_from_hex(&owner)?;
-    let recipient_address_raw = parse_20bytes_from_hex(&recipient)?;
+    let spender_address_raw = address_to_key(&params.message.signer);
+    let owner_address_raw = address_to_key(&owner);
+    let recipient_address_raw = address_to_key(&recipient);
     let amount_raw = parse_u128(amount)?;
 
     let mut allowance = read_allowance(store, &owner_address_raw, &spender_address_raw)?;
@@ -188,8 +189,8 @@ fn try_approve<T: Storage>(
     spender: &str,
     amount: &str,
 ) -> Result<Response> {
-    let owner_address_raw = parse_20bytes_from_hex(&params.message.signer)?;
-    let spender_address_raw = parse_20bytes_from_hex(&spender)?;
+    let owner_address_raw = address_to_key(&params.message.signer);
+    let spender_address_raw = address_to_key(&spender);
     let amount_raw = parse_u128(amount)?;
     write_allowance(store, &owner_address_raw, &spender_address_raw, amount_raw);
     let res = Response {
@@ -202,8 +203,8 @@ fn try_approve<T: Storage>(
 
 fn perform_transfer<T: Storage>(
     store: &mut T,
-    from: &[u8; 20],
-    to: &[u8; 20],
+    from: &[u8; 32],
+    to: &[u8; 32],
     amount: u128,
 ) -> Result<()> {
     let mut from_balance = read_u128(store, from)?;
@@ -254,31 +255,27 @@ pub fn parse_u128(decimal: &str) -> Result<u128> {
     }
 }
 
-fn read_allowance<T: Storage>(store: &T, owner: &[u8; 20], spender: &[u8; 20]) -> Result<u128> {
+fn read_allowance<T: Storage>(store: &T, owner: &[u8; 32], spender: &[u8; 32]) -> Result<u128> {
     let key = [&owner[..], &spender[..]].concat();
     return read_u128(store, &key);
 }
 
 fn write_allowance<T: Storage>(
     store: &mut T,
-    owner: &[u8; 20],
-    spender: &[u8; 20],
+    owner: &[u8; 32],
+    spender: &[u8; 32],
     amount: u128,
 ) -> () {
     let key = [&owner[..], &spender[..]].concat();
     store.set(&key, &amount.to_be_bytes());
 }
 
-pub fn parse_20bytes_from_hex(data: &str) -> Result<[u8; 20]> {
-    use std::error::Error as StdError;
-    let mut out = [0u8; 20];
-    match hex::decode_to_slice(data, &mut out as &mut [u8]) {
-        Ok(_) => Ok(out),
-        Err(e) => DynContractErr {
-            msg: format!("parsing hash: {}", e.description()),
-        }
-        .fail(),
-    }
+// We assume the printable addresses we receive always have the same string representation
+// TODO: Consider using faster, non-cryptographic hasher if relevant
+pub fn address_to_key(printable: &str) -> [u8; 32] {
+    let data = Sha256::digest(printable.as_bytes());
+    let fixed_size_data: [u8; 32] = data[..].try_into().unwrap();
+    return fixed_size_data;
 }
 
 fn is_valid_name(name: &str) -> bool {
