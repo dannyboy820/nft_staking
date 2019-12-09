@@ -207,7 +207,7 @@ fn perform_transfer<T: Storage>(
     to: &[u8; 32],
     amount: u128,
 ) -> Result<()> {
-    let mut from_balance = read_u128(store, from)?;
+    let mut from_balance = read_balance(store, from)?;
 
     if from_balance < amount {
         return DynContractErr {
@@ -219,7 +219,7 @@ fn perform_transfer<T: Storage>(
         .fail();
     }
 
-    let mut to_balance = read_u128(store, to)?;
+    let mut to_balance = read_balance(store, to)?;
 
     from_balance -= amount;
     to_balance += amount;
@@ -253,6 +253,10 @@ pub fn parse_u128(decimal: &str) -> Result<u128> {
         }
         .fail(),
     }
+}
+
+fn read_balance<T: Storage>(store: &T, owner: &[u8; 32]) -> Result<u128> {
+    return read_u128(store, owner);
 }
 
 fn read_allowance<T: Storage>(store: &T, owner: &[u8; 32], spender: &[u8; 32]) -> Result<u128> {
