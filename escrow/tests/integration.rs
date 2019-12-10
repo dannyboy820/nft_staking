@@ -59,8 +59,8 @@ fn proper_initialization() {
     assert_eq!(0, res.messages.len());
 
     // it worked, let's query the state
-    let mut q_res = query(&mut store, raw_query(CONFIG_KEY).unwrap()).unwrap();
-    let model = q_res.results.pop().expect("no data stored");
+    let q_res = query(&mut store, raw_query(CONFIG_KEY).unwrap()).unwrap();
+    let model = q_res.results.first().expect("no data stored");
     let state: State = from_slice(&model.val).unwrap();
     assert_eq!(
         state,
