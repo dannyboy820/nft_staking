@@ -1,13 +1,15 @@
 use std::convert::TryInto;
+use std::str::from_utf8;
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use snafu::ResultExt;
 
-use cosmwasm::errors::{ContractErr, DynContractErr, ParseErr, Result};
+use cosmwasm::errors::{ContractErr, DynContractErr, ParseErr, Result, Utf8Err};
+use cosmwasm::query::perform_raw_query;
 use cosmwasm::serde::from_slice;
 use cosmwasm::storage::Storage;
-use cosmwasm::types::{Params, Response};
+use cosmwasm::types::{Params, QueryResponse, RawQuery, Response};
 
 #[derive(Serialize, Deserialize, Clone, PartialEq)]
 pub struct InitialBalance {
@@ -39,6 +41,12 @@ pub enum HandleMsg {
         recipient: String,
         amount: String,
     },
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum QueryMsg {
+    TotalSupply,
 }
 
 /**
@@ -116,6 +124,18 @@ pub fn handle<T: Storage>(store: &mut T, params: Params, msg: Vec<u8>) -> Result
             recipient,
             amount,
         } => try_transfer_from(store, params, &owner, &recipient, &amount),
+    }
+}
+
+pub fn query<T: Storage>(store: &T, msg: Vec<u8>) -> Result<QueryResponse> {
+    let msg: QueryMsg = from_slice(&msg).context(ParseErr { kind: "QueryMsg" })?;
+    match msg {
+        QueryMsg::TotalSupply => perform_raw_query(
+            store,
+            RawQuery {
+                key: from_utf8(KEY_TOTAL_SUPPLY).context(Utf8Err {})?.to_string(),
+            },
+        ),
     }
 }
 
@@ -230,17 +250,23 @@ fn perform_transfer<T: Storage>(
     Ok(())
 }
 
+// Converts 16 bytes value into u128
+// Errors if data found that is not 16 bytes
+pub fn bytes_to_u128(data: &[u8]) -> Result<u128> {
+    match data[0..16].try_into() {
+        Ok(bytes) => Ok(u128::from_be_bytes(bytes)),
+        Err(_) => ContractErr {
+            msg: "Corrupted data found. 16 byte expected.",
+        }
+        .fail(),
+    }
+}
+
 // Reads 16 byte storage value into u128
-// Returns zero if key does not exist. Errors if data found that is not 8 bytes
+// Returns zero if key does not exist. Errors if data found that is not 16 bytes
 pub fn read_u128<T: Storage>(store: &T, key: &[u8]) -> Result<u128> {
     return match store.get(key) {
-        Some(data) => match data[0..16].try_into() {
-            Ok(bytes) => Ok(u128::from_be_bytes(bytes)),
-            Err(_) => ContractErr {
-                msg: "Corrupted data found. 16 byte expected.",
-            }
-            .fail(),
-        },
+        Some(data) => bytes_to_u128(&data),
         None => Ok(0u128),
     };
 }

@@ -1,12 +1,13 @@
 use cosmwasm::serde::to_vec;
 use cosmwasm::storage::Storage;
 use cosmwasm::types::{mock_params, Coin, Params};
-use cosmwasm_vm::testing::{init, mock_instance};
+use cosmwasm_vm::testing::{init, mock_instance, query};
+use cosmwasm_vm::Instance;
 use std::convert::TryInto;
 
 use erc20::contract::{
-    address_to_key, read_u128, InitMsg, InitialBalance, KEY_DECIMALS, KEY_NAME, KEY_SYMBOL,
-    KEY_TOTAL_SUPPLY,
+    address_to_key, bytes_to_u128, read_u128, InitMsg, InitialBalance, QueryMsg, KEY_DECIMALS,
+    KEY_NAME, KEY_SYMBOL,
 };
 
 static WASM: &[u8] = include_bytes!("../target/wasm32-unknown-unknown/release/erc20.wasm");
@@ -66,8 +67,11 @@ fn get_decimals<T: Storage>(store: &T) -> u8 {
     return value;
 }
 
-fn get_total_supply<T: Storage>(store: &T) -> u128 {
-    return read_u128(store, KEY_TOTAL_SUPPLY).unwrap();
+fn get_total_supply<T: Storage + 'static>(instance: &mut Instance<T>) -> u128 {
+    let query_msg = to_vec(&QueryMsg::TotalSupply).unwrap();
+    let query_res = query(instance, query_msg).unwrap();
+    let model = query_res.results.first().expect("no data stored");
+    return bytes_to_u128(&model.val).unwrap();
 }
 
 fn get_balance<T: Storage>(store: &T, address: &str) -> u128 {
@@ -83,12 +87,14 @@ fn proper_initialization() {
     let res = init(&mut instance, params, msg).unwrap();
     assert_eq!(0, res.messages.len());
 
-    // it worked, let's query the store
+    // query via message
+    assert_eq!(get_total_supply(&mut instance), 66);
+
+    // query the store directly
     instance.with_storage(|store| {
         assert_eq!(get_name(store), "Ash token");
         assert_eq!(get_symbol(store), "ASH");
         assert_eq!(get_decimals(store), 5);
-        assert_eq!(get_total_supply(store), 66);
         assert_eq!(get_balance(store, "addr0000"), 11);
         assert_eq!(get_balance(store, "addr1111"), 22);
         assert_eq!(get_balance(store, "addr4321"), 33);

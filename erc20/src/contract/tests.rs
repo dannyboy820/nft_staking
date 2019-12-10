@@ -1,5 +1,5 @@
 use super::*;
-use cosmwasm::errors::Error;
+use cosmwasm::errors::{Error, SerializeErr};
 use cosmwasm::mock::MockStorage;
 use cosmwasm::serde::to_vec;
 use cosmwasm::types::mock_params;
@@ -30,7 +30,12 @@ fn get_decimals<T: Storage>(store: &T) -> u8 {
 }
 
 fn get_total_supply<T: Storage>(store: &T) -> u128 {
-    return read_u128(store, KEY_TOTAL_SUPPLY).unwrap();
+    let query_msg = to_vec(&QueryMsg::TotalSupply)
+        .context(SerializeErr { kind: "QueryMsg" })
+        .unwrap();
+    let query_res = query(store, query_msg).unwrap();
+    let model = query_res.results.first().expect("no data stored");
+    return bytes_to_u128(&model.val).unwrap();
 }
 
 fn get_balance<T: Storage>(store: &T, address: &str) -> u128 {
