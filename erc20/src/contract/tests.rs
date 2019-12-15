@@ -1,5 +1,5 @@
 use super::*;
-use cosmwasm::errors::{Error, SerializeErr};
+use cosmwasm::errors::Error;
 use cosmwasm::mock::MockStorage;
 use cosmwasm::serde::to_vec;
 use cosmwasm::types::mock_params;
@@ -12,30 +12,47 @@ fn mock_params_height(signer: &str, height: i64, time: i64) -> Params {
 }
 
 fn get_name<T: Storage>(store: &T) -> String {
-    let data = store.get(KEY_NAME).expect("no name data stored");
-    let value = String::from_utf8(data).unwrap();
-    return value;
+    let key = [
+        &[PREFIX_CONFIG.len() as u8] as &[u8],
+        PREFIX_CONFIG,
+        KEY_NAME,
+    ]
+    .concat();
+    let data = store.get(&key).expect("no name data stored");
+    return String::from_utf8(data).unwrap();
 }
 
 fn get_symbol<T: Storage>(store: &T) -> String {
-    let data = store.get(KEY_SYMBOL).expect("no symbol data stored");
-    let value = String::from_utf8(data).unwrap();
-    return value;
+    let key = [
+        &[PREFIX_CONFIG.len() as u8] as &[u8],
+        PREFIX_CONFIG,
+        KEY_SYMBOL,
+    ]
+    .concat();
+    let data = store.get(&key).expect("no symbol data stored");
+    return String::from_utf8(data).unwrap();
 }
 
 fn get_decimals<T: Storage>(store: &T) -> u8 {
-    let data = store.get(KEY_DECIMALS).expect("no decimals data stored");
-    let value = u8::from_be_bytes(data[0..1].try_into().unwrap());
-    return value;
+    let key = [
+        &[PREFIX_CONFIG.len() as u8] as &[u8],
+        PREFIX_CONFIG,
+        KEY_DECIMALS,
+    ]
+    .concat();
+    let data = store.get(&key).expect("no decimals data stored");
+    return u8::from_be_bytes(data[0..1].try_into().unwrap());
 }
 
 fn get_total_supply<T: Storage>(store: &T) -> u128 {
-    let query_msg = to_vec(&QueryMsg::TotalSupply)
-        .context(SerializeErr { kind: "QueryMsg" })
-        .unwrap();
-    let query_res = query(store, query_msg).unwrap();
-    let model = query_res.results.first().expect("no data stored");
-    return bytes_to_u128(&model.val).unwrap();
+    let key = [
+        &[PREFIX_CONFIG.len() as u8] as &[u8],
+        PREFIX_CONFIG,
+        KEY_TOTAL_SUPPLY,
+    ]
+    .concat();
+    let data = store.get(&key).expect("no decimals data stored");
+    return bytes_to_u128(&data).unwrap();
 }
 
 fn get_balance<T: Storage>(store: &T, address: &str) -> u128 {

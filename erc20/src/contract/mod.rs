@@ -2,17 +2,15 @@ mod prefixedstorage;
 
 use prefixedstorage::PrefixedStorage;
 use std::convert::TryInto;
-use std::str::from_utf8;
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use snafu::ResultExt;
 
-use cosmwasm::errors::{ContractErr, DynContractErr, ParseErr, Result, Utf8Err};
-use cosmwasm::query::perform_raw_query;
+use cosmwasm::errors::{ContractErr, DynContractErr, ParseErr, Result};
 use cosmwasm::serde::from_slice;
 use cosmwasm::storage::Storage;
-use cosmwasm::types::{Params, QueryResponse, RawQuery, Response};
+use cosmwasm::types::{Params, QueryResponse, Response};
 
 #[derive(Serialize, Deserialize, Clone, PartialEq)]
 pub struct InitialBalance {
@@ -48,33 +46,33 @@ pub enum HandleMsg {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(rename_all = "lowercase")]
-pub enum QueryMsg {
-    TotalSupply,
-}
+pub enum QueryMsg {}
 
-/**
- * We use well defined storage keys to allow for easy access of this contract's state
- * without the need to execute getter logic.
- *
- * - ascii("name") stores human readable name of the token (3-30 bytes as UTF-8)
- * - ascii("symbol") stores the ticker symbol ([A-Z]{3,6} as ASCII)
- * - ascii("decimals") stores the fractional digits (unsigned int8)
- * - ascii("total_supply") stores the total supply (big endian encoded unsigned int64)
- * - `address_hash` stores balance data (as JSON) for a single address. `address`
- *   is always 32 bytes long and thus can not conflict with other keys.
- * - `owner` + `spender` stores allowance data (big endian encoded unsigned int64)
- *   for an owner spender pair address. `owner` + `spender` is always 64 bytes long
- *   and thus can not conflict with other keys.
- */
+pub const PREFIX_CONFIG: &[u8] = b"config";
+pub const PREFIX_BALANCES: &[u8] = b"balances";
+pub const PREFIX_ALLOWANCES: &[u8] = b"allowances";
+
 pub const KEY_TOTAL_SUPPLY: &[u8] = b"total_supply";
 pub const KEY_NAME: &[u8] = b"name";
 pub const KEY_SYMBOL: &[u8] = b"symbol";
 pub const KEY_DECIMALS: &[u8] = b"decimals";
-pub const PREFIX_BALANCES: &[u8] = b"balances";
-pub const PREFIX_ALLOWANCES: &[u8] = b"allowances";
 
 pub fn init<T: Storage>(store: &mut T, _params: Params, msg: Vec<u8>) -> Result<Response> {
     let msg: InitMsg = from_slice(&msg).context(ParseErr { kind: "InitMsg" })?;
+
+    let mut total_supply: u128 = 0;
+    {
+        // Initial balances
+        let mut balances_store = PrefixedStorage::new(store, PREFIX_BALANCES);
+        for row in msg.initial_balances {
+            let raw_address = address_to_key(&row.address);
+            let amount_raw = parse_u128(&row.amount)?;
+            balances_store.set(&raw_address, &amount_raw.to_be_bytes());
+            total_supply += amount_raw;
+        }
+    }
+
+    let mut config_store = PrefixedStorage::new(store, PREFIX_CONFIG);
 
     // Name
     if !is_valid_name(&msg.name) {
@@ -83,7 +81,7 @@ pub fn init<T: Storage>(store: &mut T, _params: Params, msg: Vec<u8>) -> Result<
         }
         .fail();
     }
-    store.set(KEY_NAME, msg.name.as_bytes());
+    config_store.set(KEY_NAME, msg.name.as_bytes());
 
     // Symbol
     if !is_valid_symbol(&msg.symbol) {
@@ -92,7 +90,7 @@ pub fn init<T: Storage>(store: &mut T, _params: Params, msg: Vec<u8>) -> Result<
         }
         .fail();
     }
-    store.set(KEY_SYMBOL, msg.symbol.as_bytes());
+    config_store.set(KEY_SYMBOL, msg.symbol.as_bytes());
 
     // Decimals
     if msg.decimals > 18 {
@@ -101,18 +99,10 @@ pub fn init<T: Storage>(store: &mut T, _params: Params, msg: Vec<u8>) -> Result<
         }
         .fail();
     }
-    store.set(KEY_DECIMALS, &msg.decimals.to_be_bytes());
+    config_store.set(KEY_DECIMALS, &msg.decimals.to_be_bytes());
 
-    // Initial balances
-    let mut balances_store = PrefixedStorage::new(store, PREFIX_BALANCES);
-    let mut total: u128 = 0;
-    for row in msg.initial_balances {
-        let raw_address = address_to_key(&row.address);
-        let amount_raw = parse_u128(&row.amount)?;
-        balances_store.set(&raw_address, &amount_raw.to_be_bytes());
-        total += amount_raw;
-    }
-    store.set(KEY_TOTAL_SUPPLY, &total.to_be_bytes());
+    // Total supply
+    config_store.set(KEY_TOTAL_SUPPLY, &total_supply.to_be_bytes());
 
     Ok(Response::default())
 }
@@ -133,16 +123,9 @@ pub fn handle<T: Storage>(store: &mut T, params: Params, msg: Vec<u8>) -> Result
     }
 }
 
-pub fn query<T: Storage>(store: &T, msg: Vec<u8>) -> Result<QueryResponse> {
+pub fn query<T: Storage>(_store: &T, msg: Vec<u8>) -> Result<QueryResponse> {
     let msg: QueryMsg = from_slice(&msg).context(ParseErr { kind: "QueryMsg" })?;
-    match msg {
-        QueryMsg::TotalSupply => perform_raw_query(
-            store,
-            RawQuery {
-                key: from_utf8(KEY_TOTAL_SUPPLY).context(Utf8Err {})?.to_string(),
-            },
-        ),
-    }
+    match msg {}
 }
 
 fn try_transfer<T: Storage>(
