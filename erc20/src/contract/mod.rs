@@ -1,3 +1,6 @@
+mod prefixedstorage;
+
+use prefixedstorage::PrefixedStorage;
 use std::convert::TryInto;
 use std::str::from_utf8;
 
@@ -67,6 +70,7 @@ pub const KEY_TOTAL_SUPPLY: &[u8] = b"total_supply";
 pub const KEY_NAME: &[u8] = b"name";
 pub const KEY_SYMBOL: &[u8] = b"symbol";
 pub const KEY_DECIMALS: &[u8] = b"decimals";
+pub const PREFIX_BALANCES: &[u8] = b"balances";
 
 pub fn init<T: Storage>(store: &mut T, _params: Params, msg: Vec<u8>) -> Result<Response> {
     let msg: InitMsg = from_slice(&msg).context(ParseErr { kind: "InitMsg" })?;
@@ -99,11 +103,12 @@ pub fn init<T: Storage>(store: &mut T, _params: Params, msg: Vec<u8>) -> Result<
     store.set(KEY_DECIMALS, &msg.decimals.to_be_bytes());
 
     // Initial balances
+    let mut balances_store = PrefixedStorage::new(store, PREFIX_BALANCES);
     let mut total: u128 = 0;
     for row in msg.initial_balances {
         let raw_address = address_to_key(&row.address);
         let amount_raw = parse_u128(&row.amount)?;
-        store.set(&raw_address, &amount_raw.to_be_bytes());
+        balances_store.set(&raw_address, &amount_raw.to_be_bytes());
         total += amount_raw;
     }
     store.set(KEY_TOTAL_SUPPLY, &total.to_be_bytes());
@@ -227,7 +232,8 @@ fn perform_transfer<T: Storage>(
     to: &[u8; 32],
     amount: u128,
 ) -> Result<()> {
-    let mut from_balance = read_balance(store, from)?;
+    let mut balances_store = PrefixedStorage::new(store, PREFIX_BALANCES);
+    let mut from_balance = read_u128(&balances_store, from)?;
 
     if from_balance < amount {
         return DynContractErr {
@@ -239,13 +245,13 @@ fn perform_transfer<T: Storage>(
         .fail();
     }
 
-    let mut to_balance = read_balance(store, to)?;
+    let mut to_balance = read_u128(&balances_store, to)?;
 
     from_balance -= amount;
     to_balance += amount;
 
-    store.set(from, &from_balance.to_be_bytes());
-    store.set(to, &to_balance.to_be_bytes());
+    balances_store.set(from, &from_balance.to_be_bytes());
+    balances_store.set(to, &to_balance.to_be_bytes());
 
     Ok(())
 }
@@ -279,10 +285,6 @@ pub fn parse_u128(decimal: &str) -> Result<u128> {
         }
         .fail(),
     }
-}
-
-fn read_balance<T: Storage>(store: &T, owner: &[u8; 32]) -> Result<u128> {
-    return read_u128(store, owner);
 }
 
 fn read_allowance<T: Storage>(store: &T, owner: &[u8; 32], spender: &[u8; 32]) -> Result<u128> {

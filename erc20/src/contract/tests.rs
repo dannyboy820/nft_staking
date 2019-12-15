@@ -39,7 +39,13 @@ fn get_total_supply<T: Storage>(store: &T) -> u128 {
 }
 
 fn get_balance<T: Storage>(store: &T, address: &str) -> u128 {
-    let key = address_to_key(&address);
+    let address_key = address_to_key(&address);
+    let key = [
+        &[PREFIX_BALANCES.len() as u8] as &[u8],
+        PREFIX_BALANCES,
+        &address_key[..],
+    ]
+    .concat();
     return read_u128(store, &key).unwrap();
 }
 

@@ -7,7 +7,7 @@ use std::convert::TryInto;
 
 use erc20::contract::{
     address_to_key, bytes_to_u128, read_u128, InitMsg, InitialBalance, QueryMsg, KEY_DECIMALS,
-    KEY_NAME, KEY_SYMBOL,
+    KEY_NAME, KEY_SYMBOL, PREFIX_BALANCES,
 };
 
 static WASM: &[u8] = include_bytes!("../target/wasm32-unknown-unknown/release/erc20.wasm");
@@ -75,7 +75,13 @@ fn get_total_supply<T: Storage + 'static>(instance: &mut Instance<T>) -> u128 {
 }
 
 fn get_balance<T: Storage>(store: &T, address: &str) -> u128 {
-    let key = address_to_key(&address);
+    let address_key = address_to_key(&address);
+    let key = [
+        &[PREFIX_BALANCES.len() as u8] as &[u8],
+        PREFIX_BALANCES,
+        &address_key[..],
+    ]
+    .concat();
     return read_u128(store, &key).unwrap();
 }
 
