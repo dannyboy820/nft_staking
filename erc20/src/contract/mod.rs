@@ -46,6 +46,10 @@ pub enum HandleMsg {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(rename_all = "lowercase")]
+// Unused for now. TODO: Create smart queries for balances and allowances that
+// take human readable addresses once those issues are resolved
+// 1. https://github.com/confio/cosmwasm/issues/73
+// 2. https://github.com/confio/cosmwasm/issues/72
 pub enum QueryMsg {}
 
 pub const PREFIX_CONFIG: &[u8] = b"config";
