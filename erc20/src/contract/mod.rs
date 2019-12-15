@@ -71,6 +71,7 @@ pub const KEY_NAME: &[u8] = b"name";
 pub const KEY_SYMBOL: &[u8] = b"symbol";
 pub const KEY_DECIMALS: &[u8] = b"decimals";
 pub const PREFIX_BALANCES: &[u8] = b"balances";
+pub const PREFIX_ALLOWANCES: &[u8] = b"allowances";
 
 pub fn init<T: Storage>(store: &mut T, _params: Params, msg: Vec<u8>) -> Result<Response> {
     let msg: InitMsg = from_slice(&msg).context(ParseErr { kind: "InitMsg" })?;
@@ -287,9 +288,10 @@ pub fn parse_u128(decimal: &str) -> Result<u128> {
     }
 }
 
-fn read_allowance<T: Storage>(store: &T, owner: &[u8; 32], spender: &[u8; 32]) -> Result<u128> {
+fn read_allowance<T: Storage>(store: &mut T, owner: &[u8; 32], spender: &[u8; 32]) -> Result<u128> {
+    let allowances_store = PrefixedStorage::new(store, PREFIX_ALLOWANCES);
     let key = [&owner[..], &spender[..]].concat();
-    return read_u128(store, &key);
+    return read_u128(&allowances_store, &key);
 }
 
 fn write_allowance<T: Storage>(
@@ -298,8 +300,9 @@ fn write_allowance<T: Storage>(
     spender: &[u8; 32],
     amount: u128,
 ) -> () {
+    let mut allowances_store = PrefixedStorage::new(store, PREFIX_ALLOWANCES);
     let key = [&owner[..], &spender[..]].concat();
-    store.set(&key, &amount.to_be_bytes());
+    allowances_store.set(&key, &amount.to_be_bytes());
 }
 
 // We assume the printable addresses we receive always have the same string representation

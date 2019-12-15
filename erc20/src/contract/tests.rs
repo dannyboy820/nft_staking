@@ -52,7 +52,13 @@ fn get_balance<T: Storage>(store: &T, address: &str) -> u128 {
 fn get_allowance<T: Storage>(store: &T, owner: &str, spender: &str) -> u128 {
     let owner_raw_address = address_to_key(owner);
     let spender_raw_address = address_to_key(spender);
-    let key = [&owner_raw_address[..], &spender_raw_address[..]].concat();
+    let key = [
+        &[PREFIX_ALLOWANCES.len() as u8] as &[u8],
+        PREFIX_ALLOWANCES,
+        &owner_raw_address[..],
+        &spender_raw_address[..],
+    ]
+    .concat();
     return read_u128(store, &key).unwrap();
 }
 
