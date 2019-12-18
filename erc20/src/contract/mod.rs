@@ -1,5 +1,7 @@
 mod prefixedstorage;
 
+use schemars::JsonSchema;
+
 use prefixedstorage::PrefixedStorage;
 use std::convert::TryInto;
 
@@ -12,13 +14,13 @@ use cosmwasm::serde::from_slice;
 use cosmwasm::storage::Storage;
 use cosmwasm::types::{Params, QueryResponse, Response};
 
-#[derive(Serialize, Deserialize, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema)]
 pub struct InitialBalance {
     pub address: String,
     pub amount: String,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, JsonSchema)]
 pub struct InitMsg {
     pub name: String,
     pub symbol: String,
@@ -26,7 +28,7 @@ pub struct InitMsg {
     pub initial_balances: Vec<InitialBalance>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum HandleMsg {
     Approve {
@@ -44,7 +46,7 @@ pub enum HandleMsg {
     },
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "lowercase")]
 // Unused for now. TODO: Create smart queries for balances and allowances that
 // take human readable addresses once those issues are resolved

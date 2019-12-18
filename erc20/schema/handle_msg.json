@@ -1,0 +1,79 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "HandleMsg",
+  "anyOf": [
+    {
+      "type": "object",
+      "required": [
+        "approve"
+      ],
+      "properties": {
+        "approve": {
+          "type": "object",
+          "required": [
+            "amount",
+            "spender"
+          ],
+          "properties": {
+            "amount": {
+              "type": "string"
+            },
+            "spender": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "transfer"
+      ],
+      "properties": {
+        "transfer": {
+          "type": "object",
+          "required": [
+            "amount",
+            "recipient"
+          ],
+          "properties": {
+            "amount": {
+              "type": "string"
+            },
+            "recipient": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "transferfrom"
+      ],
+      "properties": {
+        "transferfrom": {
+          "type": "object",
+          "required": [
+            "amount",
+            "owner",
+            "recipient"
+          ],
+          "properties": {
+            "amount": {
+              "type": "string"
+            },
+            "owner": {
+              "type": "string"
+            },
+            "recipient": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  ]
+}
