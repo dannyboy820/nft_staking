@@ -29,6 +29,9 @@ jobs:
           name: Integration Tests
           env: RUST_BACKTRACE=1
           command: cargo test --locked
+      - run:
+          name: Build and run schema generator
+          command: cargo schema --locked
       - save_cache:
           paths:
             - /usr/local/cargo/registry
