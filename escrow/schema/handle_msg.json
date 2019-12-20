@@ -4,7 +4,9 @@
   "anyOf": [
     {
       "type": "object",
-      "required": [ "approve" ],
+      "required": [
+        "approve"
+      ],
       "properties": {
         "approve": {
           "type": "object",
