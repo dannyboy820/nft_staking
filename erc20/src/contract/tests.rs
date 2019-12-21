@@ -71,9 +71,9 @@ fn get_allowance<S: ReadonlyStorage, A: Api>(
     let spender_raw_address = api
         .canonical_address(spender)
         .expect("canonical_address failed");
-    let key = [&owner_raw_address[..], &spender_raw_address[..]].concat();
     let allowances_storage = ReadonlyPrefixedStorage::new(storage, PREFIX_ALLOWANCES);
-    return read_u128(&allowances_storage, &key).unwrap();
+    let owner_storage = ReadonlyPrefixedStorage::new(&allowances_storage, &owner_raw_address);
+    return read_u128(&owner_storage, &spender_raw_address).unwrap();
 }
 
 mod init {

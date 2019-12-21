@@ -178,8 +178,7 @@ fn try_transfer_from<S: Storage, A: Api>(
     let recipient_address_raw = deps.api.canonical_address(recipient)?;
     let amount_raw = parse_u128(amount)?;
 
-    let mut allowance =
-        read_allowance(&mut deps.storage, &owner_address_raw, &spender_address_raw)?;
+    let mut allowance = read_allowance(&deps.storage, &owner_address_raw, &spender_address_raw)?;
     if allowance < amount_raw {
         return DynContractErr {
             msg: format!(
@@ -290,16 +289,16 @@ pub fn parse_u128(decimal: &str) -> Result<u128> {
     }
 }
 
-fn read_allowance<T: Storage>(store: &T, owner: &[u8], spender: &[u8]) -> Result<u128> {
+fn read_allowance<S: Storage>(store: &S, owner: &[u8], spender: &[u8]) -> Result<u128> {
     let allowances_store = ReadonlyPrefixedStorage::new(store, PREFIX_ALLOWANCES);
-    let key = [&owner[..], &spender[..]].concat();
-    return read_u128(&allowances_store, &key);
+    let owner_store = ReadonlyPrefixedStorage::new(&allowances_store, owner);
+    return read_u128(&owner_store, spender);
 }
 
-fn write_allowance<T: Storage>(store: &mut T, owner: &[u8], spender: &[u8], amount: u128) -> () {
+fn write_allowance<S: Storage>(store: &mut S, owner: &[u8], spender: &[u8], amount: u128) -> () {
     let mut allowances_store = PrefixedStorage::new(store, PREFIX_ALLOWANCES);
-    let key = [&owner[..], &spender[..]].concat();
-    allowances_store.set(&key, &amount.to_be_bytes());
+    let mut owner_store = PrefixedStorage::new(&mut allowances_store, owner);
+    owner_store.set(spender, &amount.to_be_bytes());
 }
 
 fn is_valid_name(name: &str) -> bool {
