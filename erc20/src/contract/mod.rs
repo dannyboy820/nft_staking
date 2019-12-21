@@ -1,8 +1,8 @@
-mod prefixedstorage;
+pub mod prefixedstorage;
 
 use schemars::JsonSchema;
 
-use prefixedstorage::PrefixedStorage;
+use prefixedstorage::{PrefixedStorage, ReadonlyPrefixedStorage};
 use std::convert::TryInto;
 
 use serde::{Deserialize, Serialize};
@@ -10,7 +10,7 @@ use snafu::ResultExt;
 
 use cosmwasm::errors::{ContractErr, DynContractErr, ParseErr, Result};
 use cosmwasm::serde::from_slice;
-use cosmwasm::traits::{Api, Extern, Storage};
+use cosmwasm::traits::{Api, Extern, ReadonlyStorage, Storage};
 use cosmwasm::types::{Params, QueryResponse, Response};
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema)]
@@ -273,7 +273,7 @@ pub fn bytes_to_u128(data: &[u8]) -> Result<u128> {
 
 // Reads 16 byte storage value into u128
 // Returns zero if key does not exist. Errors if data found that is not 16 bytes
-pub fn read_u128<T: Storage>(store: &T, key: &[u8]) -> Result<u128> {
+pub fn read_u128<S: ReadonlyStorage>(store: &S, key: &[u8]) -> Result<u128> {
     return match store.get(key) {
         Some(data) => bytes_to_u128(&data),
         None => Ok(0u128),
@@ -290,8 +290,8 @@ pub fn parse_u128(decimal: &str) -> Result<u128> {
     }
 }
 
-fn read_allowance<T: Storage>(store: &mut T, owner: &[u8], spender: &[u8]) -> Result<u128> {
-    let allowances_store = PrefixedStorage::new(store, PREFIX_ALLOWANCES);
+fn read_allowance<T: Storage>(store: &T, owner: &[u8], spender: &[u8]) -> Result<u128> {
+    let allowances_store = ReadonlyPrefixedStorage::new(store, PREFIX_ALLOWANCES);
     let key = [&owner[..], &spender[..]].concat();
     return read_u128(&allowances_store, &key);
 }

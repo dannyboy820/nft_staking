@@ -1,14 +1,16 @@
 use cosmwasm::errors::Error;
 use cosmwasm::mock::{dependencies, mock_params};
 use cosmwasm::serde::to_vec;
-use cosmwasm::traits::{Api, Extern, Storage};
+use cosmwasm::traits::{Api, ReadonlyStorage, Storage};
 use cosmwasm::types::Params;
 use std::convert::TryInto;
 
 use super::{
-    bytes_to_u128, handle, init, read_u128, HandleMsg, InitMsg, InitialBalance, KEY_DECIMALS,
-    KEY_NAME, KEY_SYMBOL, KEY_TOTAL_SUPPLY, PREFIX_ALLOWANCES, PREFIX_BALANCES, PREFIX_CONFIG,
+    bytes_to_u128, handle, init, prefixedstorage, read_u128, HandleMsg, InitMsg, InitialBalance,
+    KEY_DECIMALS, KEY_NAME, KEY_SYMBOL, KEY_TOTAL_SUPPLY, PREFIX_ALLOWANCES, PREFIX_BALANCES,
+    PREFIX_CONFIG,
 };
+use prefixedstorage::ReadonlyPrefixedStorage;
 
 static CANONICAL_LENGTH: usize = 20;
 
@@ -19,87 +21,59 @@ fn mock_params_height<A: Api>(api: &A, signer: &str, height: i64, time: i64) -> 
     params
 }
 
-fn get_name<T: Storage>(store: &T) -> String {
-    let key = [
-        &[0u8],
-        &[PREFIX_CONFIG.len() as u8] as &[u8],
-        PREFIX_CONFIG,
-        KEY_NAME,
-    ]
-    .concat();
-    let data = store.get(&key).expect("no name data stored");
+fn get_name<S: Storage>(storage: &S) -> String {
+    let config_storage = ReadonlyPrefixedStorage::new(storage, PREFIX_CONFIG);
+    let data = config_storage.get(KEY_NAME).expect("no name data stored");
     return String::from_utf8(data).unwrap();
 }
 
-fn get_symbol<T: Storage>(store: &T) -> String {
-    let key = [
-        &[0u8],
-        &[PREFIX_CONFIG.len() as u8] as &[u8],
-        PREFIX_CONFIG,
-        KEY_SYMBOL,
-    ]
-    .concat();
-    let data = store.get(&key).expect("no symbol data stored");
+fn get_symbol<S: Storage>(storage: &S) -> String {
+    let config_storage = ReadonlyPrefixedStorage::new(storage, PREFIX_CONFIG);
+    let data = config_storage
+        .get(KEY_SYMBOL)
+        .expect("no symbol data stored");
     return String::from_utf8(data).unwrap();
 }
 
-fn get_decimals<T: Storage>(store: &T) -> u8 {
-    let key = [
-        &[0u8],
-        &[PREFIX_CONFIG.len() as u8] as &[u8],
-        PREFIX_CONFIG,
-        KEY_DECIMALS,
-    ]
-    .concat();
-    let data = store.get(&key).expect("no decimals data stored");
+fn get_decimals<S: Storage>(storage: &S) -> u8 {
+    let config_storage = ReadonlyPrefixedStorage::new(storage, PREFIX_CONFIG);
+    let data = config_storage
+        .get(KEY_DECIMALS)
+        .expect("no decimals data stored");
     return u8::from_be_bytes(data[0..1].try_into().unwrap());
 }
 
-fn get_total_supply<T: Storage>(store: &T) -> u128 {
-    let key = [
-        &[0u8],
-        &[PREFIX_CONFIG.len() as u8] as &[u8],
-        PREFIX_CONFIG,
-        KEY_TOTAL_SUPPLY,
-    ]
-    .concat();
-    let data = store.get(&key).expect("no decimals data stored");
+fn get_total_supply<S: Storage>(storage: &S) -> u128 {
+    let config_storage = ReadonlyPrefixedStorage::new(storage, PREFIX_CONFIG);
+    let data = config_storage
+        .get(KEY_TOTAL_SUPPLY)
+        .expect("no decimals data stored");
     return bytes_to_u128(&data).unwrap();
 }
 
-fn get_balance<S: Storage, A: Api>(deps: &Extern<S, A>, address: &str) -> u128 {
-    let address_key = deps
-        .api
+fn get_balance<S: ReadonlyStorage, A: Api>(api: &A, storage: &S, address: &str) -> u128 {
+    let address_key = api
         .canonical_address(address)
         .expect("canonical_address failed");
-    let key = [
-        &[0u8],
-        &[PREFIX_BALANCES.len() as u8] as &[u8],
-        PREFIX_BALANCES,
-        &address_key[..],
-    ]
-    .concat();
-    return read_u128(&deps.storage, &key).unwrap();
+    let balances_storage = ReadonlyPrefixedStorage::new(storage, PREFIX_BALANCES);
+    return read_u128(&balances_storage, &address_key).unwrap();
 }
 
-fn get_allowance<S: Storage, A: Api>(deps: &Extern<S, A>, owner: &str, spender: &str) -> u128 {
-    let owner_raw_address = deps
-        .api
+fn get_allowance<S: ReadonlyStorage, A: Api>(
+    api: &A,
+    storage: &S,
+    owner: &str,
+    spender: &str,
+) -> u128 {
+    let owner_raw_address = api
         .canonical_address(owner)
         .expect("canonical_address failed");
-    let spender_raw_address = deps
-        .api
+    let spender_raw_address = api
         .canonical_address(spender)
         .expect("canonical_address failed");
-    let key = [
-        &[0u8],
-        &[PREFIX_ALLOWANCES.len() as u8] as &[u8],
-        PREFIX_ALLOWANCES,
-        &owner_raw_address[..],
-        &spender_raw_address[..],
-    ]
-    .concat();
-    return read_u128(&deps.storage, &key).unwrap();
+    let key = [&owner_raw_address[..], &spender_raw_address[..]].concat();
+    let allowances_storage = ReadonlyPrefixedStorage::new(storage, PREFIX_ALLOWANCES);
+    return read_u128(&allowances_storage, &key).unwrap();
 }
 
 mod init {
@@ -126,7 +100,7 @@ mod init {
         assert_eq!(get_name(&deps.storage), "Cash Token");
         assert_eq!(get_symbol(&deps.storage), "CASH");
         assert_eq!(get_decimals(&deps.storage), 9);
-        assert_eq!(get_balance(&deps, "addr0000"), 11223344);
+        assert_eq!(get_balance(&deps.api, &deps.storage, "addr0000"), 11223344);
         assert_eq!(get_total_supply(&deps.storage), 11223344);
     }
 
@@ -175,9 +149,9 @@ mod init {
         let res = init(&mut deps, params, msg).unwrap();
         assert_eq!(0, res.messages.len());
 
-        assert_eq!(get_balance(&deps, "addr0000"), 11);
-        assert_eq!(get_balance(&deps, "addr1111"), 22);
-        assert_eq!(get_balance(&deps, "addrbbbb"), 33);
+        assert_eq!(get_balance(&deps.api, &deps.storage, "addr0000"), 11);
+        assert_eq!(get_balance(&deps.api, &deps.storage, "addr1111"), 22);
+        assert_eq!(get_balance(&deps.api, &deps.storage, "addrbbbb"), 33);
         assert_eq!(get_total_supply(&deps.storage), 66);
     }
 
@@ -207,7 +181,10 @@ mod init {
         assert_eq!(get_name(&deps.storage), "Cash Token");
         assert_eq!(get_symbol(&deps.storage), "CASH");
         assert_eq!(get_decimals(&deps.storage), 9);
-        assert_eq!(get_balance(&deps, "addr0000"), 9007199254740993);
+        assert_eq!(
+            get_balance(&deps.api, &deps.storage, "addr0000"),
+            9007199254740993
+        );
         assert_eq!(get_total_supply(&deps.storage), 9007199254740993);
     }
 
@@ -234,7 +211,10 @@ mod init {
         assert_eq!(get_name(&deps.storage), "Cash Token");
         assert_eq!(get_symbol(&deps.storage), "CASH");
         assert_eq!(get_decimals(&deps.storage), 9);
-        assert_eq!(get_balance(&deps, "addr0000"), 100000000000000000000000000);
+        assert_eq!(
+            get_balance(&deps.api, &deps.storage, "addr0000"),
+            100000000000000000000000000
+        );
         assert_eq!(get_total_supply(&deps.storage), 100000000000000000000000000);
     }
 
@@ -423,9 +403,9 @@ mod transfer {
         assert_eq!(0, res.messages.len());
 
         // Initial state
-        assert_eq!(get_balance(&deps, "addr0000"), 11);
-        assert_eq!(get_balance(&deps, "addr1111"), 22);
-        assert_eq!(get_balance(&deps, "addrbbbb"), 33);
+        assert_eq!(get_balance(&deps.api, &deps.storage, "addr0000"), 11);
+        assert_eq!(get_balance(&deps.api, &deps.storage, "addr1111"), 22);
+        assert_eq!(get_balance(&deps.api, &deps.storage, "addrbbbb"), 33);
         assert_eq!(get_total_supply(&deps.storage), 66);
 
         // Transfer
@@ -440,9 +420,9 @@ mod transfer {
         assert_eq!(transfer_result.log, Some("transfer successful".to_string()));
 
         // New state
-        assert_eq!(get_balance(&deps, "addr0000"), 10); // -1
-        assert_eq!(get_balance(&deps, "addr1111"), 23); // +1
-        assert_eq!(get_balance(&deps, "addrbbbb"), 33);
+        assert_eq!(get_balance(&deps.api, &deps.storage, "addr0000"), 10); // -1
+        assert_eq!(get_balance(&deps.api, &deps.storage, "addr1111"), 23); // +1
+        assert_eq!(get_balance(&deps.api, &deps.storage, "addrbbbb"), 33);
         assert_eq!(get_total_supply(&deps.storage), 66);
     }
 
@@ -455,9 +435,9 @@ mod transfer {
         assert_eq!(0, res.messages.len());
 
         // Initial state
-        assert_eq!(get_balance(&deps, "addr0000"), 11);
-        assert_eq!(get_balance(&deps, "addr1111"), 22);
-        assert_eq!(get_balance(&deps, "addrbbbb"), 33);
+        assert_eq!(get_balance(&deps.api, &deps.storage, "addr0000"), 11);
+        assert_eq!(get_balance(&deps.api, &deps.storage, "addr1111"), 22);
+        assert_eq!(get_balance(&deps.api, &deps.storage, "addrbbbb"), 33);
         assert_eq!(get_total_supply(&deps.storage), 66);
 
         // Transfer
@@ -472,10 +452,10 @@ mod transfer {
         assert_eq!(transfer_result.log, Some("transfer successful".to_string()));
 
         // New state
-        assert_eq!(get_balance(&deps, "addr0000"), 10);
-        assert_eq!(get_balance(&deps, "addr1111"), 22);
-        assert_eq!(get_balance(&deps, "addr2323"), 1);
-        assert_eq!(get_balance(&deps, "addrbbbb"), 33);
+        assert_eq!(get_balance(&deps.api, &deps.storage, "addr0000"), 10);
+        assert_eq!(get_balance(&deps.api, &deps.storage, "addr1111"), 22);
+        assert_eq!(get_balance(&deps.api, &deps.storage, "addr2323"), 1);
+        assert_eq!(get_balance(&deps.api, &deps.storage, "addrbbbb"), 33);
         assert_eq!(get_total_supply(&deps.storage), 66);
     }
 
@@ -488,9 +468,9 @@ mod transfer {
         assert_eq!(0, res.messages.len());
 
         // Initial state
-        assert_eq!(get_balance(&deps, "addr0000"), 11);
-        assert_eq!(get_balance(&deps, "addr1111"), 22);
-        assert_eq!(get_balance(&deps, "addrbbbb"), 33);
+        assert_eq!(get_balance(&deps.api, &deps.storage, "addr0000"), 11);
+        assert_eq!(get_balance(&deps.api, &deps.storage, "addr1111"), 22);
+        assert_eq!(get_balance(&deps.api, &deps.storage, "addrbbbb"), 33);
         assert_eq!(get_total_supply(&deps.storage), 66);
 
         // Transfer
@@ -505,9 +485,9 @@ mod transfer {
         assert_eq!(transfer_result.log, Some("transfer successful".to_string()));
 
         // New state (unchanged)
-        assert_eq!(get_balance(&deps, "addr0000"), 11);
-        assert_eq!(get_balance(&deps, "addr1111"), 22);
-        assert_eq!(get_balance(&deps, "addrbbbb"), 33);
+        assert_eq!(get_balance(&deps.api, &deps.storage, "addr0000"), 11);
+        assert_eq!(get_balance(&deps.api, &deps.storage, "addr1111"), 22);
+        assert_eq!(get_balance(&deps.api, &deps.storage, "addrbbbb"), 33);
         assert_eq!(get_total_supply(&deps.storage), 66);
     }
 
@@ -520,9 +500,9 @@ mod transfer {
         assert_eq!(0, res.messages.len());
 
         // Initial state
-        assert_eq!(get_balance(&deps, "addr0000"), 11);
-        assert_eq!(get_balance(&deps, "addr1111"), 22);
-        assert_eq!(get_balance(&deps, "addrbbbb"), 33);
+        assert_eq!(get_balance(&deps.api, &deps.storage, "addr0000"), 11);
+        assert_eq!(get_balance(&deps.api, &deps.storage, "addr1111"), 22);
+        assert_eq!(get_balance(&deps.api, &deps.storage, "addrbbbb"), 33);
         assert_eq!(get_total_supply(&deps.storage), 66);
 
         // Transfer
@@ -542,9 +522,9 @@ mod transfer {
         }
 
         // New state (unchanged)
-        assert_eq!(get_balance(&deps, "addr0000"), 11);
-        assert_eq!(get_balance(&deps, "addr1111"), 22);
-        assert_eq!(get_balance(&deps, "addrbbbb"), 33);
+        assert_eq!(get_balance(&deps.api, &deps.storage, "addr0000"), 11);
+        assert_eq!(get_balance(&deps.api, &deps.storage, "addr1111"), 22);
+        assert_eq!(get_balance(&deps.api, &deps.storage, "addrbbbb"), 33);
         assert_eq!(get_total_supply(&deps.storage), 66);
     }
 }
@@ -587,10 +567,16 @@ mod approve {
         assert_eq!(0, res.messages.len());
 
         // Existing owner
-        assert_eq!(get_allowance(&deps, "addr0000", &make_spender()), 0);
+        assert_eq!(
+            get_allowance(&deps.api, &deps.storage, "addr0000", &make_spender()),
+            0
+        );
 
         // Non-existing owner
-        assert_eq!(get_allowance(&deps, "addr4567", &make_spender()), 0);
+        assert_eq!(
+            get_allowance(&deps.api, &deps.storage, "addr4567", &make_spender()),
+            0
+        );
     }
 
     #[test]
@@ -601,7 +587,10 @@ mod approve {
         let res = init(&mut deps, params1, msg).unwrap();
         assert_eq!(0, res.messages.len());
 
-        assert_eq!(get_allowance(&deps, "addr7654", &make_spender()), 0);
+        assert_eq!(
+            get_allowance(&deps.api, &deps.storage, "addr7654", &make_spender()),
+            0
+        );
 
         // First approval
         let approve_msg1 = to_vec(&HandleMsg::Approve {
@@ -614,7 +603,10 @@ mod approve {
         assert_eq!(transfer_result.messages.len(), 0);
         assert_eq!(transfer_result.log, Some("approve successful".to_string()));
 
-        assert_eq!(get_allowance(&deps, "addr7654", &make_spender()), 334422);
+        assert_eq!(
+            get_allowance(&deps.api, &deps.storage, "addr7654", &make_spender()),
+            334422
+        );
 
         // Updated approval
         let approve_msg2 = to_vec(&HandleMsg::Approve {
@@ -627,7 +619,10 @@ mod approve {
         assert_eq!(transfer_result.messages.len(), 0);
         assert_eq!(transfer_result.log, Some("approve successful".to_string()));
 
-        assert_eq!(get_allowance(&deps, "addr7654", &make_spender()), 777888);
+        assert_eq!(
+            get_allowance(&deps.api, &deps.storage, "addr7654", &make_spender()),
+            777888
+        );
     }
 }
 
@@ -683,8 +678,8 @@ mod transfer_from {
         assert_eq!(approve_result.messages.len(), 0);
         assert_eq!(approve_result.log, Some("approve successful".to_string()));
 
-        assert_eq!(get_balance(&deps, owner), 11);
-        assert_eq!(get_allowance(&deps, owner, spender), 4);
+        assert_eq!(get_balance(&deps.api, &deps.storage, owner), 11);
+        assert_eq!(get_allowance(&deps.api, &deps.storage, owner, spender), 4);
 
         // Transfer less than allowance but more than balance
         let fransfer_from_msg = to_vec(&HandleMsg::TransferFrom {
@@ -702,8 +697,8 @@ mod transfer_from {
         );
 
         // State changed
-        assert_eq!(get_balance(&deps, owner), 8);
-        assert_eq!(get_allowance(&deps, owner, spender), 1);
+        assert_eq!(get_balance(&deps.api, &deps.storage, owner), 8);
+        assert_eq!(get_allowance(&deps.api, &deps.storage, owner, spender), 1);
     }
 
     #[test]
@@ -729,8 +724,8 @@ mod transfer_from {
         assert_eq!(approve_result.messages.len(), 0);
         assert_eq!(approve_result.log, Some("approve successful".to_string()));
 
-        assert_eq!(get_balance(&deps, owner), 11);
-        assert_eq!(get_allowance(&deps, owner, spender), 2);
+        assert_eq!(get_balance(&deps.api, &deps.storage, owner), 11);
+        assert_eq!(get_allowance(&deps.api, &deps.storage, owner, spender), 2);
 
         // Transfer less than allowance but more than balance
         let fransfer_from_msg = to_vec(&HandleMsg::TransferFrom {
@@ -751,8 +746,8 @@ mod transfer_from {
 
         // TOOD: is it in scope to test state after execution errors?
         // State unchanged
-        // assert_eq!(get_balance(&deps, owner), 11);
-        // assert_eq!(get_allowance(&deps, owner, spender), 2);
+        // assert_eq!(get_balance(&deps.api, &deps.storage, owner), 11);
+        // assert_eq!(get_allowance(&deps.api, &deps.storage, owner, spender), 2);
     }
 
     #[test]
@@ -778,8 +773,8 @@ mod transfer_from {
         assert_eq!(approve_result.messages.len(), 0);
         assert_eq!(approve_result.log, Some("approve successful".to_string()));
 
-        assert_eq!(get_balance(&deps, owner), 11);
-        assert_eq!(get_allowance(&deps, owner, spender), 20);
+        assert_eq!(get_balance(&deps.api, &deps.storage, owner), 11);
+        assert_eq!(get_allowance(&deps.api, &deps.storage, owner, spender), 20);
 
         // Transfer less than allowance but more than balance
         let fransfer_from_msg = to_vec(&HandleMsg::TransferFrom {
@@ -800,7 +795,7 @@ mod transfer_from {
 
         // TOOD: is it in scope to test state after execution errors?
         // State unchanged
-        // assert_eq!(get_balance(&deps, owner), 11);
-        // assert_eq!(get_allowance(&deps, owner, spender), 20);
+        // assert_eq!(get_balance(&deps.api, &deps.storage, owner), 11);
+        // assert_eq!(get_allowance(&deps.api, &deps.storage, owner, spender), 20);
     }
 }

@@ -12,9 +12,26 @@ fn calculate_prefix_impl(prefix: &[u8]) -> Vec<u8> {
     out
 }
 
+pub struct ReadonlyPrefixedStorage<'a, T: ReadonlyStorage> {
+    store: &'a T,
+    prefix_impl: Vec<u8>,
+}
+
 pub struct PrefixedStorage<'a, T: Storage> {
     store: &'a mut T,
     prefix_impl: Vec<u8>,
+}
+
+impl<'a, T> ReadonlyPrefixedStorage<'a, T>
+where
+    T: ReadonlyStorage,
+{
+    pub fn new(store: &'a T, prefix: &[u8]) -> Self {
+        ReadonlyPrefixedStorage {
+            store,
+            prefix_impl: calculate_prefix_impl(prefix),
+        }
+    }
 }
 
 impl<'a, T> PrefixedStorage<'a, T>
@@ -26,6 +43,16 @@ where
             store,
             prefix_impl: calculate_prefix_impl(prefix),
         }
+    }
+}
+
+impl<'a, T> ReadonlyStorage for ReadonlyPrefixedStorage<'a, T>
+where
+    T: ReadonlyStorage,
+{
+    fn get(&self, key: &[u8]) -> Option<Vec<u8>> {
+        let full_key = [&self.prefix_impl, key].concat();
+        self.store.get(&full_key)
     }
 }
 
