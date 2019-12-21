@@ -34,7 +34,7 @@ pub enum HandleMsg {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum QueryMsg {
-Raw(RawQuery),
+    Raw(RawQuery),
 }
 
 // raw_query is a helper to generate a serialized format of a raw_query
