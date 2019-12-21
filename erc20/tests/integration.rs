@@ -45,6 +45,7 @@ fn mock_params_height<A: Api>(api: &A, signer: &str, height: i64, time: i64) -> 
 
 fn get_name<S: Storage>(store: &S) -> String {
     let key = [
+        &[0u8],
         &[PREFIX_CONFIG.len() as u8] as &[u8],
         PREFIX_CONFIG,
         KEY_NAME,
@@ -56,6 +57,7 @@ fn get_name<S: Storage>(store: &S) -> String {
 
 fn get_symbol<S: Storage>(store: &S) -> String {
     let key = [
+        &[0u8],
         &[PREFIX_CONFIG.len() as u8] as &[u8],
         PREFIX_CONFIG,
         KEY_SYMBOL,
@@ -67,6 +69,7 @@ fn get_symbol<S: Storage>(store: &S) -> String {
 
 fn get_decimals<S: Storage>(store: &S) -> u8 {
     let key = [
+        &[0u8],
         &[PREFIX_CONFIG.len() as u8] as &[u8],
         PREFIX_CONFIG,
         KEY_DECIMALS,
@@ -78,6 +81,7 @@ fn get_decimals<S: Storage>(store: &S) -> u8 {
 
 fn get_total_supply<S: Storage>(store: &S) -> u128 {
     let key = [
+        &[0u8],
         &[PREFIX_CONFIG.len() as u8] as &[u8],
         PREFIX_CONFIG,
         KEY_TOTAL_SUPPLY,
@@ -92,6 +96,7 @@ fn get_balance<S: Storage, A: Api>(api: &A, storage: &S, address: &str) -> u128 
         .canonical_address(address)
         .expect("canonical_address failed");
     let key = [
+        &[0u8],
         &[PREFIX_BALANCES.len() as u8] as &[u8],
         PREFIX_BALANCES,
         &address_key[..],

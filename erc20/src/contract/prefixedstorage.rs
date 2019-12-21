@@ -2,12 +2,12 @@ use cosmwasm::traits::{ReadonlyStorage, Storage};
 
 // prepend length of the prefix
 fn calculate_prefix_impl(prefix: &[u8]) -> Vec<u8> {
-    if prefix.len() > 0xFF {
-        panic!("only supports prefixes up to length 0xFF")
+    if prefix.len() > 0xFFFF {
+        panic!("only supports prefixes up to length 0xFFFF")
     }
-    let mut out = Vec::with_capacity(prefix.len() + 1);
+    let mut out = Vec::with_capacity(prefix.len() + 2);
     let length_bytes = (prefix.len() as u64).to_be_bytes();
-    out.extend_from_slice(&length_bytes[7..8]);
+    out.extend_from_slice(&length_bytes[6..8]);
     out.extend_from_slice(prefix);
     out
 }
@@ -56,24 +56,24 @@ mod tests {
 
     #[test]
     fn calculate_prefix_impl_works() {
-        assert_eq!(calculate_prefix_impl(b""), b"\x00");
-        assert_eq!(calculate_prefix_impl(b"a"), b"\x01a");
-        assert_eq!(calculate_prefix_impl(b"ab"), b"\x02ab");
-        assert_eq!(calculate_prefix_impl(b"abc"), b"\x03abc");
+        assert_eq!(calculate_prefix_impl(b""), b"\x00\x00");
+        assert_eq!(calculate_prefix_impl(b"a"), b"\x00\x01a");
+        assert_eq!(calculate_prefix_impl(b"ab"), b"\x00\x02ab");
+        assert_eq!(calculate_prefix_impl(b"abc"), b"\x00\x03abc");
     }
 
     #[test]
     fn calculate_prefix_impl_works_for_long_prefix() {
-        let limit = 0xFF;
+        let limit = 0xFFFF;
         let long_prefix = vec![0; limit];
         calculate_prefix_impl(&long_prefix);
     }
 
     #[test]
-    #[should_panic(expected = "only supports prefixes up to length 0xFF")]
+    #[should_panic(expected = "only supports prefixes up to length 0xFFFF")]
     fn calculate_prefix_impl_panics_for_too_long_prefix() {
-        let limit = 0xFF;
-        let long_prefix = vec![0; limit+1];
+        let limit = 0xFFFF;
+        let long_prefix = vec![0; limit + 1];
         calculate_prefix_impl(&long_prefix);
     }
 
@@ -92,7 +92,7 @@ mod tests {
         // now check the underlying storage
         let val = store.get(b"bar");
         assert_eq!(val, None);
-        let val = store.get(b"\x03foobar");
+        let val = store.get(b"\x00\x03foobar");
         assert_eq!(val, Some(b"some data".to_vec()));
     }
 }
