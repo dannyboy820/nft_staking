@@ -1,7 +1,7 @@
 use cosmwasm::mock::mock_params;
 use cosmwasm::serde::to_vec;
 use cosmwasm::traits::{Api, Storage};
-use cosmwasm::types::{Coin, Params};
+use cosmwasm::types::Params;
 use cosmwasm_vm::testing::{init, mock_instance};
 use std::convert::TryInto;
 
@@ -36,15 +36,8 @@ fn init_msg() -> Vec<u8> {
     .unwrap()
 }
 
-fn mock_params_height<A: Api>(
-    api: &A,
-    signer: &str,
-    sent: &[Coin],
-    balance: &[Coin],
-    height: i64,
-    time: i64,
-) -> Params {
-    let mut params = mock_params(api, signer, sent, balance);
+fn mock_params_height<A: Api>(api: &A, signer: &str, height: i64, time: i64) -> Params {
+    let mut params = mock_params(api, signer, &[], &[]);
     params.block.height = height;
     params.block.time = time;
     params
@@ -111,7 +104,7 @@ fn get_balance<S: Storage, A: Api>(api: &A, storage: &S, address: &str) -> u128 
 fn proper_initialization() {
     let mut deps = mock_instance(WASM);
     let msg = init_msg();
-    let params = mock_params_height(&deps.api, "creator", &[], &[], 876, 0);
+    let params = mock_params_height(&deps.api, "creator", 876, 0);
     let res = init(&mut deps, params, msg).unwrap();
     assert_eq!(0, res.messages.len());
 
