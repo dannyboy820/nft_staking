@@ -1,4 +1,4 @@
-use cosmwasm::storage::Storage;
+use cosmwasm::traits::{ReadonlyStorage, Storage};
 
 pub struct PrefixedStorage<'a, T: Storage> {
     store: &'a mut T,
@@ -17,7 +17,7 @@ where
     }
 }
 
-impl<'a, T> Storage for PrefixedStorage<'a, T>
+impl<'a, T> ReadonlyStorage for PrefixedStorage<'a, T>
 where
     T: Storage,
 {
@@ -25,7 +25,12 @@ where
         let full_key = [&self.prefix_impl, key].concat();
         self.store.get(&full_key)
     }
+}
 
+impl<'a, T> Storage for PrefixedStorage<'a, T>
+where
+    T: Storage,
+{
     fn set(&mut self, key: &[u8], value: &[u8]) {
         let full_key = [&self.prefix_impl, key].concat();
         self.store.set(&full_key, value);
