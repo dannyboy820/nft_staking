@@ -4,7 +4,9 @@ use std::path::PathBuf;
 
 use schemars::{schema::RootSchema, schema_for};
 
-use erc20::contract::{AllowanceResponse, BalanceResponse, HandleMsg, InitMsg, QueryMsg};
+use erc20::contract::{
+    AllowanceResponse, BalanceResponse, Constants, HandleMsg, InitMsg, QueryMsg,
+};
 
 fn main() {
     let mut pwd = current_dir().unwrap();
@@ -25,6 +27,9 @@ fn main() {
 
     let schema = schema_for!(AllowanceResponse);
     export_schema(&schema, &pwd, "allowance_response.json");
+
+    let schema = schema_for!(Constants);
+    export_schema(&schema, &pwd, "constants.json");
 }
 
 // panics if any error writing out the schema

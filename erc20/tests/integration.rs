@@ -1,13 +1,12 @@
 use cosmwasm::mock::mock_params;
-use cosmwasm::serde::to_vec;
+use cosmwasm::serde::{from_slice, to_vec};
 use cosmwasm::traits::{Api, ReadonlyStorage, Storage};
 use cosmwasm::types::{HumanAddr, Params};
 use cosmwasm_vm::testing::{handle, init, mock_instance};
-use std::convert::TryInto;
 
 use erc20::contract::{
-    bytes_to_u128, prefixedstorage, read_u128, HandleMsg, InitMsg, InitialBalance, KEY_DECIMALS,
-    KEY_NAME, KEY_SYMBOL, KEY_TOTAL_SUPPLY, PREFIX_ALLOWANCES, PREFIX_BALANCES, PREFIX_CONFIG,
+    bytes_to_u128, prefixedstorage, read_u128, Constants, HandleMsg, InitMsg, InitialBalance,
+    KEY_CONSTANTS, KEY_TOTAL_SUPPLY, PREFIX_ALLOWANCES, PREFIX_BALANCES, PREFIX_CONFIG,
 };
 use prefixedstorage::ReadonlyPrefixedStorage;
 
@@ -20,26 +19,12 @@ fn mock_params_height<A: Api>(api: &A, signer: &HumanAddr, height: i64, time: i6
     params
 }
 
-fn get_name<S: Storage>(storage: &S) -> String {
-    let config_storage = ReadonlyPrefixedStorage::new(storage, PREFIX_CONFIG);
-    let data = config_storage.get(KEY_NAME).expect("no name data stored");
-    return String::from_utf8(data).unwrap();
-}
-
-fn get_symbol<S: Storage>(storage: &S) -> String {
+fn get_constants<S: Storage>(storage: &S) -> Constants {
     let config_storage = ReadonlyPrefixedStorage::new(storage, PREFIX_CONFIG);
     let data = config_storage
-        .get(KEY_SYMBOL)
-        .expect("no symbol data stored");
-    return String::from_utf8(data).unwrap();
-}
-
-fn get_decimals<S: Storage>(storage: &S) -> u8 {
-    let config_storage = ReadonlyPrefixedStorage::new(storage, PREFIX_CONFIG);
-    let data = config_storage
-        .get(KEY_DECIMALS)
-        .expect("no decimals data stored");
-    return u8::from_be_bytes(data[0..1].try_into().unwrap());
+        .get(KEY_CONSTANTS)
+        .expect("no config data stored");
+    from_slice(&data).expect("invalid data")
 }
 
 fn get_total_supply<S: Storage>(storage: &S) -> u128 {
@@ -119,9 +104,14 @@ fn init_works() {
 
     // query the store directly
     deps.with_storage(|storage| {
-        assert_eq!(get_name(storage), "Ash token");
-        assert_eq!(get_symbol(storage), "ASH");
-        assert_eq!(get_decimals(storage), 5);
+        assert_eq!(
+            get_constants(storage),
+            Constants {
+                name: "Ash token".to_string(),
+                symbol: "ASH".to_string(),
+                decimals: 5
+            }
+        );
         assert_eq!(get_total_supply(storage), 66);
         assert_eq!(get_balance(&deps.api, storage, &address(0)), 11);
         assert_eq!(get_balance(&deps.api, storage, &address(1)), 22);

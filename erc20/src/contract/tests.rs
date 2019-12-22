@@ -1,14 +1,13 @@
 use cosmwasm::errors::Error;
 use cosmwasm::mock::{dependencies, mock_params};
-use cosmwasm::serde::to_vec;
+use cosmwasm::serde::{from_slice, to_vec};
 use cosmwasm::traits::{Api, ReadonlyStorage, Storage};
 use cosmwasm::types::{HumanAddr, Params};
-use std::convert::TryInto;
 
 use super::{
-    bytes_to_u128, handle, init, prefixedstorage, query, read_u128, HandleMsg, InitMsg,
-    InitialBalance, QueryMsg, KEY_DECIMALS, KEY_NAME, KEY_SYMBOL, KEY_TOTAL_SUPPLY,
-    PREFIX_ALLOWANCES, PREFIX_BALANCES, PREFIX_CONFIG,
+    bytes_to_u128, handle, init, prefixedstorage, query, read_u128, Constants, HandleMsg, InitMsg,
+    InitialBalance, QueryMsg, KEY_CONSTANTS, KEY_TOTAL_SUPPLY, PREFIX_ALLOWANCES, PREFIX_BALANCES,
+    PREFIX_CONFIG,
 };
 use prefixedstorage::ReadonlyPrefixedStorage;
 
@@ -21,26 +20,12 @@ fn mock_params_height<A: Api>(api: &A, signer: &HumanAddr, height: i64, time: i6
     params
 }
 
-fn get_name<S: Storage>(storage: &S) -> String {
-    let config_storage = ReadonlyPrefixedStorage::new(storage, PREFIX_CONFIG);
-    let data = config_storage.get(KEY_NAME).expect("no name data stored");
-    return String::from_utf8(data).unwrap();
-}
-
-fn get_symbol<S: Storage>(storage: &S) -> String {
+fn get_constants<S: Storage>(storage: &S) -> Constants {
     let config_storage = ReadonlyPrefixedStorage::new(storage, PREFIX_CONFIG);
     let data = config_storage
-        .get(KEY_SYMBOL)
-        .expect("no symbol data stored");
-    return String::from_utf8(data).unwrap();
-}
-
-fn get_decimals<S: Storage>(storage: &S) -> u8 {
-    let config_storage = ReadonlyPrefixedStorage::new(storage, PREFIX_CONFIG);
-    let data = config_storage
-        .get(KEY_DECIMALS)
-        .expect("no decimals data stored");
-    return u8::from_be_bytes(data[0..1].try_into().unwrap());
+        .get(KEY_CONSTANTS)
+        .expect("no config data stored");
+    from_slice(&data).expect("invalid data")
 }
 
 fn get_total_supply<S: Storage>(storage: &S) -> u128 {
@@ -98,9 +83,14 @@ mod init {
         let res = init(&mut deps, params, msg).unwrap();
         assert_eq!(0, res.messages.len());
 
-        assert_eq!(get_name(&deps.storage), "Cash Token");
-        assert_eq!(get_symbol(&deps.storage), "CASH");
-        assert_eq!(get_decimals(&deps.storage), 9);
+        assert_eq!(
+            get_constants(&deps.storage),
+            Constants {
+                name: "Cash Token".to_string(),
+                symbol: "CASH".to_string(),
+                decimals: 9
+            }
+        );
         assert_eq!(
             get_balance(&deps.api, &deps.storage, &HumanAddr("addr0000".to_string())),
             11223344
@@ -191,9 +181,6 @@ mod init {
         let res = init(&mut deps, params, msg).unwrap();
         assert_eq!(0, res.messages.len());
 
-        assert_eq!(get_name(&deps.storage), "Cash Token");
-        assert_eq!(get_symbol(&deps.storage), "CASH");
-        assert_eq!(get_decimals(&deps.storage), 9);
         assert_eq!(
             get_balance(&deps.api, &deps.storage, &HumanAddr("addr0000".to_string())),
             9007199254740993
@@ -221,9 +208,6 @@ mod init {
         let res = init(&mut deps, params, msg).unwrap();
         assert_eq!(0, res.messages.len());
 
-        assert_eq!(get_name(&deps.storage), "Cash Token");
-        assert_eq!(get_symbol(&deps.storage), "CASH");
-        assert_eq!(get_decimals(&deps.storage), 9);
         assert_eq!(
             get_balance(&deps.api, &deps.storage, &HumanAddr("addr0000".to_string())),
             100000000000000000000000000

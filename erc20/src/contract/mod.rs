@@ -67,14 +67,19 @@ pub struct AllowanceResponse {
     pub allowance: String,
 }
 
+#[derive(Serialize, Debug, Deserialize, Clone, PartialEq, JsonSchema)]
+pub struct Constants {
+    pub name: String,
+    pub symbol: String,
+    pub decimals: u8,
+}
+
 pub const PREFIX_CONFIG: &[u8] = b"config";
 pub const PREFIX_BALANCES: &[u8] = b"balances";
 pub const PREFIX_ALLOWANCES: &[u8] = b"allowances";
 
+pub const KEY_CONSTANTS: &[u8] = b"constants";
 pub const KEY_TOTAL_SUPPLY: &[u8] = b"total_supply";
-pub const KEY_NAME: &[u8] = b"name";
-pub const KEY_SYMBOL: &[u8] = b"symbol";
-pub const KEY_DECIMALS: &[u8] = b"decimals";
 
 pub fn init<S: Storage, A: Api>(
     deps: &mut Extern<S, A>,
@@ -95,36 +100,34 @@ pub fn init<S: Storage, A: Api>(
         }
     }
 
-    let mut config_store = PrefixedStorage::new(&mut deps.storage, PREFIX_CONFIG);
-
-    // Name
+    // Check name, symbol, decimals
     if !is_valid_name(&msg.name) {
         return ContractErr {
             msg: "Name is not in the expected format (3-30 UTF-8 bytes)",
         }
         .fail();
     }
-    config_store.set(KEY_NAME, msg.name.as_bytes());
-
-    // Symbol
     if !is_valid_symbol(&msg.symbol) {
         return ContractErr {
             msg: "Ticker symbol is not in expected format [A-Z]{3,6}",
         }
         .fail();
     }
-    config_store.set(KEY_SYMBOL, msg.symbol.as_bytes());
-
-    // Decimals
     if msg.decimals > 18 {
         return ContractErr {
             msg: "Decimals must not exceed 18",
         }
         .fail();
     }
-    config_store.set(KEY_DECIMALS, &msg.decimals.to_be_bytes());
 
-    // Total supply
+    let mut config_store = PrefixedStorage::new(&mut deps.storage, PREFIX_CONFIG);
+    let constants = to_vec(&Constants {
+        name: msg.name,
+        symbol: msg.symbol,
+        decimals: msg.decimals,
+    })
+    .context(SerializeErr { kind: "Constants" })?;
+    config_store.set(KEY_CONSTANTS, &constants);
     config_store.set(KEY_TOTAL_SUPPLY, &total_supply.to_be_bytes());
 
     Ok(Response::default())
