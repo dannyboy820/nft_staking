@@ -7,7 +7,7 @@ use std::convert::TryInto;
 
 use erc20::contract::{
     bytes_to_u128, prefixedstorage, read_u128, HandleMsg, InitMsg, InitialBalance, KEY_DECIMALS,
-    KEY_NAME, KEY_SYMBOL, KEY_TOTAL_SUPPLY, PREFIX_BALANCES, PREFIX_CONFIG,
+    KEY_NAME, KEY_SYMBOL, KEY_TOTAL_SUPPLY, PREFIX_ALLOWANCES, PREFIX_BALANCES, PREFIX_CONFIG,
 };
 use prefixedstorage::ReadonlyPrefixedStorage;
 
@@ -56,6 +56,24 @@ fn get_balance<S: ReadonlyStorage, A: Api>(api: &A, storage: &S, address: &Human
         .expect("canonical_address failed");
     let balances_storage = ReadonlyPrefixedStorage::new(storage, PREFIX_BALANCES);
     return read_u128(&balances_storage, address_key.as_bytes()).unwrap();
+}
+
+fn get_allowance<S: ReadonlyStorage, A: Api>(
+    api: &A,
+    storage: &S,
+    owner: &HumanAddr,
+    spender: &HumanAddr,
+) -> u128 {
+    let owner_raw_address = api
+        .canonical_address(owner)
+        .expect("canonical_address failed");
+    let spender_raw_address = api
+        .canonical_address(spender)
+        .expect("canonical_address failed");
+    let allowances_storage = ReadonlyPrefixedStorage::new(storage, PREFIX_ALLOWANCES);
+    let owner_storage =
+        ReadonlyPrefixedStorage::new(&allowances_storage, owner_raw_address.as_bytes());
+    return read_u128(&owner_storage, spender_raw_address.as_bytes()).unwrap();
 }
 
 fn address(index: u8) -> HumanAddr {
@@ -143,5 +161,38 @@ fn transfer_works() {
     deps.with_storage(|storage| {
         assert_eq!(get_balance(&deps.api, storage, &sender), 10);
         assert_eq!(get_balance(&deps.api, storage, &recipient), 23);
+    });
+}
+
+#[test]
+fn approve_works() {
+    let mut deps = mock_instance(WASM);
+    let msg = init_msg();
+    let params1 = mock_params_height(&deps.api, &HumanAddr("creator".to_string()), 876, 0);
+    let res = init(&mut deps, params1, msg).unwrap();
+    assert_eq!(0, res.messages.len());
+
+    let owner = address(0);
+    let spender = address(1);
+
+    // Before
+    deps.with_storage(|storage| {
+        assert_eq!(get_allowance(&deps.api, storage, &owner, &spender), 0);
+    });
+
+    // Approve
+    let approve_msg = to_vec(&HandleMsg::Approve {
+        spender: spender.clone(),
+        amount: "42".to_string(),
+    })
+    .unwrap();
+    let params2 = mock_params_height(&deps.api, &owner, 877, 0);
+    let approve_result = handle(&mut deps, params2, approve_msg).unwrap();
+    assert_eq!(approve_result.messages.len(), 0);
+    assert_eq!(approve_result.log, Some("approve successful".to_string()));
+
+    // After
+    deps.with_storage(|storage| {
+        assert_eq!(get_allowance(&deps.api, storage, &owner, &spender), 42);
     });
 }
