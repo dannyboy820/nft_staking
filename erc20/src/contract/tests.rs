@@ -973,4 +973,78 @@ mod query {
         let balance = bytes_to_u128(&query_result).unwrap();
         assert_eq!(balance, 0);
     }
+
+    #[test]
+    fn can_query_allowance_of_existing_addresses() {
+        let mut deps = dependencies(CANONICAL_LENGTH);
+        let init_msg = to_vec(&make_init_msg()).unwrap();
+        let params1 = mock_params_height(&deps.api, &address(0), 450, 550);
+        let res = init(&mut deps, params1, init_msg).unwrap();
+        assert_eq!(0, res.messages.len());
+
+        let owner = address(2);
+        let spender = address(1);
+
+        let approve_msg = to_vec(&HandleMsg::Approve {
+            spender: spender.clone(),
+            amount: "42".to_string(),
+        })
+        .unwrap();
+        let params2 = mock_params_height(&deps.api, &owner, 450, 550);
+        let transfer_result = handle(&mut deps, params2, approve_msg).unwrap();
+        assert_eq!(transfer_result.messages.len(), 0);
+        assert_eq!(transfer_result.log, Some("approve successful".to_string()));
+
+        let query_msg = to_vec(&QueryMsg::Allowance {
+            owner: owner.clone(),
+            spender: spender.clone(),
+        })
+        .unwrap();
+        let query_result = query(&deps, query_msg).unwrap();
+        let balance = bytes_to_u128(&query_result).unwrap();
+        assert_eq!(balance, 42);
+    }
+
+    #[test]
+    fn can_query_allowance_of_nonexisting_owner() {
+        let mut deps = dependencies(CANONICAL_LENGTH);
+        let init_msg = to_vec(&make_init_msg()).unwrap();
+        let params1 = mock_params_height(&deps.api, &address(0), 450, 550);
+        let res = init(&mut deps, params1, init_msg).unwrap();
+        assert_eq!(0, res.messages.len());
+
+        let owner = address(2);
+        let spender = address(1);
+        let bob = address(3);
+
+        let approve_msg = to_vec(&HandleMsg::Approve {
+            spender: spender.clone(),
+            amount: "42".to_string(),
+        })
+        .unwrap();
+        let params2 = mock_params_height(&deps.api, &owner, 450, 550);
+        let transfer_result = handle(&mut deps, params2, approve_msg).unwrap();
+        assert_eq!(transfer_result.messages.len(), 0);
+        assert_eq!(transfer_result.log, Some("approve successful".to_string()));
+
+        // different spender
+        let query_msg = to_vec(&QueryMsg::Allowance {
+            owner: owner.clone(),
+            spender: bob.clone(),
+        })
+        .unwrap();
+        let query_result = query(&deps, query_msg).unwrap();
+        let balance = bytes_to_u128(&query_result).unwrap();
+        assert_eq!(balance, 0);
+
+        // differnet owner
+        let query_msg = to_vec(&QueryMsg::Allowance {
+            owner: bob.clone(),
+            spender: spender.clone(),
+        })
+        .unwrap();
+        let query_result = query(&deps, query_msg).unwrap();
+        let balance = bytes_to_u128(&query_result).unwrap();
+        assert_eq!(balance, 0);
+    }
 }

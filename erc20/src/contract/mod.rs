@@ -48,7 +48,13 @@ pub enum HandleMsg {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum QueryMsg {
-    Balance { address: HumanAddr },
+    Balance {
+        address: HumanAddr,
+    },
+    Allowance {
+        owner: HumanAddr,
+        spender: HumanAddr,
+    },
 }
 
 pub const PREFIX_CONFIG: &[u8] = b"config";
@@ -142,6 +148,12 @@ pub fn query<S: Storage, A: Api>(deps: &Extern<S, A>, msg: Vec<u8>) -> Result<Ve
             let balances_store = ReadonlyPrefixedStorage::new(&deps.storage, PREFIX_BALANCES);
             let balance = read_u128(&balances_store, address_key.as_bytes())?;
             Ok(Vec::from(&balance.to_be_bytes()[..]))
+        }
+        QueryMsg::Allowance { owner, spender } => {
+            let owner_key = deps.api.canonical_address(&owner)?;
+            let spender_key = deps.api.canonical_address(&spender)?;
+            let allowance = read_allowance(&deps.storage, &owner_key, &spender_key)?;
+            Ok(Vec::from(&allowance.to_be_bytes()[..]))
         }
     }
 }
