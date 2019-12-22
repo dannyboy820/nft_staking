@@ -1,7 +1,7 @@
 use cosmwasm::mock::mock_params;
 use cosmwasm::serde::to_vec;
 use cosmwasm::traits::{Api, ReadonlyStorage, Storage};
-use cosmwasm::types::Params;
+use cosmwasm::types::{HumanAddr, Params};
 use cosmwasm_vm::testing::{init, mock_instance};
 use std::convert::TryInto;
 
@@ -20,15 +20,15 @@ fn init_msg() -> Vec<u8> {
         symbol: "ASH".to_string(),
         initial_balances: [
             InitialBalance {
-                address: "addr0000".to_string(),
+                address: HumanAddr("addr0000".to_string()),
                 amount: "11".to_string(),
             },
             InitialBalance {
-                address: "addr1111".to_string(),
+                address: HumanAddr("addr1111".to_string()),
                 amount: "22".to_string(),
             },
             InitialBalance {
-                address: "addr4321".to_string(),
+                address: HumanAddr("addr4321".to_string()),
                 amount: "33".to_string(),
             },
         ]
@@ -37,8 +37,8 @@ fn init_msg() -> Vec<u8> {
     .unwrap()
 }
 
-fn mock_params_height<A: Api>(api: &A, signer: &str, height: i64, time: i64) -> Params {
-    let mut params = mock_params(api, signer, &[], &[]);
+fn mock_params_height<A: Api>(api: &A, signer: &HumanAddr, height: i64, time: i64) -> Params {
+    let mut params = mock_params(api, signer.as_str(), &[], &[]);
     params.block.height = height;
     params.block.time = time;
     params
@@ -74,19 +74,19 @@ fn get_total_supply<S: Storage>(storage: &S) -> u128 {
     return bytes_to_u128(&data).unwrap();
 }
 
-fn get_balance<S: ReadonlyStorage, A: Api>(api: &A, storage: &S, address: &str) -> u128 {
+fn get_balance<S: ReadonlyStorage, A: Api>(api: &A, storage: &S, address: &HumanAddr) -> u128 {
     let address_key = api
         .canonical_address(address)
         .expect("canonical_address failed");
     let balances_storage = ReadonlyPrefixedStorage::new(storage, PREFIX_BALANCES);
-    return read_u128(&balances_storage, &address_key).unwrap();
+    return read_u128(&balances_storage, address_key.as_bytes()).unwrap();
 }
 
 #[test]
 fn proper_initialization() {
     let mut deps = mock_instance(WASM);
     let msg = init_msg();
-    let params = mock_params_height(&deps.api, "creator", 876, 0);
+    let params = mock_params_height(&deps.api, &HumanAddr("creator".to_string()), 876, 0);
     let res = init(&mut deps, params, msg).unwrap();
     assert_eq!(0, res.messages.len());
 
@@ -96,8 +96,17 @@ fn proper_initialization() {
         assert_eq!(get_symbol(storage), "ASH");
         assert_eq!(get_decimals(storage), 5);
         assert_eq!(get_total_supply(storage), 66);
-        assert_eq!(get_balance(&deps.api, storage, "addr0000"), 11);
-        assert_eq!(get_balance(&deps.api, storage, "addr1111"), 22);
-        assert_eq!(get_balance(&deps.api, storage, "addr4321"), 33);
+        assert_eq!(
+            get_balance(&deps.api, storage, &HumanAddr("addr0000".to_string())),
+            11
+        );
+        assert_eq!(
+            get_balance(&deps.api, storage, &HumanAddr("addr1111".to_string())),
+            22
+        );
+        assert_eq!(
+            get_balance(&deps.api, storage, &HumanAddr("addr4321".to_string())),
+            33
+        );
     });
 }

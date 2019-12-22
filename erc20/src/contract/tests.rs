@@ -2,7 +2,7 @@ use cosmwasm::errors::Error;
 use cosmwasm::mock::{dependencies, mock_params};
 use cosmwasm::serde::to_vec;
 use cosmwasm::traits::{Api, ReadonlyStorage, Storage};
-use cosmwasm::types::Params;
+use cosmwasm::types::{HumanAddr, Params};
 use std::convert::TryInto;
 
 use super::{
@@ -14,8 +14,8 @@ use prefixedstorage::ReadonlyPrefixedStorage;
 
 static CANONICAL_LENGTH: usize = 20;
 
-fn mock_params_height<A: Api>(api: &A, signer: &str, height: i64, time: i64) -> Params {
-    let mut params = mock_params(api, signer, &[], &[]);
+fn mock_params_height<A: Api>(api: &A, signer: &HumanAddr, height: i64, time: i64) -> Params {
+    let mut params = mock_params(api, signer.as_str(), &[], &[]);
     params.block.height = height;
     params.block.time = time;
     params
@@ -51,19 +51,19 @@ fn get_total_supply<S: Storage>(storage: &S) -> u128 {
     return bytes_to_u128(&data).unwrap();
 }
 
-fn get_balance<S: ReadonlyStorage, A: Api>(api: &A, storage: &S, address: &str) -> u128 {
+fn get_balance<S: ReadonlyStorage, A: Api>(api: &A, storage: &S, address: &HumanAddr) -> u128 {
     let address_key = api
         .canonical_address(address)
         .expect("canonical_address failed");
     let balances_storage = ReadonlyPrefixedStorage::new(storage, PREFIX_BALANCES);
-    return read_u128(&balances_storage, &address_key).unwrap();
+    return read_u128(&balances_storage, address_key.as_bytes()).unwrap();
 }
 
 fn get_allowance<S: ReadonlyStorage, A: Api>(
     api: &A,
     storage: &S,
-    owner: &str,
-    spender: &str,
+    owner: &HumanAddr,
+    spender: &HumanAddr,
 ) -> u128 {
     let owner_raw_address = api
         .canonical_address(owner)
@@ -72,8 +72,9 @@ fn get_allowance<S: ReadonlyStorage, A: Api>(
         .canonical_address(spender)
         .expect("canonical_address failed");
     let allowances_storage = ReadonlyPrefixedStorage::new(storage, PREFIX_ALLOWANCES);
-    let owner_storage = ReadonlyPrefixedStorage::new(&allowances_storage, &owner_raw_address);
-    return read_u128(&owner_storage, &spender_raw_address).unwrap();
+    let owner_storage =
+        ReadonlyPrefixedStorage::new(&allowances_storage, owner_raw_address.as_bytes());
+    return read_u128(&owner_storage, spender_raw_address.as_bytes()).unwrap();
 }
 
 mod init {
@@ -87,20 +88,23 @@ mod init {
             symbol: "CASH".to_string(),
             decimals: 9,
             initial_balances: [InitialBalance {
-                address: "addr0000".to_string(),
+                address: HumanAddr("addr0000".to_string()),
                 amount: "11223344".to_string(),
             }]
             .to_vec(),
         })
         .unwrap();
-        let params = mock_params_height(&deps.api, "creator", 450, 550);
+        let params = mock_params_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
         let res = init(&mut deps, params, msg).unwrap();
         assert_eq!(0, res.messages.len());
 
         assert_eq!(get_name(&deps.storage), "Cash Token");
         assert_eq!(get_symbol(&deps.storage), "CASH");
         assert_eq!(get_decimals(&deps.storage), 9);
-        assert_eq!(get_balance(&deps.api, &deps.storage, "addr0000"), 11223344);
+        assert_eq!(
+            get_balance(&deps.api, &deps.storage, &HumanAddr("addr0000".to_string())),
+            11223344
+        );
         assert_eq!(get_total_supply(&deps.storage), 11223344);
     }
 
@@ -114,7 +118,7 @@ mod init {
             initial_balances: [].to_vec(),
         })
         .unwrap();
-        let params = mock_params_height(&deps.api, "creator", 450, 550);
+        let params = mock_params_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
         let res = init(&mut deps, params, msg).unwrap();
         assert_eq!(0, res.messages.len());
 
@@ -130,28 +134,37 @@ mod init {
             decimals: 9,
             initial_balances: [
                 InitialBalance {
-                    address: "addr0000".to_string(),
+                    address: HumanAddr("addr0000".to_string()),
                     amount: "11".to_string(),
                 },
                 InitialBalance {
-                    address: "addr1111".to_string(),
+                    address: HumanAddr("addr1111".to_string()),
                     amount: "22".to_string(),
                 },
                 InitialBalance {
-                    address: "addrbbbb".to_string(),
+                    address: HumanAddr("addrbbbb".to_string()),
                     amount: "33".to_string(),
                 },
             ]
             .to_vec(),
         })
         .unwrap();
-        let params = mock_params_height(&deps.api, "creator", 450, 550);
+        let params = mock_params_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
         let res = init(&mut deps, params, msg).unwrap();
         assert_eq!(0, res.messages.len());
 
-        assert_eq!(get_balance(&deps.api, &deps.storage, "addr0000"), 11);
-        assert_eq!(get_balance(&deps.api, &deps.storage, "addr1111"), 22);
-        assert_eq!(get_balance(&deps.api, &deps.storage, "addrbbbb"), 33);
+        assert_eq!(
+            get_balance(&deps.api, &deps.storage, &HumanAddr("addr0000".to_string())),
+            11
+        );
+        assert_eq!(
+            get_balance(&deps.api, &deps.storage, &HumanAddr("addr1111".to_string())),
+            22
+        );
+        assert_eq!(
+            get_balance(&deps.api, &deps.storage, &HumanAddr("addrbbbb".to_string())),
+            33
+        );
         assert_eq!(get_total_supply(&deps.storage), 66);
     }
 
@@ -168,13 +181,13 @@ mod init {
             symbol: "CASH".to_string(),
             decimals: 9,
             initial_balances: [InitialBalance {
-                address: "addr0000".to_string(),
+                address: HumanAddr("addr0000".to_string()),
                 amount: "9007199254740993".to_string(),
             }]
             .to_vec(),
         })
         .unwrap();
-        let params = mock_params_height(&deps.api, "creator", 450, 550);
+        let params = mock_params_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
         let res = init(&mut deps, params, msg).unwrap();
         assert_eq!(0, res.messages.len());
 
@@ -182,7 +195,7 @@ mod init {
         assert_eq!(get_symbol(&deps.storage), "CASH");
         assert_eq!(get_decimals(&deps.storage), 9);
         assert_eq!(
-            get_balance(&deps.api, &deps.storage, "addr0000"),
+            get_balance(&deps.api, &deps.storage, &HumanAddr("addr0000".to_string())),
             9007199254740993
         );
         assert_eq!(get_total_supply(&deps.storage), 9007199254740993);
@@ -198,13 +211,13 @@ mod init {
             symbol: "CASH".to_string(),
             decimals: 9,
             initial_balances: [InitialBalance {
-                address: "addr0000".to_string(),
+                address: HumanAddr("addr0000".to_string()),
                 amount: "100000000000000000000000000".to_string(),
             }]
             .to_vec(),
         })
         .unwrap();
-        let params = mock_params_height(&deps.api, "creator", 450, 550);
+        let params = mock_params_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
         let res = init(&mut deps, params, msg).unwrap();
         assert_eq!(0, res.messages.len());
 
@@ -212,7 +225,7 @@ mod init {
         assert_eq!(get_symbol(&deps.storage), "CASH");
         assert_eq!(get_decimals(&deps.storage), 9);
         assert_eq!(
-            get_balance(&deps.api, &deps.storage, "addr0000"),
+            get_balance(&deps.api, &deps.storage, &HumanAddr("addr0000".to_string())),
             100000000000000000000000000
         );
         assert_eq!(get_total_supply(&deps.storage), 100000000000000000000000000);
@@ -226,14 +239,14 @@ mod init {
             symbol: "CASH".to_string(),
             decimals: 9,
             initial_balances: [InitialBalance {
-                address: "addr0000".to_string(),
+                address: HumanAddr("addr0000".to_string()),
                 // 2**128 = 340282366920938463463374607431768211456
                 amount: "340282366920938463463374607431768211456".to_string(),
             }]
             .to_vec(),
         })
         .unwrap();
-        let params = mock_params_height(&deps.api, "creator", 450, 550);
+        let params = mock_params_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
         let result = init(&mut deps, params, msg);
         match result {
             Ok(_) => panic!("expected error"),
@@ -254,7 +267,7 @@ mod init {
             initial_balances: [].to_vec(),
         })
         .unwrap();
-        let params = mock_params_height(&deps.api, "creator", 450, 550);
+        let params = mock_params_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
         let result = init(&mut deps, params, msg);
         match result {
             Ok(_) => panic!("expected error"),
@@ -273,7 +286,7 @@ mod init {
             initial_balances: [].to_vec(),
         })
         .unwrap();
-        let params = mock_params_height(&deps.api, "creator", 450, 550);
+        let params = mock_params_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
         let result = init(&mut deps, params, msg);
         match result {
             Ok(_) => panic!("expected error"),
@@ -294,7 +307,7 @@ mod init {
             initial_balances: [].to_vec(),
         })
         .unwrap();
-        let params = mock_params_height(&deps.api, "creator", 450, 550);
+        let params = mock_params_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
         let result = init(&mut deps, params, msg);
         match result {
             Ok(_) => panic!("expected error"),
@@ -315,7 +328,7 @@ mod init {
             initial_balances: [].to_vec(),
         })
         .unwrap();
-        let params = mock_params_height(&deps.api, "creator", 450, 550);
+        let params = mock_params_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
         let result = init(&mut deps, params, msg);
         match result {
             Ok(_) => panic!("expected error"),
@@ -336,7 +349,7 @@ mod init {
             initial_balances: [].to_vec(),
         })
         .unwrap();
-        let params = mock_params_height(&deps.api, "creator", 450, 550);
+        let params = mock_params_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
         let result = init(&mut deps, params, msg);
         match result {
             Ok(_) => panic!("expected error"),
@@ -357,7 +370,7 @@ mod init {
             initial_balances: [].to_vec(),
         })
         .unwrap();
-        let params = mock_params_height(&deps.api, "creator", 450, 550);
+        let params = mock_params_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
         let result = init(&mut deps, params, msg);
         match result {
             Ok(_) => panic!("expected error"),
@@ -379,15 +392,15 @@ mod transfer {
             decimals: 9,
             initial_balances: vec![
                 InitialBalance {
-                    address: "addr0000".to_string(),
+                    address: HumanAddr("addr0000".to_string()),
                     amount: "11".to_string(),
                 },
                 InitialBalance {
-                    address: "addr1111".to_string(),
+                    address: HumanAddr("addr1111".to_string()),
                     amount: "22".to_string(),
                 },
                 InitialBalance {
-                    address: "addrbbbb".to_string(),
+                    address: HumanAddr("addrbbbb".to_string()),
                     amount: "33".to_string(),
                 },
             ],
@@ -398,31 +411,49 @@ mod transfer {
     fn can_send_to_existing_recipient() {
         let mut deps = dependencies(CANONICAL_LENGTH);
         let msg = to_vec(&make_init_msg()).unwrap();
-        let params1 = mock_params_height(&deps.api, "addr0000", 450, 550);
+        let params1 = mock_params_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
         let res = init(&mut deps, params1, msg).unwrap();
         assert_eq!(0, res.messages.len());
 
         // Initial state
-        assert_eq!(get_balance(&deps.api, &deps.storage, "addr0000"), 11);
-        assert_eq!(get_balance(&deps.api, &deps.storage, "addr1111"), 22);
-        assert_eq!(get_balance(&deps.api, &deps.storage, "addrbbbb"), 33);
+        assert_eq!(
+            get_balance(&deps.api, &deps.storage, &HumanAddr("addr0000".to_string())),
+            11
+        );
+        assert_eq!(
+            get_balance(&deps.api, &deps.storage, &HumanAddr("addr1111".to_string())),
+            22
+        );
+        assert_eq!(
+            get_balance(&deps.api, &deps.storage, &HumanAddr("addrbbbb".to_string())),
+            33
+        );
         assert_eq!(get_total_supply(&deps.storage), 66);
 
         // Transfer
         let transfer_msg = to_vec(&HandleMsg::Transfer {
-            recipient: "addr1111".to_string(),
+            recipient: HumanAddr("addr1111".to_string()),
             amount: "1".to_string(),
         })
         .unwrap();
-        let params2 = mock_params_height(&deps.api, "addr0000", 450, 550);
+        let params2 = mock_params_height(&deps.api, &HumanAddr("addr0000".to_string()), 450, 550);
         let transfer_result = handle(&mut deps, params2, transfer_msg).unwrap();
         assert_eq!(transfer_result.messages.len(), 0);
         assert_eq!(transfer_result.log, Some("transfer successful".to_string()));
 
         // New state
-        assert_eq!(get_balance(&deps.api, &deps.storage, "addr0000"), 10); // -1
-        assert_eq!(get_balance(&deps.api, &deps.storage, "addr1111"), 23); // +1
-        assert_eq!(get_balance(&deps.api, &deps.storage, "addrbbbb"), 33);
+        assert_eq!(
+            get_balance(&deps.api, &deps.storage, &HumanAddr("addr0000".to_string())),
+            10
+        ); // -1
+        assert_eq!(
+            get_balance(&deps.api, &deps.storage, &HumanAddr("addr1111".to_string())),
+            23
+        ); // +1
+        assert_eq!(
+            get_balance(&deps.api, &deps.storage, &HumanAddr("addrbbbb".to_string())),
+            33
+        );
         assert_eq!(get_total_supply(&deps.storage), 66);
     }
 
@@ -430,32 +461,53 @@ mod transfer {
     fn can_send_to_non_existent_recipient() {
         let mut deps = dependencies(CANONICAL_LENGTH);
         let msg = to_vec(&make_init_msg()).unwrap();
-        let params1 = mock_params_height(&deps.api, "addr0000", 450, 550);
+        let params1 = mock_params_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
         let res = init(&mut deps, params1, msg).unwrap();
         assert_eq!(0, res.messages.len());
 
         // Initial state
-        assert_eq!(get_balance(&deps.api, &deps.storage, "addr0000"), 11);
-        assert_eq!(get_balance(&deps.api, &deps.storage, "addr1111"), 22);
-        assert_eq!(get_balance(&deps.api, &deps.storage, "addrbbbb"), 33);
+        assert_eq!(
+            get_balance(&deps.api, &deps.storage, &HumanAddr("addr0000".to_string())),
+            11
+        );
+        assert_eq!(
+            get_balance(&deps.api, &deps.storage, &HumanAddr("addr1111".to_string())),
+            22
+        );
+        assert_eq!(
+            get_balance(&deps.api, &deps.storage, &HumanAddr("addrbbbb".to_string())),
+            33
+        );
         assert_eq!(get_total_supply(&deps.storage), 66);
 
         // Transfer
         let transfer_msg = to_vec(&HandleMsg::Transfer {
-            recipient: "addr2323".to_string(),
+            recipient: HumanAddr("addr2323".to_string()),
             amount: "1".to_string(),
         })
         .unwrap();
-        let params2 = mock_params_height(&deps.api, "addr0000", 450, 550);
+        let params2 = mock_params_height(&deps.api, &HumanAddr("addr0000".to_string()), 450, 550);
         let transfer_result = handle(&mut deps, params2, transfer_msg).unwrap();
         assert_eq!(transfer_result.messages.len(), 0);
         assert_eq!(transfer_result.log, Some("transfer successful".to_string()));
 
         // New state
-        assert_eq!(get_balance(&deps.api, &deps.storage, "addr0000"), 10);
-        assert_eq!(get_balance(&deps.api, &deps.storage, "addr1111"), 22);
-        assert_eq!(get_balance(&deps.api, &deps.storage, "addr2323"), 1);
-        assert_eq!(get_balance(&deps.api, &deps.storage, "addrbbbb"), 33);
+        assert_eq!(
+            get_balance(&deps.api, &deps.storage, &HumanAddr("addr0000".to_string())),
+            10
+        );
+        assert_eq!(
+            get_balance(&deps.api, &deps.storage, &HumanAddr("addr1111".to_string())),
+            22
+        );
+        assert_eq!(
+            get_balance(&deps.api, &deps.storage, &HumanAddr("addr2323".to_string())),
+            1
+        );
+        assert_eq!(
+            get_balance(&deps.api, &deps.storage, &HumanAddr("addrbbbb".to_string())),
+            33
+        );
         assert_eq!(get_total_supply(&deps.storage), 66);
     }
 
@@ -463,31 +515,49 @@ mod transfer {
     fn can_send_zero_amount() {
         let mut deps = dependencies(CANONICAL_LENGTH);
         let msg = to_vec(&make_init_msg()).unwrap();
-        let params1 = mock_params_height(&deps.api, "addr0000", 450, 550);
+        let params1 = mock_params_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
         let res = init(&mut deps, params1, msg).unwrap();
         assert_eq!(0, res.messages.len());
 
         // Initial state
-        assert_eq!(get_balance(&deps.api, &deps.storage, "addr0000"), 11);
-        assert_eq!(get_balance(&deps.api, &deps.storage, "addr1111"), 22);
-        assert_eq!(get_balance(&deps.api, &deps.storage, "addrbbbb"), 33);
+        assert_eq!(
+            get_balance(&deps.api, &deps.storage, &HumanAddr("addr0000".to_string())),
+            11
+        );
+        assert_eq!(
+            get_balance(&deps.api, &deps.storage, &HumanAddr("addr1111".to_string())),
+            22
+        );
+        assert_eq!(
+            get_balance(&deps.api, &deps.storage, &HumanAddr("addrbbbb".to_string())),
+            33
+        );
         assert_eq!(get_total_supply(&deps.storage), 66);
 
         // Transfer
         let transfer_msg = to_vec(&HandleMsg::Transfer {
-            recipient: "addr1111".to_string(),
+            recipient: HumanAddr("addr1111".to_string()),
             amount: "0".to_string(),
         })
         .unwrap();
-        let params2 = mock_params_height(&deps.api, "addr0000", 450, 550);
+        let params2 = mock_params_height(&deps.api, &HumanAddr("addr0000".to_string()), 450, 550);
         let transfer_result = handle(&mut deps, params2, transfer_msg).unwrap();
         assert_eq!(transfer_result.messages.len(), 0);
         assert_eq!(transfer_result.log, Some("transfer successful".to_string()));
 
         // New state (unchanged)
-        assert_eq!(get_balance(&deps.api, &deps.storage, "addr0000"), 11);
-        assert_eq!(get_balance(&deps.api, &deps.storage, "addr1111"), 22);
-        assert_eq!(get_balance(&deps.api, &deps.storage, "addrbbbb"), 33);
+        assert_eq!(
+            get_balance(&deps.api, &deps.storage, &HumanAddr("addr0000".to_string())),
+            11
+        );
+        assert_eq!(
+            get_balance(&deps.api, &deps.storage, &HumanAddr("addr1111".to_string())),
+            22
+        );
+        assert_eq!(
+            get_balance(&deps.api, &deps.storage, &HumanAddr("addrbbbb".to_string())),
+            33
+        );
         assert_eq!(get_total_supply(&deps.storage), 66);
     }
 
@@ -495,23 +565,32 @@ mod transfer {
     fn fails_on_insufficient_balance() {
         let mut deps = dependencies(CANONICAL_LENGTH);
         let msg = to_vec(&make_init_msg()).unwrap();
-        let params1 = mock_params_height(&deps.api, "addr0000", 450, 550);
+        let params1 = mock_params_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
         let res = init(&mut deps, params1, msg).unwrap();
         assert_eq!(0, res.messages.len());
 
         // Initial state
-        assert_eq!(get_balance(&deps.api, &deps.storage, "addr0000"), 11);
-        assert_eq!(get_balance(&deps.api, &deps.storage, "addr1111"), 22);
-        assert_eq!(get_balance(&deps.api, &deps.storage, "addrbbbb"), 33);
+        assert_eq!(
+            get_balance(&deps.api, &deps.storage, &HumanAddr("addr0000".to_string())),
+            11
+        );
+        assert_eq!(
+            get_balance(&deps.api, &deps.storage, &HumanAddr("addr1111".to_string())),
+            22
+        );
+        assert_eq!(
+            get_balance(&deps.api, &deps.storage, &HumanAddr("addrbbbb".to_string())),
+            33
+        );
         assert_eq!(get_total_supply(&deps.storage), 66);
 
         // Transfer
         let transfer_msg = to_vec(&HandleMsg::Transfer {
-            recipient: "addr1111".to_string(),
+            recipient: HumanAddr("addr1111".to_string()),
             amount: "12".to_string(),
         })
         .unwrap();
-        let params2 = mock_params_height(&deps.api, "addr0000", 450, 550);
+        let params2 = mock_params_height(&deps.api, &HumanAddr("addr0000".to_string()), 450, 550);
         let transfer_result = handle(&mut deps, params2, transfer_msg);
         match transfer_result {
             Ok(_) => panic!("expected error"),
@@ -522,9 +601,18 @@ mod transfer {
         }
 
         // New state (unchanged)
-        assert_eq!(get_balance(&deps.api, &deps.storage, "addr0000"), 11);
-        assert_eq!(get_balance(&deps.api, &deps.storage, "addr1111"), 22);
-        assert_eq!(get_balance(&deps.api, &deps.storage, "addrbbbb"), 33);
+        assert_eq!(
+            get_balance(&deps.api, &deps.storage, &HumanAddr("addr0000".to_string())),
+            11
+        );
+        assert_eq!(
+            get_balance(&deps.api, &deps.storage, &HumanAddr("addr1111".to_string())),
+            22
+        );
+        assert_eq!(
+            get_balance(&deps.api, &deps.storage, &HumanAddr("addrbbbb".to_string())),
+            33
+        );
         assert_eq!(get_total_supply(&deps.storage), 66);
     }
 }
@@ -539,42 +627,52 @@ mod approve {
             decimals: 9,
             initial_balances: vec![
                 InitialBalance {
-                    address: "addr0000".to_string(),
+                    address: HumanAddr("addr0000".to_string()),
                     amount: "11".to_string(),
                 },
                 InitialBalance {
-                    address: "addr1111".to_string(),
+                    address: HumanAddr("addr1111".to_string()),
                     amount: "22".to_string(),
                 },
                 InitialBalance {
-                    address: "addrbbbb".to_string(),
+                    address: HumanAddr("addrbbbb".to_string()),
                     amount: "33".to_string(),
                 },
             ],
         };
     }
 
-    fn make_spender() -> String {
-        "dadadadadadadada".to_string()
+    fn make_spender() -> HumanAddr {
+        HumanAddr("dadadadadadadada".to_string())
     }
 
     #[test]
     fn has_zero_allowance_by_default() {
         let mut deps = dependencies(CANONICAL_LENGTH);
         let msg = to_vec(&make_init_msg()).unwrap();
-        let params1 = mock_params_height(&deps.api, "addr0000", 450, 550);
+        let params1 = mock_params_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
         let res = init(&mut deps, params1, msg).unwrap();
         assert_eq!(0, res.messages.len());
 
         // Existing owner
         assert_eq!(
-            get_allowance(&deps.api, &deps.storage, "addr0000", &make_spender()),
+            get_allowance(
+                &deps.api,
+                &deps.storage,
+                &HumanAddr("addr0000".to_string()),
+                &make_spender()
+            ),
             0
         );
 
         // Non-existing owner
         assert_eq!(
-            get_allowance(&deps.api, &deps.storage, "addr4567", &make_spender()),
+            get_allowance(
+                &deps.api,
+                &deps.storage,
+                &HumanAddr("addr4567".to_string()),
+                &make_spender()
+            ),
             0
         );
     }
@@ -583,28 +681,34 @@ mod approve {
     fn can_set_allowance() {
         let mut deps = dependencies(CANONICAL_LENGTH);
         let msg = to_vec(&make_init_msg()).unwrap();
-        let params1 = mock_params_height(&deps.api, "addr0000", 450, 550);
+        let params1 = mock_params_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
         let res = init(&mut deps, params1, msg).unwrap();
         assert_eq!(0, res.messages.len());
 
         assert_eq!(
-            get_allowance(&deps.api, &deps.storage, "addr7654", &make_spender()),
+            get_allowance(
+                &deps.api,
+                &deps.storage,
+                &HumanAddr("addr7654".to_string()),
+                &make_spender()
+            ),
             0
         );
 
         // First approval
+        let owner = HumanAddr("addr7654".to_string());
         let approve_msg1 = to_vec(&HandleMsg::Approve {
             spender: make_spender(),
             amount: "334422".to_string(),
         })
         .unwrap();
-        let params2 = mock_params_height(&deps.api, "addr7654", 450, 550);
+        let params2 = mock_params_height(&deps.api, &owner, 450, 550);
         let transfer_result = handle(&mut deps, params2, approve_msg1).unwrap();
         assert_eq!(transfer_result.messages.len(), 0);
         assert_eq!(transfer_result.log, Some("approve successful".to_string()));
 
         assert_eq!(
-            get_allowance(&deps.api, &deps.storage, "addr7654", &make_spender()),
+            get_allowance(&deps.api, &deps.storage, &owner, &make_spender()),
             334422
         );
 
@@ -614,13 +718,13 @@ mod approve {
             amount: "777888".to_string(),
         })
         .unwrap();
-        let params3 = mock_params_height(&deps.api, "addr7654", 450, 550);
+        let params3 = mock_params_height(&deps.api, &owner, 450, 550);
         let transfer_result = handle(&mut deps, params3, approve_msg2).unwrap();
         assert_eq!(transfer_result.messages.len(), 0);
         assert_eq!(transfer_result.log, Some("approve successful".to_string()));
 
         assert_eq!(
-            get_allowance(&deps.api, &deps.storage, "addr7654", &make_spender()),
+            get_allowance(&deps.api, &deps.storage, &owner, &make_spender()),
             777888
         );
     }
@@ -636,36 +740,36 @@ mod transfer_from {
             decimals: 9,
             initial_balances: vec![
                 InitialBalance {
-                    address: "addr0000".to_string(),
+                    address: HumanAddr("addr0000".to_string()),
                     amount: "11".to_string(),
                 },
                 InitialBalance {
-                    address: "addr1111".to_string(),
+                    address: HumanAddr("addr1111".to_string()),
                     amount: "22".to_string(),
                 },
                 InitialBalance {
-                    address: "addrbbbb".to_string(),
+                    address: HumanAddr("addrbbbb".to_string()),
                     amount: "33".to_string(),
                 },
             ],
         };
     }
 
-    fn make_spender() -> String {
-        "dadadadadadadada".to_string()
+    fn make_spender() -> HumanAddr {
+        HumanAddr("dadadadadadadada".to_string())
     }
 
     #[test]
     fn works() {
         let mut deps = dependencies(CANONICAL_LENGTH);
         let msg = to_vec(&make_init_msg()).unwrap();
-        let params1 = mock_params_height(&deps.api, "addr0000", 450, 550);
+        let params1 = mock_params_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
         let res = init(&mut deps, params1, msg).unwrap();
         assert_eq!(0, res.messages.len());
 
-        let owner = "addr0000";
+        let owner = HumanAddr("addr0000".to_string());
         let spender = &make_spender();
-        let recipient = "addr1212";
+        let recipient = HumanAddr("addr1212".to_string());
 
         // Set approval
         let approve_msg = to_vec(&HandleMsg::Approve {
@@ -673,18 +777,18 @@ mod transfer_from {
             amount: "4".to_string(),
         })
         .unwrap();
-        let params2 = mock_params_height(&deps.api, owner, 450, 550);
+        let params2 = mock_params_height(&deps.api, &owner, 450, 550);
         let approve_result = handle(&mut deps, params2, approve_msg).unwrap();
         assert_eq!(approve_result.messages.len(), 0);
         assert_eq!(approve_result.log, Some("approve successful".to_string()));
 
-        assert_eq!(get_balance(&deps.api, &deps.storage, owner), 11);
-        assert_eq!(get_allowance(&deps.api, &deps.storage, owner, spender), 4);
+        assert_eq!(get_balance(&deps.api, &deps.storage, &owner), 11);
+        assert_eq!(get_allowance(&deps.api, &deps.storage, &owner, spender), 4);
 
         // Transfer less than allowance but more than balance
         let fransfer_from_msg = to_vec(&HandleMsg::TransferFrom {
-            owner: owner.to_string(),
-            recipient: recipient.to_string(),
+            owner: owner.clone(),
+            recipient: recipient.clone(),
             amount: "3".to_string(),
         })
         .unwrap();
@@ -697,21 +801,21 @@ mod transfer_from {
         );
 
         // State changed
-        assert_eq!(get_balance(&deps.api, &deps.storage, owner), 8);
-        assert_eq!(get_allowance(&deps.api, &deps.storage, owner, spender), 1);
+        assert_eq!(get_balance(&deps.api, &deps.storage, &owner), 8);
+        assert_eq!(get_allowance(&deps.api, &deps.storage, &owner, spender), 1);
     }
 
     #[test]
     fn fails_when_allowance_too_low() {
         let mut deps = dependencies(CANONICAL_LENGTH);
         let msg = to_vec(&make_init_msg()).unwrap();
-        let params1 = mock_params_height(&deps.api, "addr0000", 450, 550);
+        let params1 = mock_params_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
         let res = init(&mut deps, params1, msg).unwrap();
         assert_eq!(0, res.messages.len());
 
-        let owner = "addr0000";
+        let owner = HumanAddr("addr0000".to_string());
         let spender = &make_spender();
-        let recipient = "addr1212";
+        let recipient = HumanAddr("addr1212".to_string());
 
         // Set approval
         let approve_msg = to_vec(&HandleMsg::Approve {
@@ -719,18 +823,18 @@ mod transfer_from {
             amount: "2".to_string(),
         })
         .unwrap();
-        let params2 = mock_params_height(&deps.api, owner, 450, 550);
+        let params2 = mock_params_height(&deps.api, &owner, 450, 550);
         let approve_result = handle(&mut deps, params2, approve_msg).unwrap();
         assert_eq!(approve_result.messages.len(), 0);
         assert_eq!(approve_result.log, Some("approve successful".to_string()));
 
-        assert_eq!(get_balance(&deps.api, &deps.storage, owner), 11);
-        assert_eq!(get_allowance(&deps.api, &deps.storage, owner, spender), 2);
+        assert_eq!(get_balance(&deps.api, &deps.storage, &owner), 11);
+        assert_eq!(get_allowance(&deps.api, &deps.storage, &owner, spender), 2);
 
         // Transfer less than allowance but more than balance
         let fransfer_from_msg = to_vec(&HandleMsg::TransferFrom {
-            owner: owner.to_string(),
-            recipient: recipient.to_string(),
+            owner: owner.clone(),
+            recipient: recipient.clone(),
             amount: "3".to_string(),
         })
         .unwrap();
@@ -754,13 +858,13 @@ mod transfer_from {
     fn fails_when_allowance_is_set_but_balance_too_low() {
         let mut deps = dependencies(CANONICAL_LENGTH);
         let msg = to_vec(&make_init_msg()).unwrap();
-        let params1 = mock_params_height(&deps.api, "addr0000", 450, 550);
+        let params1 = mock_params_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
         let res = init(&mut deps, params1, msg).unwrap();
         assert_eq!(0, res.messages.len());
 
-        let owner = "addr0000";
+        let owner = HumanAddr("addr0000".to_string());
         let spender = &make_spender();
-        let recipient = "addr1212";
+        let recipient = HumanAddr("addr1212".to_string());
 
         // Set approval
         let approve_msg = to_vec(&HandleMsg::Approve {
@@ -768,18 +872,18 @@ mod transfer_from {
             amount: "20".to_string(),
         })
         .unwrap();
-        let params2 = mock_params_height(&deps.api, owner, 450, 550);
+        let params2 = mock_params_height(&deps.api, &owner, 450, 550);
         let approve_result = handle(&mut deps, params2, approve_msg).unwrap();
         assert_eq!(approve_result.messages.len(), 0);
         assert_eq!(approve_result.log, Some("approve successful".to_string()));
 
-        assert_eq!(get_balance(&deps.api, &deps.storage, owner), 11);
-        assert_eq!(get_allowance(&deps.api, &deps.storage, owner, spender), 20);
+        assert_eq!(get_balance(&deps.api, &deps.storage, &owner), 11);
+        assert_eq!(get_allowance(&deps.api, &deps.storage, &owner, spender), 20);
 
         // Transfer less than allowance but more than balance
         let fransfer_from_msg = to_vec(&HandleMsg::TransferFrom {
-            owner: owner.to_string(),
-            recipient: recipient.to_string(),
+            owner: owner.clone(),
+            recipient: recipient.clone(),
             amount: "15".to_string(),
         })
         .unwrap();

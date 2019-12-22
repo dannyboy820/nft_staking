@@ -11,11 +11,11 @@ use snafu::ResultExt;
 use cosmwasm::errors::{ContractErr, DynContractErr, ParseErr, Result};
 use cosmwasm::serde::from_slice;
 use cosmwasm::traits::{Api, Extern, ReadonlyStorage, Storage};
-use cosmwasm::types::{Params, QueryResponse, Response};
+use cosmwasm::types::{CanonicalAddr, HumanAddr, Params, Response};
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema)]
 pub struct InitialBalance {
-    pub address: String,
+    pub address: HumanAddr,
     pub amount: String,
 }
 
@@ -31,16 +31,16 @@ pub struct InitMsg {
 #[serde(rename_all = "lowercase")]
 pub enum HandleMsg {
     Approve {
-        spender: String,
+        spender: HumanAddr,
         amount: String,
     },
     Transfer {
-        recipient: String,
+        recipient: HumanAddr,
         amount: String,
     },
     TransferFrom {
-        owner: String,
-        recipient: String,
+        owner: HumanAddr,
+        recipient: HumanAddr,
         amount: String,
     },
 }
@@ -76,7 +76,7 @@ pub fn init<S: Storage, A: Api>(
         for row in msg.initial_balances {
             let raw_address = deps.api.canonical_address(&row.address)?;
             let amount_raw = parse_u128(&row.amount)?;
-            balances_store.set(&raw_address, &amount_raw.to_be_bytes());
+            balances_store.set(raw_address.as_bytes(), &amount_raw.to_be_bytes());
             total_supply += amount_raw;
         }
     }
@@ -136,7 +136,7 @@ pub fn handle<S: Storage, A: Api>(
     }
 }
 
-pub fn query<S: Storage, A: Api>(_deps: &Extern<S, A>, msg: Vec<u8>) -> Result<QueryResponse> {
+pub fn query<S: Storage, A: Api>(_deps: &Extern<S, A>, msg: Vec<u8>) -> Result<Vec<u8>> {
     let msg: QueryMsg = from_slice(&msg).context(ParseErr { kind: "QueryMsg" })?;
     match msg {}
 }
@@ -144,7 +144,7 @@ pub fn query<S: Storage, A: Api>(_deps: &Extern<S, A>, msg: Vec<u8>) -> Result<Q
 fn try_transfer<S: Storage, A: Api>(
     deps: &mut Extern<S, A>,
     params: Params,
-    recipient: &str,
+    recipient: &HumanAddr,
     amount: &str,
 ) -> Result<Response> {
     let sender_address_raw = &params.message.signer;
@@ -169,8 +169,8 @@ fn try_transfer<S: Storage, A: Api>(
 fn try_transfer_from<S: Storage, A: Api>(
     deps: &mut Extern<S, A>,
     params: Params,
-    owner: &str,
-    recipient: &str,
+    owner: &HumanAddr,
+    recipient: &HumanAddr,
     amount: &str,
 ) -> Result<Response> {
     let spender_address_raw = &params.message.signer;
@@ -213,7 +213,7 @@ fn try_transfer_from<S: Storage, A: Api>(
 fn try_approve<S: Storage, A: Api>(
     deps: &mut Extern<S, A>,
     params: Params,
-    spender: &str,
+    spender: &HumanAddr,
     amount: &str,
 ) -> Result<Response> {
     let owner_address_raw = &params.message.signer;
@@ -233,9 +233,14 @@ fn try_approve<S: Storage, A: Api>(
     Ok(res)
 }
 
-fn perform_transfer<T: Storage>(store: &mut T, from: &[u8], to: &[u8], amount: u128) -> Result<()> {
+fn perform_transfer<T: Storage>(
+    store: &mut T,
+    from: &CanonicalAddr,
+    to: &CanonicalAddr,
+    amount: u128,
+) -> Result<()> {
     let mut balances_store = PrefixedStorage::new(store, PREFIX_BALANCES);
-    let mut from_balance = read_u128(&balances_store, from)?;
+    let mut from_balance = read_u128(&balances_store, from.as_bytes())?;
 
     if from_balance < amount {
         return DynContractErr {
@@ -247,13 +252,13 @@ fn perform_transfer<T: Storage>(store: &mut T, from: &[u8], to: &[u8], amount: u
         .fail();
     }
 
-    let mut to_balance = read_u128(&balances_store, to)?;
+    let mut to_balance = read_u128(&balances_store, to.as_bytes())?;
 
     from_balance -= amount;
     to_balance += amount;
 
-    balances_store.set(from, &from_balance.to_be_bytes());
-    balances_store.set(to, &to_balance.to_be_bytes());
+    balances_store.set(from.as_bytes(), &from_balance.to_be_bytes());
+    balances_store.set(to.as_bytes(), &to_balance.to_be_bytes());
 
     Ok(())
 }
@@ -289,16 +294,25 @@ pub fn parse_u128(decimal: &str) -> Result<u128> {
     }
 }
 
-fn read_allowance<S: Storage>(store: &S, owner: &[u8], spender: &[u8]) -> Result<u128> {
+fn read_allowance<S: Storage>(
+    store: &S,
+    owner: &CanonicalAddr,
+    spender: &CanonicalAddr,
+) -> Result<u128> {
     let allowances_store = ReadonlyPrefixedStorage::new(store, PREFIX_ALLOWANCES);
-    let owner_store = ReadonlyPrefixedStorage::new(&allowances_store, owner);
-    return read_u128(&owner_store, spender);
+    let owner_store = ReadonlyPrefixedStorage::new(&allowances_store, owner.as_bytes());
+    return read_u128(&owner_store, spender.as_bytes());
 }
 
-fn write_allowance<S: Storage>(store: &mut S, owner: &[u8], spender: &[u8], amount: u128) -> () {
+fn write_allowance<S: Storage>(
+    store: &mut S,
+    owner: &CanonicalAddr,
+    spender: &CanonicalAddr,
+    amount: u128,
+) -> () {
     let mut allowances_store = PrefixedStorage::new(store, PREFIX_ALLOWANCES);
-    let mut owner_store = PrefixedStorage::new(&mut allowances_store, owner);
-    owner_store.set(spender, &amount.to_be_bytes());
+    let mut owner_store = PrefixedStorage::new(&mut allowances_store, owner.as_bytes());
+    owner_store.set(spender.as_bytes(), &amount.to_be_bytes());
 }
 
 fn is_valid_name(name: &str) -> bool {
