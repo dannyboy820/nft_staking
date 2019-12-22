@@ -13,30 +13,6 @@ use prefixedstorage::ReadonlyPrefixedStorage;
 
 static WASM: &[u8] = include_bytes!("../target/wasm32-unknown-unknown/release/erc20.wasm");
 
-fn init_msg() -> Vec<u8> {
-    to_vec(&InitMsg {
-        decimals: 5,
-        name: "Ash token".to_string(),
-        symbol: "ASH".to_string(),
-        initial_balances: [
-            InitialBalance {
-                address: HumanAddr("addr0000".to_string()),
-                amount: "11".to_string(),
-            },
-            InitialBalance {
-                address: HumanAddr("addr1111".to_string()),
-                amount: "22".to_string(),
-            },
-            InitialBalance {
-                address: HumanAddr("addr4321".to_string()),
-                amount: "33".to_string(),
-            },
-        ]
-        .to_vec(),
-    })
-    .unwrap()
-}
-
 fn mock_params_height<A: Api>(api: &A, signer: &HumanAddr, height: i64, time: i64) -> Params {
     let mut params = mock_params(api, signer.as_str(), &[], &[]);
     params.block.height = height;
@@ -82,6 +58,39 @@ fn get_balance<S: ReadonlyStorage, A: Api>(api: &A, storage: &S, address: &Human
     return read_u128(&balances_storage, address_key.as_bytes()).unwrap();
 }
 
+fn address(index: u8) -> HumanAddr {
+    match index {
+        0 => HumanAddr("addr0000".to_string()),
+        1 => HumanAddr("addr1111".to_string()),
+        2 => HumanAddr("addr4321".to_string()),
+        _ => panic!("Unsupported address index"),
+    }
+}
+
+fn init_msg() -> Vec<u8> {
+    to_vec(&InitMsg {
+        decimals: 5,
+        name: "Ash token".to_string(),
+        symbol: "ASH".to_string(),
+        initial_balances: [
+            InitialBalance {
+                address: address(0),
+                amount: "11".to_string(),
+            },
+            InitialBalance {
+                address: address(1),
+                amount: "22".to_string(),
+            },
+            InitialBalance {
+                address: address(2),
+                amount: "33".to_string(),
+            },
+        ]
+        .to_vec(),
+    })
+    .unwrap()
+}
+
 #[test]
 fn init_works() {
     let mut deps = mock_instance(WASM);
@@ -96,18 +105,9 @@ fn init_works() {
         assert_eq!(get_symbol(storage), "ASH");
         assert_eq!(get_decimals(storage), 5);
         assert_eq!(get_total_supply(storage), 66);
-        assert_eq!(
-            get_balance(&deps.api, storage, &HumanAddr("addr0000".to_string())),
-            11
-        );
-        assert_eq!(
-            get_balance(&deps.api, storage, &HumanAddr("addr1111".to_string())),
-            22
-        );
-        assert_eq!(
-            get_balance(&deps.api, storage, &HumanAddr("addr4321".to_string())),
-            33
-        );
+        assert_eq!(get_balance(&deps.api, storage, &address(0)), 11);
+        assert_eq!(get_balance(&deps.api, storage, &address(1)), 22);
+        assert_eq!(get_balance(&deps.api, storage, &address(2)), 33);
     });
 }
 
@@ -119,8 +119,8 @@ fn transfer_works() {
     let res = init(&mut deps, params1, msg).unwrap();
     assert_eq!(0, res.messages.len());
 
-    let sender = HumanAddr("addr0000".to_string());
-    let recipient = HumanAddr("addr1111".to_string());
+    let sender = address(0);
+    let recipient = address(1);
 
     // Before
     deps.with_storage(|storage| {
