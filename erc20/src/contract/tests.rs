@@ -410,9 +410,9 @@ mod transfer {
     #[test]
     fn can_send_to_existing_recipient() {
         let mut deps = dependencies(CANONICAL_LENGTH);
-        let msg = to_vec(&make_init_msg()).unwrap();
+        let init_msg = to_vec(&make_init_msg()).unwrap();
         let params1 = mock_params_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
-        let res = init(&mut deps, params1, msg).unwrap();
+        let res = init(&mut deps, params1, init_msg).unwrap();
         assert_eq!(0, res.messages.len());
 
         // Initial state
@@ -460,9 +460,9 @@ mod transfer {
     #[test]
     fn can_send_to_non_existent_recipient() {
         let mut deps = dependencies(CANONICAL_LENGTH);
-        let msg = to_vec(&make_init_msg()).unwrap();
+        let init_msg = to_vec(&make_init_msg()).unwrap();
         let params1 = mock_params_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
-        let res = init(&mut deps, params1, msg).unwrap();
+        let res = init(&mut deps, params1, init_msg).unwrap();
         assert_eq!(0, res.messages.len());
 
         // Initial state
@@ -514,9 +514,9 @@ mod transfer {
     #[test]
     fn can_send_zero_amount() {
         let mut deps = dependencies(CANONICAL_LENGTH);
-        let msg = to_vec(&make_init_msg()).unwrap();
+        let init_msg = to_vec(&make_init_msg()).unwrap();
         let params1 = mock_params_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
-        let res = init(&mut deps, params1, msg).unwrap();
+        let res = init(&mut deps, params1, init_msg).unwrap();
         assert_eq!(0, res.messages.len());
 
         // Initial state
@@ -564,9 +564,9 @@ mod transfer {
     #[test]
     fn fails_on_insufficient_balance() {
         let mut deps = dependencies(CANONICAL_LENGTH);
-        let msg = to_vec(&make_init_msg()).unwrap();
+        let init_msg = to_vec(&make_init_msg()).unwrap();
         let params1 = mock_params_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
-        let res = init(&mut deps, params1, msg).unwrap();
+        let res = init(&mut deps, params1, init_msg).unwrap();
         assert_eq!(0, res.messages.len());
 
         // Initial state
@@ -649,9 +649,9 @@ mod approve {
     #[test]
     fn has_zero_allowance_by_default() {
         let mut deps = dependencies(CANONICAL_LENGTH);
-        let msg = to_vec(&make_init_msg()).unwrap();
+        let init_msg = to_vec(&make_init_msg()).unwrap();
         let params1 = mock_params_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
-        let res = init(&mut deps, params1, msg).unwrap();
+        let res = init(&mut deps, params1, init_msg).unwrap();
         assert_eq!(0, res.messages.len());
 
         // Existing owner
@@ -680,9 +680,9 @@ mod approve {
     #[test]
     fn can_set_allowance() {
         let mut deps = dependencies(CANONICAL_LENGTH);
-        let msg = to_vec(&make_init_msg()).unwrap();
+        let init_msg = to_vec(&make_init_msg()).unwrap();
         let params1 = mock_params_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
-        let res = init(&mut deps, params1, msg).unwrap();
+        let res = init(&mut deps, params1, init_msg).unwrap();
         assert_eq!(0, res.messages.len());
 
         assert_eq!(
@@ -762,9 +762,9 @@ mod transfer_from {
     #[test]
     fn works() {
         let mut deps = dependencies(CANONICAL_LENGTH);
-        let msg = to_vec(&make_init_msg()).unwrap();
+        let init_msg = to_vec(&make_init_msg()).unwrap();
         let params1 = mock_params_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
-        let res = init(&mut deps, params1, msg).unwrap();
+        let res = init(&mut deps, params1, init_msg).unwrap();
         assert_eq!(0, res.messages.len());
 
         let owner = HumanAddr("addr0000".to_string());
@@ -808,9 +808,9 @@ mod transfer_from {
     #[test]
     fn fails_when_allowance_too_low() {
         let mut deps = dependencies(CANONICAL_LENGTH);
-        let msg = to_vec(&make_init_msg()).unwrap();
+        let init_msg = to_vec(&make_init_msg()).unwrap();
         let params1 = mock_params_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
-        let res = init(&mut deps, params1, msg).unwrap();
+        let res = init(&mut deps, params1, init_msg).unwrap();
         assert_eq!(0, res.messages.len());
 
         let owner = HumanAddr("addr0000".to_string());
@@ -857,9 +857,9 @@ mod transfer_from {
     #[test]
     fn fails_when_allowance_is_set_but_balance_too_low() {
         let mut deps = dependencies(CANONICAL_LENGTH);
-        let msg = to_vec(&make_init_msg()).unwrap();
+        let init_msg = to_vec(&make_init_msg()).unwrap();
         let params1 = mock_params_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
-        let res = init(&mut deps, params1, msg).unwrap();
+        let res = init(&mut deps, params1, init_msg).unwrap();
         assert_eq!(0, res.messages.len());
 
         let owner = HumanAddr("addr0000".to_string());
@@ -943,9 +943,9 @@ mod query {
     #[test]
     fn can_query_balance_of_existing_address() {
         let mut deps = dependencies(CANONICAL_LENGTH);
-        let msg = to_vec(&make_init_msg()).unwrap();
+        let init_msg = to_vec(&make_init_msg()).unwrap();
         let params1 = mock_params_height(&deps.api, &address(0), 450, 550);
-        let res = init(&mut deps, params1, msg).unwrap();
+        let res = init(&mut deps, params1, init_msg).unwrap();
         assert_eq!(0, res.messages.len());
 
         let query_msg = to_vec(&QueryMsg::Balance {
@@ -960,9 +960,9 @@ mod query {
     #[test]
     fn can_query_balance_of_nonexisting_address() {
         let mut deps = dependencies(CANONICAL_LENGTH);
-        let msg = to_vec(&make_init_msg()).unwrap();
+        let init_msg = to_vec(&make_init_msg()).unwrap();
         let params1 = mock_params_height(&deps.api, &address(0), 450, 550);
-        let res = init(&mut deps, params1, msg).unwrap();
+        let res = init(&mut deps, params1, init_msg).unwrap();
         assert_eq!(0, res.messages.len());
 
         let query_msg = to_vec(&QueryMsg::Balance {
