@@ -145,8 +145,7 @@ pub fn query<S: Storage, A: Api>(deps: &Extern<S, A>, msg: Vec<u8>) -> Result<Ve
     match msg {
         QueryMsg::Balance { address } => {
             let address_key = deps.api.canonical_address(&address)?;
-            let balances_store = ReadonlyPrefixedStorage::new(&deps.storage, PREFIX_BALANCES);
-            let balance = read_u128(&balances_store, address_key.as_bytes())?;
+            let balance = read_balance(&deps.storage, &address_key)?;
             Ok(Vec::from(&balance.to_be_bytes()[..]))
         }
         QueryMsg::Allowance { owner, spender } => {
@@ -309,6 +308,11 @@ pub fn parse_u128(decimal: &str) -> Result<u128> {
         }
         .fail(),
     }
+}
+
+fn read_balance<S: Storage>(store: &S, owner: &CanonicalAddr) -> Result<u128> {
+    let balance_store = ReadonlyPrefixedStorage::new(store, PREFIX_BALANCES);
+    return read_u128(&balance_store, owner.as_bytes());
 }
 
 fn read_allowance<S: Storage>(
