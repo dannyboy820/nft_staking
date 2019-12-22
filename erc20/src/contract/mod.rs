@@ -47,11 +47,9 @@ pub enum HandleMsg {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "lowercase")]
-// Unused for now. TODO: Create smart queries for balances and allowances that
-// take human readable addresses once those issues are resolved
-// 1. https://github.com/confio/cosmwasm/issues/73
-// 2. https://github.com/confio/cosmwasm/issues/72
-pub enum QueryMsg {}
+pub enum QueryMsg {
+    Balance { address: HumanAddr },
+}
 
 pub const PREFIX_CONFIG: &[u8] = b"config";
 pub const PREFIX_BALANCES: &[u8] = b"balances";
@@ -136,9 +134,16 @@ pub fn handle<S: Storage, A: Api>(
     }
 }
 
-pub fn query<S: Storage, A: Api>(_deps: &Extern<S, A>, msg: Vec<u8>) -> Result<Vec<u8>> {
+pub fn query<S: Storage, A: Api>(deps: &Extern<S, A>, msg: Vec<u8>) -> Result<Vec<u8>> {
     let msg: QueryMsg = from_slice(&msg).context(ParseErr { kind: "QueryMsg" })?;
-    match msg {}
+    match msg {
+        QueryMsg::Balance { address } => {
+            let address_key = deps.api.canonical_address(&address)?;
+            let balances_store = ReadonlyPrefixedStorage::new(&deps.storage, PREFIX_BALANCES);
+            let balance = read_u128(&balances_store, address_key.as_bytes())?;
+            Ok(Vec::from(&balance.to_be_bytes()[..]))
+        }
+    }
 }
 
 fn try_transfer<S: Storage, A: Api>(

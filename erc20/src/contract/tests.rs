@@ -6,9 +6,9 @@ use cosmwasm::types::{HumanAddr, Params};
 use std::convert::TryInto;
 
 use super::{
-    bytes_to_u128, handle, init, prefixedstorage, read_u128, HandleMsg, InitMsg, InitialBalance,
-    KEY_DECIMALS, KEY_NAME, KEY_SYMBOL, KEY_TOTAL_SUPPLY, PREFIX_ALLOWANCES, PREFIX_BALANCES,
-    PREFIX_CONFIG,
+    bytes_to_u128, handle, init, prefixedstorage, query, read_u128, HandleMsg, InitMsg,
+    InitialBalance, QueryMsg, KEY_DECIMALS, KEY_NAME, KEY_SYMBOL, KEY_TOTAL_SUPPLY,
+    PREFIX_ALLOWANCES, PREFIX_BALANCES, PREFIX_CONFIG,
 };
 use prefixedstorage::ReadonlyPrefixedStorage;
 
@@ -901,5 +901,76 @@ mod transfer_from {
         // State unchanged
         // assert_eq!(get_balance(&deps.api, &deps.storage, owner), 11);
         // assert_eq!(get_allowance(&deps.api, &deps.storage, owner, spender), 20);
+    }
+}
+
+mod query {
+    use super::*;
+
+    fn address(index: u8) -> HumanAddr {
+        match index {
+            0 => HumanAddr("addr0000".to_string()), // contract initializer
+            1 => HumanAddr("addr1111".to_string()),
+            2 => HumanAddr("addr4321".to_string()),
+            3 => HumanAddr("addr5432".to_string()),
+            4 => HumanAddr("addr6543".to_string()),
+            _ => panic!("Unsupported address index"),
+        }
+    }
+
+    fn make_init_msg() -> InitMsg {
+        return InitMsg {
+            name: "Cash Token".to_string(),
+            symbol: "CASH".to_string(),
+            decimals: 9,
+            initial_balances: vec![
+                InitialBalance {
+                    address: address(1),
+                    amount: "11".to_string(),
+                },
+                InitialBalance {
+                    address: address(2),
+                    amount: "22".to_string(),
+                },
+                InitialBalance {
+                    address: address(3),
+                    amount: "33".to_string(),
+                },
+            ],
+        };
+    }
+
+    #[test]
+    fn can_query_balance_of_existing_address() {
+        let mut deps = dependencies(CANONICAL_LENGTH);
+        let msg = to_vec(&make_init_msg()).unwrap();
+        let params1 = mock_params_height(&deps.api, &address(0), 450, 550);
+        let res = init(&mut deps, params1, msg).unwrap();
+        assert_eq!(0, res.messages.len());
+
+        let query_msg = to_vec(&QueryMsg::Balance {
+            address: address(1),
+        })
+        .unwrap();
+        let query_result = query(&deps, query_msg).unwrap();
+        let balance = bytes_to_u128(&query_result).unwrap();
+        assert_eq!(balance, 11);
+    }
+
+    #[test]
+    fn can_query_balance_of_nonexisting_address() {
+        let mut deps = dependencies(CANONICAL_LENGTH);
+        let msg = to_vec(&make_init_msg()).unwrap();
+        let params1 = mock_params_height(&deps.api, &address(0), 450, 550);
+        let res = init(&mut deps, params1, msg).unwrap();
+        assert_eq!(0, res.messages.len());
+
+        let query_msg = to_vec(&QueryMsg::Balance {
+            address: address(4), // only indices 1, 2, 3 are initialized
+        })
+        .unwrap();
+        let query_result = query(&deps, query_msg).unwrap();
+        let balance = bytes_to_u128(&query_result).unwrap();
+        assert_eq!(balance, 0);
     }
 }
