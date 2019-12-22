@@ -69,12 +69,30 @@ jobs:
           name: Add wasm32 target
           command: rustup target add wasm32-unknown-unknown
       - run:
+          name: Add rustfmt component
+          command: rustup component add rustfmt
+      - run:
           name: Build
           command: cargo wasm --locked
       - run:
           name: Integration Tests
           env: RUST_BACKTRACE=1
           command: cargo test --locked
+      - run:
+          name: Format source code
+          command: cargo fmt
+      - run:
+          name: Build and run schema generator
+          command: cargo schema --locked
+      - run:
+          name: Ensure checked-in source code and schemas are up-to-date
+          command: |
+            CHANGES_IN_REPO=$(git status --porcelain)
+            if [[ -n "$CHANGES_IN_REPO" ]]; then
+              echo "Repository is dirty. Showing 'git status' and 'git diff' for debugging now:"
+              git status && git diff
+              exit 1
+            fi
       - save_cache:
           paths:
             - /usr/local/cargo/registry
