@@ -19,7 +19,7 @@
               "type": "string"
             },
             "spender": {
-              "type": "string"
+              "$ref": "#/definitions/HumanAddr"
             }
           }
         }
@@ -42,7 +42,7 @@
               "type": "string"
             },
             "recipient": {
-              "type": "string"
+              "$ref": "#/definitions/HumanAddr"
             }
           }
         }
@@ -66,14 +66,19 @@
               "type": "string"
             },
             "owner": {
-              "type": "string"
+              "$ref": "#/definitions/HumanAddr"
             },
             "recipient": {
-              "type": "string"
+              "$ref": "#/definitions/HumanAddr"
             }
           }
         }
       }
     }
-  ]
+  ],
+  "definitions": {
+    "HumanAddr": {
+      "type": "string"
+    }
+  }
 }

@@ -28,6 +28,9 @@
     }
   },
   "definitions": {
+    "HumanAddr": {
+      "type": "string"
+    },
     "InitialBalance": {
       "type": "object",
       "required": [
@@ -36,7 +39,7 @@
       ],
       "properties": {
         "address": {
-          "type": "string"
+          "$ref": "#/definitions/HumanAddr"
         },
         "amount": {
           "type": "string"
