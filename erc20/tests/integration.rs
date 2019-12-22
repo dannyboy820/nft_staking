@@ -2,12 +2,12 @@ use cosmwasm::mock::mock_params;
 use cosmwasm::serde::to_vec;
 use cosmwasm::traits::{Api, ReadonlyStorage, Storage};
 use cosmwasm::types::{HumanAddr, Params};
-use cosmwasm_vm::testing::{init, mock_instance};
+use cosmwasm_vm::testing::{handle, init, mock_instance};
 use std::convert::TryInto;
 
 use erc20::contract::{
-    bytes_to_u128, prefixedstorage, read_u128, InitMsg, InitialBalance, KEY_DECIMALS, KEY_NAME,
-    KEY_SYMBOL, KEY_TOTAL_SUPPLY, PREFIX_BALANCES, PREFIX_CONFIG,
+    bytes_to_u128, prefixedstorage, read_u128, HandleMsg, InitMsg, InitialBalance, KEY_DECIMALS,
+    KEY_NAME, KEY_SYMBOL, KEY_TOTAL_SUPPLY, PREFIX_BALANCES, PREFIX_CONFIG,
 };
 use prefixedstorage::ReadonlyPrefixedStorage;
 
@@ -83,7 +83,7 @@ fn get_balance<S: ReadonlyStorage, A: Api>(api: &A, storage: &S, address: &Human
 }
 
 #[test]
-fn proper_initialization() {
+fn init_works() {
     let mut deps = mock_instance(WASM);
     let msg = init_msg();
     let params = mock_params_height(&deps.api, &HumanAddr("creator".to_string()), 876, 0);
@@ -108,5 +108,40 @@ fn proper_initialization() {
             get_balance(&deps.api, storage, &HumanAddr("addr4321".to_string())),
             33
         );
+    });
+}
+
+#[test]
+fn transfer_works() {
+    let mut deps = mock_instance(WASM);
+    let msg = init_msg();
+    let params1 = mock_params_height(&deps.api, &HumanAddr("creator".to_string()), 876, 0);
+    let res = init(&mut deps, params1, msg).unwrap();
+    assert_eq!(0, res.messages.len());
+
+    let sender = HumanAddr("addr0000".to_string());
+    let recipient = HumanAddr("addr1111".to_string());
+
+    // Before
+    deps.with_storage(|storage| {
+        assert_eq!(get_balance(&deps.api, storage, &sender), 11);
+        assert_eq!(get_balance(&deps.api, storage, &recipient), 22);
+    });
+
+    // Transfer
+    let transfer_msg = to_vec(&HandleMsg::Transfer {
+        recipient: recipient.clone(),
+        amount: "1".to_string(),
+    })
+    .unwrap();
+    let params2 = mock_params_height(&deps.api, &sender, 877, 0);
+    let transfer_result = handle(&mut deps, params2, transfer_msg).unwrap();
+    assert_eq!(transfer_result.messages.len(), 0);
+    assert_eq!(transfer_result.log, Some("transfer successful".to_string()));
+
+    // After
+    deps.with_storage(|storage| {
+        assert_eq!(get_balance(&deps.api, storage, &sender), 10);
+        assert_eq!(get_balance(&deps.api, storage, &recipient), 23);
     });
 }
