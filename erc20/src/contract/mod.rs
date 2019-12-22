@@ -8,8 +8,8 @@ use std::convert::TryInto;
 use serde::{Deserialize, Serialize};
 use snafu::ResultExt;
 
-use cosmwasm::errors::{ContractErr, DynContractErr, ParseErr, Result};
-use cosmwasm::serde::from_slice;
+use cosmwasm::errors::{ContractErr, DynContractErr, ParseErr, Result, SerializeErr};
+use cosmwasm::serde::{from_slice, to_vec};
 use cosmwasm::traits::{Api, Extern, ReadonlyStorage, Storage};
 use cosmwasm::types::{CanonicalAddr, HumanAddr, Params, Response};
 
@@ -55,6 +55,16 @@ pub enum QueryMsg {
         owner: HumanAddr,
         spender: HumanAddr,
     },
+}
+
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema)]
+pub struct BalanceResponse {
+    pub balance: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema)]
+pub struct AllowanceResponse {
+    pub allowance: String,
 }
 
 pub const PREFIX_CONFIG: &[u8] = b"config";
@@ -146,13 +156,25 @@ pub fn query<S: Storage, A: Api>(deps: &Extern<S, A>, msg: Vec<u8>) -> Result<Ve
         QueryMsg::Balance { address } => {
             let address_key = deps.api.canonical_address(&address)?;
             let balance = read_balance(&deps.storage, &address_key)?;
-            Ok(Vec::from(&balance.to_be_bytes()[..]))
+            let out = to_vec(&BalanceResponse {
+                balance: balance.to_string(),
+            })
+            .context(SerializeErr {
+                kind: "BalanceResponse",
+            })?;
+            Ok(out)
         }
         QueryMsg::Allowance { owner, spender } => {
             let owner_key = deps.api.canonical_address(&owner)?;
             let spender_key = deps.api.canonical_address(&spender)?;
             let allowance = read_allowance(&deps.storage, &owner_key, &spender_key)?;
-            Ok(Vec::from(&allowance.to_be_bytes()[..]))
+            let out = to_vec(&AllowanceResponse {
+                allowance: allowance.to_string(),
+            })
+            .context(SerializeErr {
+                kind: "AllowanceResponse",
+            })?;
+            Ok(out)
         }
     }
 }

@@ -953,8 +953,7 @@ mod query {
         })
         .unwrap();
         let query_result = query(&deps, query_msg).unwrap();
-        let balance = bytes_to_u128(&query_result).unwrap();
-        assert_eq!(balance, 11);
+        assert_eq!(query_result, b"{\"balance\":\"11\"}");
     }
 
     #[test]
@@ -970,8 +969,7 @@ mod query {
         })
         .unwrap();
         let query_result = query(&deps, query_msg).unwrap();
-        let balance = bytes_to_u128(&query_result).unwrap();
-        assert_eq!(balance, 0);
+        assert_eq!(query_result, b"{\"balance\":\"0\"}");
     }
 
     #[test]
@@ -1001,8 +999,7 @@ mod query {
         })
         .unwrap();
         let query_result = query(&deps, query_msg).unwrap();
-        let balance = bytes_to_u128(&query_result).unwrap();
-        assert_eq!(balance, 42);
+        assert_eq!(query_result, b"{\"allowance\":\"42\"}");
     }
 
     #[test]
@@ -1034,8 +1031,7 @@ mod query {
         })
         .unwrap();
         let query_result = query(&deps, query_msg).unwrap();
-        let balance = bytes_to_u128(&query_result).unwrap();
-        assert_eq!(balance, 0);
+        assert_eq!(query_result, b"{\"allowance\":\"0\"}");
 
         // differnet owner
         let query_msg = to_vec(&QueryMsg::Allowance {
@@ -1044,7 +1040,6 @@ mod query {
         })
         .unwrap();
         let query_result = query(&deps, query_msg).unwrap();
-        let balance = bytes_to_u128(&query_result).unwrap();
-        assert_eq!(balance, 0);
+        assert_eq!(query_result, b"{\"allowance\":\"0\"}");
     }
 }
