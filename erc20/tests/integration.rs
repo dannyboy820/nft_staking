@@ -196,3 +196,56 @@ fn approve_works() {
         assert_eq!(get_allowance(&deps.api, storage, &owner, &spender), 42);
     });
 }
+
+#[test]
+fn transfer_from_works() {
+    let mut deps = mock_instance(WASM);
+    let msg = init_msg();
+    let params1 = mock_params_height(&deps.api, &HumanAddr("creator".to_string()), 876, 0);
+    let res = init(&mut deps, params1, msg).unwrap();
+    assert_eq!(0, res.messages.len());
+
+    let owner = address(0);
+    let spender = address(1);
+    let recipient = address(2);
+
+    // Before
+    deps.with_storage(|storage| {
+        assert_eq!(get_balance(&deps.api, storage, &owner), 11);
+        assert_eq!(get_balance(&deps.api, storage, &recipient), 33);
+        assert_eq!(get_allowance(&deps.api, storage, &owner, &spender), 0);
+    });
+
+    // Approve
+    let approve_msg = to_vec(&HandleMsg::Approve {
+        spender: spender.clone(),
+        amount: "42".to_string(),
+    })
+    .unwrap();
+    let params2 = mock_params_height(&deps.api, &owner, 877, 0);
+    let approve_result = handle(&mut deps, params2, approve_msg).unwrap();
+    assert_eq!(approve_result.messages.len(), 0);
+    assert_eq!(approve_result.log, Some("approve successful".to_string()));
+
+    // Transfer from
+    let transfer_from_msg = to_vec(&HandleMsg::TransferFrom {
+        owner: owner.clone(),
+        recipient: recipient.clone(),
+        amount: "2".to_string(),
+    })
+    .unwrap();
+    let params3 = mock_params_height(&deps.api, &spender, 878, 0);
+    let transfer_from_result = handle(&mut deps, params3, transfer_from_msg).unwrap();
+    assert_eq!(transfer_from_result.messages.len(), 0);
+    assert_eq!(
+        transfer_from_result.log,
+        Some("transfer from successful".to_string())
+    );
+
+    // After
+    deps.with_storage(|storage| {
+        assert_eq!(get_balance(&deps.api, storage, &owner), 9);
+        assert_eq!(get_balance(&deps.api, storage, &recipient), 35);
+        assert_eq!(get_allowance(&deps.api, storage, &owner, &spender), 40);
+    });
+}
