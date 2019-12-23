@@ -370,7 +370,7 @@ mod transfer {
     use super::*;
 
     fn make_init_msg() -> InitMsg {
-        return InitMsg {
+        InitMsg {
             name: "Cash Token".to_string(),
             symbol: "CASH".to_string(),
             decimals: 9,
@@ -388,7 +388,7 @@ mod transfer {
                     amount: "33".to_string(),
                 },
             ],
-        };
+        }
     }
 
     #[test]
@@ -605,7 +605,7 @@ mod approve {
     use super::*;
 
     fn make_init_msg() -> InitMsg {
-        return InitMsg {
+        InitMsg {
             name: "Cash Token".to_string(),
             symbol: "CASH".to_string(),
             decimals: 9,
@@ -623,7 +623,7 @@ mod approve {
                     amount: "33".to_string(),
                 },
             ],
-        };
+        }
     }
 
     fn make_spender() -> HumanAddr {
@@ -718,7 +718,7 @@ mod transfer_from {
     use super::*;
 
     fn make_init_msg() -> InitMsg {
-        return InitMsg {
+        InitMsg {
             name: "Cash Token".to_string(),
             symbol: "CASH".to_string(),
             decimals: 9,
@@ -736,7 +736,7 @@ mod transfer_from {
                     amount: "33".to_string(),
                 },
             ],
-        };
+        }
     }
 
     fn make_spender() -> HumanAddr {
@@ -903,7 +903,7 @@ mod query {
     }
 
     fn make_init_msg() -> InitMsg {
-        return InitMsg {
+        InitMsg {
             name: "Cash Token".to_string(),
             symbol: "CASH".to_string(),
             decimals: 9,
@@ -921,7 +921,7 @@ mod query {
                     amount: "33".to_string(),
                 },
             ],
-        };
+        }
     }
 
     #[test]
