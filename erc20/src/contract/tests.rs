@@ -14,7 +14,7 @@ use prefixedstorage::ReadonlyPrefixedStorage;
 static CANONICAL_LENGTH: usize = 20;
 
 fn mock_params_height<A: Api>(api: &A, signer: &HumanAddr, height: i64, time: i64) -> Params {
-    let mut params = mock_params(api, signer.as_str(), &[], &[]);
+    let mut params = mock_params(api, signer, &[], &[]);
     params.block.height = height;
     params.block.time = time;
     params

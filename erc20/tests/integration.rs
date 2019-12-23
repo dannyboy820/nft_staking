@@ -13,7 +13,7 @@ use prefixedstorage::ReadonlyPrefixedStorage;
 static WASM: &[u8] = include_bytes!("../target/wasm32-unknown-unknown/release/erc20.wasm");
 
 fn mock_params_height<A: Api>(api: &A, signer: &HumanAddr, height: i64, time: i64) -> Params {
-    let mut params = mock_params(api, signer.as_str(), &[], &[]);
+    let mut params = mock_params(api, signer, &[], &[]);
     params.block.height = height;
     params.block.time = time;
     params
