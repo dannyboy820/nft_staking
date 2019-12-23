@@ -2,11 +2,11 @@ use cosmwasm::mock::mock_params;
 use cosmwasm::serde::{from_slice, to_vec};
 use cosmwasm::traits::{Api, ReadonlyStorage, Storage};
 use cosmwasm::types::{HumanAddr, Params};
-use cosmwasm_vm::testing::{handle, init, mock_instance};
+use cosmwasm_vm::testing::{handle, init, mock_instance, query};
 
 use erc20::contract::{
     bytes_to_u128, prefixedstorage, read_u128, Constants, HandleMsg, InitMsg, InitialBalance,
-    KEY_CONSTANTS, KEY_TOTAL_SUPPLY, PREFIX_ALLOWANCES, PREFIX_BALANCES, PREFIX_CONFIG,
+    QueryMsg, KEY_CONSTANTS, KEY_TOTAL_SUPPLY, PREFIX_ALLOWANCES, PREFIX_BALANCES, PREFIX_CONFIG,
 };
 use prefixedstorage::ReadonlyPrefixedStorage;
 
@@ -238,4 +238,21 @@ fn transfer_from_works() {
         assert_eq!(get_balance(&deps.api, storage, &recipient), 35);
         assert_eq!(get_allowance(&deps.api, storage, &owner, &spender), 40);
     });
+}
+
+#[test]
+fn can_query_balance_of_existing_address() {
+    let mut deps = mock_instance(WASM);
+    // let init_msg = to_vec(&make_init_msg()).unwrap();
+    let init_msg = init_msg();
+    let params1 = mock_params_height(&deps.api, &address(0), 450, 550);
+    let res = init(&mut deps, params1, init_msg).unwrap();
+    assert_eq!(0, res.messages.len());
+
+    let query_msg = to_vec(&QueryMsg::Balance {
+        address: address(1),
+    })
+    .unwrap();
+    let query_result = query(&mut deps, query_msg).unwrap();
+    assert_eq!(query_result, b"{\"balance\":\"22\"}");
 }
