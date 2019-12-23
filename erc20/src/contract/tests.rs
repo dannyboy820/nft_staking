@@ -836,11 +836,6 @@ mod transfer_from {
             }
             Err(e) => panic!("unexpected error: {:?}", e),
         }
-
-        // TOOD: is it in scope to test state after execution errors?
-        // State unchanged
-        // assert_eq!(get_balance(&deps.api, &deps.storage, owner), 11);
-        // assert_eq!(get_allowance(&deps.api, &deps.storage, owner, spender), 2);
     }
 
     #[test]
@@ -883,11 +878,6 @@ mod transfer_from {
             }
             Err(e) => panic!("unexpected error: {:?}", e),
         }
-
-        // TOOD: is it in scope to test state after execution errors?
-        // State unchanged
-        // assert_eq!(get_balance(&deps.api, &deps.storage, owner), 11);
-        // assert_eq!(get_allowance(&deps.api, &deps.storage, owner, spender), 20);
     }
 }
 
