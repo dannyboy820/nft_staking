@@ -8,8 +8,8 @@ use std::convert::TryInto;
 use serde::{Deserialize, Serialize};
 use snafu::ResultExt;
 
-use cosmwasm::errors::{ContractErr, DynContractErr, ParseErr, Result, SerializeErr};
-use cosmwasm::serde::{from_slice, to_vec};
+use cosmwasm::errors::{ContractErr, DynContractErr, Result, SerializeErr};
+use cosmwasm::serde::to_vec;
 use cosmwasm::traits::{Api, Extern, ReadonlyStorage, Storage};
 use cosmwasm::types::{CanonicalAddr, HumanAddr, Params, Response};
 
@@ -84,10 +84,8 @@ pub const KEY_TOTAL_SUPPLY: &[u8] = b"total_supply";
 pub fn init<S: Storage, A: Api>(
     deps: &mut Extern<S, A>,
     _params: Params,
-    msg: Vec<u8>,
+    msg: InitMsg,
 ) -> Result<Response> {
-    let msg: InitMsg = from_slice(&msg).context(ParseErr { kind: "InitMsg" })?;
-
     let mut total_supply: u128 = 0;
     {
         // Initial balances
@@ -136,10 +134,8 @@ pub fn init<S: Storage, A: Api>(
 pub fn handle<S: Storage, A: Api>(
     deps: &mut Extern<S, A>,
     params: Params,
-    msg: Vec<u8>,
+    msg: HandleMsg,
 ) -> Result<Response> {
-    let msg: HandleMsg = from_slice(&msg).context(ParseErr { kind: "HandleMsg" })?;
-
     match msg {
         HandleMsg::Approve { spender, amount } => try_approve(deps, params, &spender, &amount),
         HandleMsg::Transfer { recipient, amount } => {
@@ -153,8 +149,7 @@ pub fn handle<S: Storage, A: Api>(
     }
 }
 
-pub fn query<S: Storage, A: Api>(deps: &Extern<S, A>, msg: Vec<u8>) -> Result<Vec<u8>> {
-    let msg: QueryMsg = from_slice(&msg).context(ParseErr { kind: "QueryMsg" })?;
+pub fn query<S: Storage, A: Api>(deps: &Extern<S, A>, msg: QueryMsg) -> Result<Vec<u8>> {
     match msg {
         QueryMsg::Balance { address } => {
             let address_key = deps.api.canonical_address(&address)?;
