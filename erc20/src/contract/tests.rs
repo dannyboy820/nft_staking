@@ -531,6 +531,33 @@ mod transfer {
     }
 
     #[test]
+    fn can_send_to_sender() {
+        let mut deps = dependencies(CANONICAL_LENGTH);
+        let init_msg = make_init_msg();
+        let params1 = mock_params_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
+        let res = init(&mut deps, params1, init_msg).unwrap();
+        assert_eq!(0, res.messages.len());
+
+        let sender = HumanAddr("addr0000".to_string());
+
+        // Initial state
+        assert_eq!(get_balance(&deps.api, &deps.storage, &sender), 11);
+
+        // Transfer
+        let transfer_msg = HandleMsg::Transfer {
+            recipient: sender.clone(),
+            amount: "3".to_string(),
+        };
+        let params2 = mock_params_height(&deps.api, &sender, 450, 550);
+        let transfer_result = handle(&mut deps, params2, transfer_msg).unwrap();
+        assert_eq!(transfer_result.messages.len(), 0);
+        assert_eq!(transfer_result.log, Some("transfer successful".to_string()));
+
+        // New state
+        assert_eq!(get_balance(&deps.api, &deps.storage, &sender), 11);
+    }
+
+    #[test]
     fn fails_on_insufficient_balance() {
         let mut deps = dependencies(CANONICAL_LENGTH);
         let init_msg = make_init_msg();

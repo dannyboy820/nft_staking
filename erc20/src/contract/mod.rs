@@ -276,8 +276,8 @@ fn perform_transfer<T: Storage>(
     amount: u128,
 ) -> Result<()> {
     let mut balances_store = PrefixedStorage::new(store, PREFIX_BALANCES);
-    let mut from_balance = read_u128(&balances_store, from.as_bytes())?;
 
+    let mut from_balance = read_u128(&balances_store, from.as_bytes())?;
     if from_balance < amount {
         return DynContractErr {
             msg: format!(
@@ -287,13 +287,11 @@ fn perform_transfer<T: Storage>(
         }
         .fail();
     }
+    from_balance -= amount;
+    balances_store.set(from.as_bytes(), &from_balance.to_be_bytes());
 
     let mut to_balance = read_u128(&balances_store, to.as_bytes())?;
-
-    from_balance -= amount;
     to_balance += amount;
-
-    balances_store.set(from.as_bytes(), &from_balance.to_be_bytes());
     balances_store.set(to.as_bytes(), &to_balance.to_be_bytes());
 
     Ok(())
