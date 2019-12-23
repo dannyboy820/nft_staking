@@ -63,9 +63,10 @@ fn get_allowance<S: ReadonlyStorage, A: Api>(
 
 fn address(index: u8) -> HumanAddr {
     match index {
-        0 => HumanAddr("addr0000".to_string()),
+        0 => HumanAddr("addr0000".to_string()), // contract initializer
         1 => HumanAddr("addr1111".to_string()),
         2 => HumanAddr("addr4321".to_string()),
+        3 => HumanAddr("addr5432".to_string()),
         _ => panic!("Unsupported address index"),
     }
 }
@@ -77,15 +78,15 @@ fn init_msg() -> InitMsg {
         symbol: "ASH".to_string(),
         initial_balances: [
             InitialBalance {
-                address: address(0),
+                address: address(1),
                 amount: "11".to_string(),
             },
             InitialBalance {
-                address: address(1),
+                address: address(2),
                 amount: "22".to_string(),
             },
             InitialBalance {
-                address: address(2),
+                address: address(3),
                 amount: "33".to_string(),
             },
         ]
@@ -97,7 +98,7 @@ fn init_msg() -> InitMsg {
 fn init_works() {
     let mut deps = mock_instance(WASM);
     let init_msg = init_msg();
-    let params = mock_params_height(&deps.api, &HumanAddr("creator".to_string()), 876, 0);
+    let params = mock_params_height(&deps.api, &address(0), 876, 0);
     let res = init(&mut deps, params, init_msg).unwrap();
     assert_eq!(0, res.messages.len());
 
@@ -112,9 +113,9 @@ fn init_works() {
             }
         );
         assert_eq!(get_total_supply(storage), 66);
-        assert_eq!(get_balance(&deps.api, storage, &address(0)), 11);
-        assert_eq!(get_balance(&deps.api, storage, &address(1)), 22);
-        assert_eq!(get_balance(&deps.api, storage, &address(2)), 33);
+        assert_eq!(get_balance(&deps.api, storage, &address(1)), 11);
+        assert_eq!(get_balance(&deps.api, storage, &address(2)), 22);
+        assert_eq!(get_balance(&deps.api, storage, &address(3)), 33);
     });
 }
 
@@ -122,12 +123,12 @@ fn init_works() {
 fn transfer_works() {
     let mut deps = mock_instance(WASM);
     let init_msg = init_msg();
-    let params1 = mock_params_height(&deps.api, &HumanAddr("creator".to_string()), 876, 0);
+    let params1 = mock_params_height(&deps.api, &address(0), 876, 0);
     let res = init(&mut deps, params1, init_msg).unwrap();
     assert_eq!(0, res.messages.len());
 
-    let sender = address(0);
-    let recipient = address(1);
+    let sender = address(1);
+    let recipient = address(2);
 
     // Before
     deps.with_storage(|storage| {
@@ -156,12 +157,12 @@ fn transfer_works() {
 fn approve_works() {
     let mut deps = mock_instance(WASM);
     let init_msg = init_msg();
-    let params1 = mock_params_height(&deps.api, &HumanAddr("creator".to_string()), 876, 0);
+    let params1 = mock_params_height(&deps.api, &address(0), 876, 0);
     let res = init(&mut deps, params1, init_msg).unwrap();
     assert_eq!(0, res.messages.len());
 
-    let owner = address(0);
-    let spender = address(1);
+    let owner = address(1);
+    let spender = address(2);
 
     // Before
     deps.with_storage(|storage| {
@@ -188,13 +189,13 @@ fn approve_works() {
 fn transfer_from_works() {
     let mut deps = mock_instance(WASM);
     let init_msg = init_msg();
-    let params1 = mock_params_height(&deps.api, &HumanAddr("creator".to_string()), 876, 0);
+    let params1 = mock_params_height(&deps.api, &address(0), 876, 0);
     let res = init(&mut deps, params1, init_msg).unwrap();
     assert_eq!(0, res.messages.len());
 
-    let owner = address(0);
-    let spender = address(1);
-    let recipient = address(2);
+    let owner = address(1);
+    let spender = address(2);
+    let recipient = address(3);
 
     // Before
     deps.with_storage(|storage| {
@@ -244,7 +245,7 @@ fn can_query_balance_of_existing_address() {
     assert_eq!(0, res.messages.len());
 
     let query_msg = QueryMsg::Balance {
-        address: address(1),
+        address: address(2),
     };
     let query_result = query(&mut deps, query_msg).unwrap();
     assert_eq!(query_result, b"{\"balance\":\"22\"}");
