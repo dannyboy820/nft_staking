@@ -3,6 +3,9 @@ name = "cw-escrow"
 version = "0.1.0"
 authors = ["Ethan Frey <ethanfrey@users.noreply.github.com>"]
 edition = "2018"
+license = "Apache-2.0"
+description = "Simple CosmWasm contract for an escrow with arbiter and timeout"
+repository = "https://github.com/confio/cosmwasm-examples"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
