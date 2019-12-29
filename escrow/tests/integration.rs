@@ -2,7 +2,7 @@ use cosmwasm::serde::{from_slice, to_vec};
 use cosmwasm::types::{coin, mock_params, Coin, ContractResult, CosmosMsg, Params};
 use cosmwasm_vm::testing::{handle, init, mock_instance, query};
 
-use escrow::contract::{raw_query, HandleMsg, InitMsg, State, CONFIG_KEY};
+use cw_escrow::contract::{raw_query, HandleMsg, InitMsg, State, CONFIG_KEY};
 
 /**
 This integration test tries to run and call the generated wasm.
