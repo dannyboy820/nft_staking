@@ -18,7 +18,6 @@ pub struct InitMsg {
     pub end_time: i64,
 }
 
-
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum HandleMsg {
@@ -32,7 +31,7 @@ pub enum HandleMsg {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum QueryMsg {
-//    // GetCount returns the current count as a json-encoded number
+    //    // GetCount returns the current count as a json-encoded number
 //    GetCount {},
 }
 
@@ -76,7 +75,7 @@ pub fn init<S: Storage, A: Api>(
         ContractErr {
             msg: "creating expired escrow",
         }
-            .fail()
+        .fail()
     } else {
         deps.storage.set(
             CONFIG_KEY,
@@ -102,14 +101,19 @@ pub fn handle<S: Storage, A: Api>(
     }
 }
 
-fn try_approve<A: Api>(api: &A, params: Params, state: State, quantity: Option<Vec<Coin>>) -> Result<Response> {
+fn try_approve<A: Api>(
+    api: &A,
+    params: Params,
+    state: State,
+    quantity: Option<Vec<Coin>>,
+) -> Result<Response> {
     if params.message.signer != state.arbiter {
         Unauthorized {}.fail()
     } else if state.is_expired(&params) {
         ContractErr {
             msg: "escrow expired",
         }
-            .fail()
+        .fail()
     } else {
         let amount = match quantity {
             None => params.contract.balance.unwrap_or_default(),
@@ -134,7 +138,7 @@ fn try_refund<A: Api>(api: &A, params: Params, state: State) -> Result<Response>
         ContractErr {
             msg: "escrow not yet expired",
         }
-            .fail()
+        .fail()
     } else {
         let res = Response {
             messages: vec![CosmosMsg::Send {
@@ -212,9 +216,18 @@ mod tests {
         assert_eq!(
             state,
             State {
-                arbiter: deps.api.canonical_address(&HumanAddr::from("verifies")).unwrap(),
-                recipient: deps.api.canonical_address(&HumanAddr::from("benefits")).unwrap(),
-                source: deps.api.canonical_address(&HumanAddr::from("creator")).unwrap(),
+                arbiter: deps
+                    .api
+                    .canonical_address(&HumanAddr::from("verifies"))
+                    .unwrap(),
+                recipient: deps
+                    .api
+                    .canonical_address(&HumanAddr::from("benefits"))
+                    .unwrap(),
+                source: deps
+                    .api
+                    .canonical_address(&HumanAddr::from("creator"))
+                    .unwrap(),
                 end_height: 1000,
                 end_time: 0,
             }
@@ -248,7 +261,8 @@ mod tests {
 
         // beneficiary cannot release it
         let msg = HandleMsg::Approve { quantity: None };
-        let params = mock_params_height(&deps.api,
+        let params = mock_params_height(
+            &deps.api,
             "beneficiary",
             &coin("0", "earth"),
             &coin("1000", "earth"),
@@ -263,7 +277,8 @@ mod tests {
         }
 
         // verifier cannot release it when expired
-        let params = mock_params_height(&deps.api,
+        let params = mock_params_height(
+            &deps.api,
             "verifies",
             &coin("0", "earth"),
             &coin("1000", "earth"),
@@ -278,7 +293,8 @@ mod tests {
         }
 
         // complete release by verfier, before expiration
-        let params = mock_params_height(&deps.api,
+        let params = mock_params_height(
+            &deps.api,
             "verifies",
             &coin("0", "earth"),
             &coin("1000", "earth"),
@@ -301,7 +317,8 @@ mod tests {
         let partial_msg = HandleMsg::Approve {
             quantity: Some(coin("500", "earth")),
         };
-        let params = mock_params_height(&deps.api,
+        let params = mock_params_height(
+            &deps.api,
             "verifies",
             &coin("0", "earth"),
             &coin("1000", "earth"),

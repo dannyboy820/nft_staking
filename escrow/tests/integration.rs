@@ -1,11 +1,11 @@
 use cosmwasm::mock::mock_params;
 use cosmwasm::serde::from_slice;
-use cosmwasm::types::{coin, Coin, ContractResult, CosmosMsg, HumanAddr, Params};
 use cosmwasm::traits::{Api, ReadonlyStorage};
+use cosmwasm::types::{coin, Coin, ContractResult, CosmosMsg, HumanAddr, Params};
 
 use cosmwasm_vm::testing::{handle, init, mock_instance};
 
-use cw_escrow::contract::{CONFIG_KEY, HandleMsg, InitMsg, State};
+use cw_escrow::contract::{HandleMsg, InitMsg, State, CONFIG_KEY};
 
 /**
 This integration test tries to run and call the generated wasm.
@@ -88,9 +88,18 @@ fn proper_initialization() {
         assert_eq!(
             state,
             State {
-                arbiter: deps.api.canonical_address(&HumanAddr::from("verifies")).unwrap(),
-                recipient: deps.api.canonical_address(&HumanAddr::from("benefits")).unwrap(),
-                source: deps.api.canonical_address(&HumanAddr::from("creator")).unwrap(),
+                arbiter: deps
+                    .api
+                    .canonical_address(&HumanAddr::from("verifies"))
+                    .unwrap(),
+                recipient: deps
+                    .api
+                    .canonical_address(&HumanAddr::from("benefits"))
+                    .unwrap(),
+                source: deps
+                    .api
+                    .canonical_address(&HumanAddr::from("creator"))
+                    .unwrap(),
                 end_height: 1000,
                 end_time: 0,
             }
@@ -124,12 +133,13 @@ fn handle_approve() {
 
     // beneficiary cannot release it
     let msg = HandleMsg::Approve { quantity: None };
-    let params = mock_params_height(&deps.api,
-                                    "beneficiary",
-                                    &coin("0", "earth"),
-                                    &coin("1000", "earth"),
-                                    900,
-                                    0,
+    let params = mock_params_height(
+        &deps.api,
+        "beneficiary",
+        &coin("0", "earth"),
+        &coin("1000", "earth"),
+        900,
+        0,
     );
     let handle_res = handle(&mut deps, params, msg.clone());
     match handle_res {
@@ -138,12 +148,13 @@ fn handle_approve() {
     }
 
     // verifier cannot release it when expired
-    let params = mock_params_height(&deps.api,
-                                    "verifies",
-                                    &coin("0", "earth"),
-                                    &coin("1000", "earth"),
-                                    1100,
-                                    0,
+    let params = mock_params_height(
+        &deps.api,
+        "verifies",
+        &coin("0", "earth"),
+        &coin("1000", "earth"),
+        1100,
+        0,
     );
     let handle_res = handle(&mut deps, params, msg.clone());
     match handle_res {
@@ -152,12 +163,13 @@ fn handle_approve() {
     }
 
     // complete release by verfier, before expiration
-    let params = mock_params_height(&deps.api,
-                                    "verifies",
-                                    &coin("0", "earth"),
-                                    &coin("1000", "earth"),
-                                    999,
-                                    0,
+    let params = mock_params_height(
+        &deps.api,
+        "verifies",
+        &coin("0", "earth"),
+        &coin("1000", "earth"),
+        999,
+        0,
     );
     let handle_res = handle(&mut deps, params, msg.clone()).unwrap();
     assert_eq!(1, handle_res.messages.len());
@@ -175,12 +187,13 @@ fn handle_approve() {
     let partial_msg = HandleMsg::Approve {
         quantity: Some(coin("500", "earth")),
     };
-    let params = mock_params_height(&deps.api,
-                                    "verifies",
-                                    &coin("0", "earth"),
-                                    &coin("1000", "earth"),
-                                    999,
-                                    0,
+    let params = mock_params_height(
+        &deps.api,
+        "verifies",
+        &coin("0", "earth"),
+        &coin("1000", "earth"),
+        999,
+        0,
     );
     let handle_res = handle(&mut deps, params, partial_msg).unwrap();
     assert_eq!(1, handle_res.messages.len());
@@ -217,7 +230,9 @@ fn handle_refund() {
     );
     let handle_res = handle(&mut deps, params, msg.clone());
     match handle_res {
-        ContractResult::Err(msg) => assert_eq!(msg, "Contract error: escrow not yet expired".to_string()),
+        ContractResult::Err(msg) => {
+            assert_eq!(msg, "Contract error: escrow not yet expired".to_string())
+        }
         _ => panic!("expected error"),
     }
 
