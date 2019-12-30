@@ -3,12 +3,30 @@
   "title": "InitMsg",
   "type": "object",
   "required": [
-    "count"
+    "arbiter",
+    "end_height",
+    "end_time",
+    "recipient"
   ],
   "properties": {
-    "count": {
+    "arbiter": {
+      "$ref": "#/definitions/HumanAddr"
+    },
+    "end_height": {
       "type": "integer",
-      "format": "int32"
+      "format": "int64"
+    },
+    "end_time": {
+      "type": "integer",
+      "format": "int64"
+    },
+    "recipient": {
+      "$ref": "#/definitions/HumanAddr"
+    }
+  },
+  "definitions": {
+    "HumanAddr": {
+      "type": "string"
     }
   }
 }
