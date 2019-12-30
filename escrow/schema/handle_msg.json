@@ -5,55 +5,33 @@
     {
       "type": "object",
       "required": [
-        "approve"
+        "increment"
       ],
       "properties": {
-        "approve": {
-          "type": "object",
-          "required": [
-            "quantity"
-          ],
-          "properties": {
-            "quantity": {
-              "type": [
-                "array",
-                "null"
-              ],
-              "items": {
-                "$ref": "#/definitions/Coin"
-              }
-            }
-          }
+        "increment": {
+          "type": "object"
         }
       }
     },
     {
       "type": "object",
       "required": [
-        "refund"
+        "reset"
       ],
       "properties": {
-        "refund": {
-          "type": "object"
+        "reset": {
+          "type": "object",
+          "required": [
+            "count"
+          ],
+          "properties": {
+            "count": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
         }
       }
     }
-  ],
-  "definitions": {
-    "Coin": {
-      "type": "object",
-      "required": [
-        "amount",
-        "denom"
-      ],
-      "properties": {
-        "amount": {
-          "type": "string"
-        },
-        "denom": {
-          "type": "string"
-        }
-      }
-    }
-  }
+  ]
 }

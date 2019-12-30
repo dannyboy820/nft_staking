@@ -3,29 +3,26 @@
   "title": "State",
   "type": "object",
   "required": [
-    "arbiter",
-    "end_height",
-    "end_time",
-    "recipient",
-    "source"
+    "count",
+    "owner"
   ],
   "properties": {
-    "arbiter": {
-      "type": "string"
-    },
-    "end_height": {
+    "count": {
       "type": "integer",
-      "format": "int64"
+      "format": "int32"
     },
-    "end_time": {
-      "type": "integer",
-      "format": "int64"
-    },
-    "recipient": {
-      "type": "string"
-    },
-    "source": {
-      "type": "string"
+    "owner": {
+      "$ref": "#/definitions/CanonicalAddr"
+    }
+  },
+  "definitions": {
+    "CanonicalAddr": {
+      "type": "array",
+      "items": {
+        "type": "integer",
+        "format": "uint8",
+        "minimum": 0.0
+      }
     }
   }
 }
