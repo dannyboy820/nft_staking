@@ -4,6 +4,8 @@ description = "An implementation of the ERC20 token interface"
 version = "0.1.0"
 authors = ["Simon Warta <webmaster128@users.noreply.github.com>"]
 edition = "2018"
+license = "Apache-2.0"
+repository = "https://github.com/confio/cosmwasm-examples"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
