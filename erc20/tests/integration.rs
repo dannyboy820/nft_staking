@@ -4,7 +4,7 @@ use cosmwasm::traits::{Api, ReadonlyStorage, Storage};
 use cosmwasm::types::{HumanAddr, Params};
 use cosmwasm_vm::testing::{handle, init, mock_instance, query};
 
-use erc20::contract::{
+use cw_erc20::contract::{
     bytes_to_u128, prefixedstorage, read_u128, Constants, HandleMsg, InitMsg, InitialBalance,
     QueryMsg, KEY_CONSTANTS, KEY_TOTAL_SUPPLY, PREFIX_ALLOWANCES, PREFIX_BALANCES, PREFIX_CONFIG,
 };
