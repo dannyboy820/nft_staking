@@ -4,13 +4,13 @@ use cosmwasm::traits::{Api, ReadonlyStorage, Storage};
 use cosmwasm::types::{HumanAddr, Params};
 use cosmwasm_vm::testing::{handle, init, mock_instance, query};
 
-use erc20::contract::{
+use cw_erc20::contract::{
     bytes_to_u128, prefixedstorage, read_u128, Constants, HandleMsg, InitMsg, InitialBalance,
     QueryMsg, KEY_CONSTANTS, KEY_TOTAL_SUPPLY, PREFIX_ALLOWANCES, PREFIX_BALANCES, PREFIX_CONFIG,
 };
 use prefixedstorage::ReadonlyPrefixedStorage;
 
-static WASM: &[u8] = include_bytes!("../target/wasm32-unknown-unknown/release/erc20.wasm");
+static WASM: &[u8] = include_bytes!("../target/wasm32-unknown-unknown/release/cw_erc20.wasm");
 
 fn mock_params_height<A: Api>(api: &A, signer: &HumanAddr, height: i64, time: i64) -> Params {
     let mut params = mock_params(api, signer, &[], &[]);

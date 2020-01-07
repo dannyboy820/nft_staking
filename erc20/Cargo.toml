@@ -1,9 +1,11 @@
 [package]
-name = "erc20"
+name = "cw-erc20"
 description = "An implementation of the ERC20 token interface"
 version = "0.1.0"
 authors = ["Simon Warta <webmaster128@users.noreply.github.com>"]
 edition = "2018"
+license = "Apache-2.0"
+repository = "https://github.com/confio/cosmwasm-examples"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
@@ -28,13 +30,13 @@ cranelift = [ "cosmwasm-vm/default-cranelift"]
 singlepass = [ "cosmwasm-vm/default-singlepass"]
 
 [dependencies]
-cosmwasm = { version = "0.6.0" }
-schemars = "0.5"
-serde = { version = "1.0.60", default-features = false, features = ["derive"] }
-snafu = { version = "0.5.0", default-features = false, features = ["rust_1_30"] }
-hex = "0.4.0"
+cosmwasm = { version = "~0.6.0" }
+schemars = "=0.5"
+serde = { version = "=1.0.103", default-features = false, features = ["derive"] }
+snafu = { version = "=0.5.0", default-features = false, features = ["rust_1_30"] }
+hex = "=0.4.0"
 # needed for wasm-pack build process
-wasm-bindgen = "0.2.55"
+wasm-bindgen = "=0.2.55"
 
 [dev-dependencies]
 cosmwasm-vm = { version = "0.6.0", default-features = false }

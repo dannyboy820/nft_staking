@@ -4,7 +4,7 @@ use std::path::PathBuf;
 
 use schemars::{schema::RootSchema, schema_for};
 
-use erc20::contract::{
+use cw_erc20::contract::{
     AllowanceResponse, BalanceResponse, Constants, HandleMsg, InitMsg, QueryMsg,
 };
 
