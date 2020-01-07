@@ -10,7 +10,7 @@ use cw_erc20::contract::{
 };
 use prefixedstorage::ReadonlyPrefixedStorage;
 
-static WASM: &[u8] = include_bytes!("../target/wasm32-unknown-unknown/release/erc20.wasm");
+static WASM: &[u8] = include_bytes!("../target/wasm32-unknown-unknown/release/cw_erc20.wasm");
 
 fn mock_params_height<A: Api>(api: &A, signer: &HumanAddr, height: i64, time: i64) -> Params {
     let mut params = mock_params(api, signer, &[], &[]);
