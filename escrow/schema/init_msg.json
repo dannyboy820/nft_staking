@@ -10,7 +10,7 @@
   ],
   "properties": {
     "arbiter": {
-      "type": "string"
+      "$ref": "#/definitions/HumanAddr"
     },
     "end_height": {
       "type": "integer",
@@ -21,6 +21,11 @@
       "format": "int64"
     },
     "recipient": {
+      "$ref": "#/definitions/HumanAddr"
+    }
+  },
+  "definitions": {
+    "HumanAddr": {
       "type": "string"
     }
   }

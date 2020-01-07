@@ -1,19 +1,16 @@
-use std::str::from_utf8;
-
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use snafu::{OptionExt, ResultExt};
 
-use cosmwasm::errors::{ContractErr, ParseErr, Result, SerializeErr, Unauthorized, Utf8Err};
-use cosmwasm::query::perform_raw_query;
+use cosmwasm::errors::{ContractErr, ParseErr, Result, SerializeErr, Unauthorized};
 use cosmwasm::serde::{from_slice, to_vec};
-use cosmwasm::storage::Storage;
-use cosmwasm::types::{Coin, CosmosMsg, Params, QueryResponse, RawQuery, Response};
+use cosmwasm::traits::{Api, Extern, Storage};
+use cosmwasm::types::{CanonicalAddr, Coin, CosmosMsg, HumanAddr, Params, Response};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct InitMsg {
-    pub arbiter: String,
-    pub recipient: String,
+    pub arbiter: HumanAddr,
+    pub recipient: HumanAddr,
     // you can set a last time or block height the contract is valid at
     // if *either* is non-zero and below current state, the contract is considered expired
     // and will be returned to the original funder
@@ -34,21 +31,21 @@ pub enum HandleMsg {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum QueryMsg {
-    Raw(RawQuery),
+    //    // GetCount returns the current count as a json-encoded number
+//    GetCount {},
 }
 
-// raw_query is a helper to generate a serialized format of a raw_query
-// meant for test code and integration tests
-pub fn raw_query(key: &[u8]) -> Result<Vec<u8>> {
-    let key = from_utf8(key).context(Utf8Err {})?.to_string();
-    to_vec(&QueryMsg::Raw(RawQuery { key })).context(SerializeErr { kind: "QueryMsg" })
-}
+//// We define a custom struct for each query response
+//#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+//pub struct CountResponse {
+//    pub count: i32,
+//}
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct State {
-    pub arbiter: String,
-    pub recipient: String,
-    pub source: String,
+    pub arbiter: CanonicalAddr,
+    pub recipient: CanonicalAddr,
+    pub source: CanonicalAddr,
     pub end_height: i64,
     pub end_time: i64,
 }
@@ -62,11 +59,14 @@ impl State {
 
 pub static CONFIG_KEY: &[u8] = b"config";
 
-pub fn init<T: Storage>(store: &mut T, params: Params, msg: Vec<u8>) -> Result<Response> {
-    let msg: InitMsg = from_slice(&msg).context(ParseErr { kind: "InitMsg" })?;
+pub fn init<S: Storage, A: Api>(
+    deps: &mut Extern<S, A>,
+    params: Params,
+    msg: InitMsg,
+) -> Result<Response> {
     let state = State {
-        arbiter: msg.arbiter,
-        recipient: msg.recipient,
+        arbiter: deps.api.canonical_address(&msg.arbiter)?,
+        recipient: deps.api.canonical_address(&msg.recipient)?,
         source: params.message.signer.clone(),
         end_height: msg.end_height,
         end_time: msg.end_time,
@@ -77,7 +77,7 @@ pub fn init<T: Storage>(store: &mut T, params: Params, msg: Vec<u8>) -> Result<R
         }
         .fail()
     } else {
-        store.set(
+        deps.storage.set(
             CONFIG_KEY,
             &to_vec(&state).context(SerializeErr { kind: "State" })?,
         );
@@ -85,20 +85,28 @@ pub fn init<T: Storage>(store: &mut T, params: Params, msg: Vec<u8>) -> Result<R
     }
 }
 
-pub fn handle<T: Storage>(store: &mut T, params: Params, msg: Vec<u8>) -> Result<Response> {
-    let msg: HandleMsg = from_slice(&msg).context(ParseErr { kind: "HandleMsg" })?;
-    let data = store.get(CONFIG_KEY).context(ContractErr {
+pub fn handle<S: Storage, A: Api>(
+    deps: &mut Extern<S, A>,
+    params: Params,
+    msg: HandleMsg,
+) -> Result<Response> {
+    let data = deps.storage.get(CONFIG_KEY).context(ContractErr {
         msg: "uninitialized data",
     })?;
     let state: State = from_slice(&data).context(ParseErr { kind: "State" })?;
 
     match msg {
-        HandleMsg::Approve { quantity } => try_approve(params, state, quantity),
-        HandleMsg::Refund {} => try_refund(params, state),
+        HandleMsg::Approve { quantity } => try_approve(&deps.api, params, state, quantity),
+        HandleMsg::Refund {} => try_refund(&deps.api, params, state),
     }
 }
 
-fn try_approve(params: Params, state: State, quantity: Option<Vec<Coin>>) -> Result<Response> {
+fn try_approve<A: Api>(
+    api: &A,
+    params: Params,
+    state: State,
+    quantity: Option<Vec<Coin>>,
+) -> Result<Response> {
     if params.message.signer != state.arbiter {
         Unauthorized {}.fail()
     } else if state.is_expired(&params) {
@@ -113,8 +121,8 @@ fn try_approve(params: Params, state: State, quantity: Option<Vec<Coin>>) -> Res
         };
         let res = Response {
             messages: vec![CosmosMsg::Send {
-                from_address: params.contract.address,
-                to_address: state.recipient,
+                from_address: api.human_address(&params.contract.address)?,
+                to_address: api.human_address(&state.recipient)?,
                 amount,
             }],
             log: Some("paid out funds".to_string()),
@@ -124,7 +132,7 @@ fn try_approve(params: Params, state: State, quantity: Option<Vec<Coin>>) -> Res
     }
 }
 
-fn try_refund(params: Params, state: State) -> Result<Response> {
+fn try_refund<A: Api>(api: &A, params: Params, state: State) -> Result<Response> {
     // anyone can try to refund, as long as the contract is expired
     if !state.is_expired(&params) {
         ContractErr {
@@ -134,8 +142,8 @@ fn try_refund(params: Params, state: State) -> Result<Response> {
     } else {
         let res = Response {
             messages: vec![CosmosMsg::Send {
-                from_address: params.contract.address,
-                to_address: state.source,
+                from_address: api.human_address(&params.contract.address)?,
+                to_address: api.human_address(&state.source)?,
                 amount: params.contract.balance.unwrap_or_default(),
             }],
             log: Some("returned funds".to_string()),
@@ -145,38 +153,49 @@ fn try_refund(params: Params, state: State) -> Result<Response> {
     }
 }
 
-pub fn query<T: Storage>(store: &T, msg: Vec<u8>) -> Result<QueryResponse> {
-    let msg: QueryMsg = from_slice(&msg).context(ParseErr { kind: "QueryMsg" })?;
+pub fn query<S: Storage, A: Api>(_deps: &Extern<S, A>, msg: QueryMsg) -> Result<Vec<u8>> {
     match msg {
-        QueryMsg::Raw(raw) => perform_raw_query(store, raw),
+//        QueryMsg::GetCount {} => query_count(deps),
     }
 }
+
+//fn query_count<S: Storage, A: Api>(deps: &Extern<S, A>) -> Result<Vec<u8>> {
+//    let data = deps.storage.get(CONFIG_KEY).context(ContractErr {
+//        msg: "uninitialized data",
+//    })?;
+//    let state: State = from_slice(&data).context(ParseErr { kind: "State" })?;
+//    let resp = CountResponse { count: state.count };
+//    to_vec(&resp).context(SerializeErr {
+//        kind: "CountResponse",
+//    })
+//}
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use cosmwasm::errors::Error;
-    use cosmwasm::mock::MockStorage;
-    use cosmwasm::types::{coin, mock_params};
+    use cosmwasm::mock::{dependencies, mock_params};
+    use cosmwasm::traits::{Api, ReadonlyStorage};
+    use cosmwasm::types::coin;
 
-    fn init_msg(height: i64, time: i64) -> Vec<u8> {
-        to_vec(&InitMsg {
-            arbiter: String::from("verifies"),
-            recipient: String::from("benefits"),
+    fn init_msg(height: i64, time: i64) -> InitMsg {
+        InitMsg {
+            arbiter: HumanAddr::from("verifies"),
+            recipient: HumanAddr::from("benefits"),
             end_height: height,
             end_time: time,
-        })
-        .unwrap()
+        }
     }
 
-    fn mock_params_height(
+    fn mock_params_height<A: Api>(
+        api: &A,
         signer: &str,
         sent: &[Coin],
         balance: &[Coin],
         height: i64,
         time: i64,
     ) -> Params {
-        let mut params = mock_params(signer, sent, balance);
+        let mut params = mock_params(api, signer, sent, balance);
         params.block.height = height;
         params.block.time = time;
         params
@@ -184,22 +203,31 @@ mod tests {
 
     #[test]
     fn proper_initialization() {
-        let mut store = MockStorage::new();
+        let mut deps = dependencies(20);
+
         let msg = init_msg(1000, 0);
-        let params = mock_params_height("creator", &coin("1000", "earth"), &[], 876, 0);
-        let res = init(&mut store, params, msg).unwrap();
+        let params = mock_params_height(&deps.api, "creator", &coin("1000", "earth"), &[], 876, 0);
+        let res = init(&mut deps, params, msg).unwrap();
         assert_eq!(0, res.messages.len());
 
         // it worked, let's query the state
-        let q_res = query(&store, raw_query(CONFIG_KEY).unwrap()).unwrap();
-        let model = q_res.results.first().expect("no data stored");
-        let state: State = from_slice(&model.val).unwrap();
+        let val = deps.storage.get(CONFIG_KEY).expect("init must set data");
+        let state: State = from_slice(&val).unwrap();
         assert_eq!(
             state,
             State {
-                arbiter: String::from("verifies"),
-                recipient: String::from("benefits"),
-                source: String::from("creator"),
+                arbiter: deps
+                    .api
+                    .canonical_address(&HumanAddr::from("verifies"))
+                    .unwrap(),
+                recipient: deps
+                    .api
+                    .canonical_address(&HumanAddr::from("benefits"))
+                    .unwrap(),
+                source: deps
+                    .api
+                    .canonical_address(&HumanAddr::from("creator"))
+                    .unwrap(),
                 end_height: 1000,
                 end_time: 0,
             }
@@ -208,10 +236,11 @@ mod tests {
 
     #[test]
     fn cannot_initialize_expired() {
-        let mut store = MockStorage::new();
+        let mut deps = dependencies(20);
+
         let msg = init_msg(1000, 0);
-        let params = mock_params_height("creator", &coin("1000", "earth"), &[], 1001, 0);
-        let res = init(&mut store, params, msg);
+        let params = mock_params_height(&deps.api, "creator", &coin("1000", "earth"), &[], 1001, 0);
+        let res = init(&mut deps, params, msg);
         assert!(res.is_err());
         if let Err(Error::ContractErr { msg, .. }) = res {
             assert_eq!(msg, "creating expired escrow".to_string());
@@ -221,38 +250,26 @@ mod tests {
     }
 
     #[test]
-    fn fails_on_bad_init_data() {
-        let mut store = MockStorage::new();
-        let bad_msg = b"{}".to_vec();
-        let params = mock_params_height("creator", &coin("1000", "earth"), &[], 876, 0);
-        let res = init(&mut store, params, bad_msg);
-        assert!(res.is_err());
-        if let Err(Error::ParseErr { .. }) = res {
-        } else {
-            assert!(false, "wrong error type");
-        }
-    }
-
-    #[test]
     fn handle_approve() {
-        let mut store = MockStorage::new();
+        let mut deps = dependencies(20);
 
         // initialize the store
         let msg = init_msg(1000, 0);
-        let params = mock_params_height("creator", &coin("1000", "earth"), &[], 876, 0);
-        let init_res = init(&mut store, params, msg).unwrap();
+        let params = mock_params_height(&deps.api, "creator", &coin("1000", "earth"), &[], 876, 0);
+        let init_res = init(&mut deps, params, msg).unwrap();
         assert_eq!(0, init_res.messages.len());
 
         // beneficiary cannot release it
-        let msg = to_vec(&HandleMsg::Approve { quantity: None }).unwrap();
+        let msg = HandleMsg::Approve { quantity: None };
         let params = mock_params_height(
+            &deps.api,
             "beneficiary",
             &coin("0", "earth"),
             &coin("1000", "earth"),
             900,
             0,
         );
-        let handle_res = handle(&mut store, params, msg.clone());
+        let handle_res = handle(&mut deps, params, msg.clone());
         match handle_res {
             Ok(_) => panic!("expected error"),
             Err(Error::Unauthorized { .. }) => {}
@@ -261,13 +278,14 @@ mod tests {
 
         // verifier cannot release it when expired
         let params = mock_params_height(
+            &deps.api,
             "verifies",
             &coin("0", "earth"),
             &coin("1000", "earth"),
             1100,
             0,
         );
-        let handle_res = handle(&mut store, params, msg.clone());
+        let handle_res = handle(&mut deps, params, msg.clone());
         match handle_res {
             Ok(_) => panic!("expected error"),
             Err(Error::ContractErr { msg, .. }) => assert_eq!(msg, "escrow expired".to_string()),
@@ -276,44 +294,45 @@ mod tests {
 
         // complete release by verfier, before expiration
         let params = mock_params_height(
+            &deps.api,
             "verifies",
             &coin("0", "earth"),
             &coin("1000", "earth"),
             999,
             0,
         );
-        let handle_res = handle(&mut store, params, msg.clone()).unwrap();
+        let handle_res = handle(&mut deps, params, msg.clone()).unwrap();
         assert_eq!(1, handle_res.messages.len());
         let msg = handle_res.messages.get(0).expect("no message");
         assert_eq!(
             msg,
             &CosmosMsg::Send {
-                from_address: "cosmos2contract".to_string(),
-                to_address: "benefits".to_string(),
+                from_address: HumanAddr::from("cosmos2contract"),
+                to_address: HumanAddr::from("benefits"),
                 amount: coin("1000", "earth"),
             }
         );
 
         // partial release by verfier, before expiration
-        let partial_msg = to_vec(&HandleMsg::Approve {
+        let partial_msg = HandleMsg::Approve {
             quantity: Some(coin("500", "earth")),
-        })
-        .unwrap();
+        };
         let params = mock_params_height(
+            &deps.api,
             "verifies",
             &coin("0", "earth"),
             &coin("1000", "earth"),
             999,
             0,
         );
-        let handle_res = handle(&mut store, params, partial_msg).unwrap();
+        let handle_res = handle(&mut deps, params, partial_msg).unwrap();
         assert_eq!(1, handle_res.messages.len());
         let msg = handle_res.messages.get(0).expect("no message");
         assert_eq!(
             msg,
             &CosmosMsg::Send {
-                from_address: "cosmos2contract".to_string(),
-                to_address: "benefits".to_string(),
+                from_address: HumanAddr::from("cosmos2contract"),
+                to_address: HumanAddr::from("benefits"),
                 amount: coin("500", "earth"),
             }
         );
@@ -321,24 +340,25 @@ mod tests {
 
     #[test]
     fn handle_refund() {
-        let mut store = MockStorage::new();
+        let mut deps = dependencies(20);
 
         // initialize the store
         let msg = init_msg(1000, 0);
-        let params = mock_params_height("creator", &coin("1000", "earth"), &[], 876, 0);
-        let init_res = init(&mut store, params, msg).unwrap();
+        let params = mock_params_height(&deps.api, "creator", &coin("1000", "earth"), &[], 876, 0);
+        let init_res = init(&mut deps, params, msg).unwrap();
         assert_eq!(0, init_res.messages.len());
 
         // cannot release when unexpired
-        let msg = to_vec(&HandleMsg::Refund {}).unwrap();
+        let msg = HandleMsg::Refund {};
         let params = mock_params_height(
+            &deps.api,
             "anybody",
             &coin("0", "earth"),
             &coin("1000", "earth"),
             800,
             0,
         );
-        let handle_res = handle(&mut store, params, msg.clone());
+        let handle_res = handle(&mut deps, params, msg.clone());
         match handle_res {
             Ok(_) => panic!("expected error"),
             Err(Error::ContractErr { msg, .. }) => {
@@ -349,20 +369,21 @@ mod tests {
 
         // anyone can release after expiration
         let params = mock_params_height(
+            &deps.api,
             "anybody",
             &coin("0", "earth"),
             &coin("1000", "earth"),
             1001,
             0,
         );
-        let handle_res = handle(&mut store, params, msg.clone()).unwrap();
+        let handle_res = handle(&mut deps, params, msg.clone()).unwrap();
         assert_eq!(1, handle_res.messages.len());
         let msg = handle_res.messages.get(0).expect("no message");
         assert_eq!(
             msg,
             &CosmosMsg::Send {
-                from_address: "cosmos2contract".to_string(),
-                to_address: "creator".to_string(),
+                from_address: HumanAddr::from("cosmos2contract"),
+                to_address: HumanAddr::from("creator"),
                 amount: coin("1000", "earth"),
             }
         );
