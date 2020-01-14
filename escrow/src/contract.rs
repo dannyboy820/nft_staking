@@ -5,8 +5,8 @@ use serde::{Deserialize, Serialize};
 use snafu::{OptionExt, ResultExt};
 
 use cw_storage::{singleton, Singleton};
-use cosmwasm::errors::{ContractErr, ParseErr, Result, SerializeErr, Unauthorized};
-use cosmwasm::serde::{from_slice, to_vec};
+use cosmwasm::errors::{ContractErr, ParseErr, Result, Unauthorized};
+use cosmwasm::serde::{from_slice};
 use cosmwasm::traits::{Api, Extern, Storage};
 use cosmwasm::types::{CanonicalAddr, Coin, CosmosMsg, HumanAddr, Params, Response};
 
@@ -84,10 +84,11 @@ pub fn init<S: Storage, A: Api>(
         }
         .fail()
     } else {
-        deps.storage.set(
-            CONFIG_KEY,
-            &to_vec(&state).context(SerializeErr { kind: "State" })?,
-        );
+        config(&mut deps.storage).save(&state)?;
+//        deps.storage.set(
+//            CONFIG_KEY,
+//            &to_vec(&state).context(SerializeErr { kind: "State" })?,
+//        );
         Ok(Response::default())
     }
 }
