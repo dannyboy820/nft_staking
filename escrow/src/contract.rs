@@ -2,11 +2,9 @@ use named_type::NamedType;
 use named_type_derive::NamedType;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use snafu::{OptionExt, ResultExt};
 
 use cw_storage::{singleton, Singleton};
-use cosmwasm::errors::{ContractErr, ParseErr, Result, Unauthorized};
-use cosmwasm::serde::{from_slice};
+use cosmwasm::errors::{ContractErr, Result, Unauthorized};
 use cosmwasm::traits::{Api, Extern, Storage};
 use cosmwasm::types::{CanonicalAddr, Coin, CosmosMsg, HumanAddr, Params, Response};
 
@@ -85,10 +83,6 @@ pub fn init<S: Storage, A: Api>(
         .fail()
     } else {
         config(&mut deps.storage).save(&state)?;
-//        deps.storage.set(
-//            CONFIG_KEY,
-//            &to_vec(&state).context(SerializeErr { kind: "State" })?,
-//        );
         Ok(Response::default())
     }
 }
@@ -98,11 +92,7 @@ pub fn handle<S: Storage, A: Api>(
     params: Params,
     msg: HandleMsg,
 ) -> Result<Response> {
-    let data = deps.storage.get(CONFIG_KEY).context(ContractErr {
-        msg: "uninitialized data",
-    })?;
-    let state: State = from_slice(&data).context(ParseErr { kind: "State" })?;
-
+    let state = config(&mut deps.storage).load()?;
     match msg {
         HandleMsg::Approve { quantity } => try_approve(&deps.api, params, state, quantity),
         HandleMsg::Refund {} => try_refund(&deps.api, params, state),
@@ -183,7 +173,7 @@ mod tests {
     use super::*;
     use cosmwasm::errors::Error;
     use cosmwasm::mock::{dependencies, mock_params};
-    use cosmwasm::traits::{Api, ReadonlyStorage};
+    use cosmwasm::traits::{Api};
     use cosmwasm::types::coin;
 
     fn init_msg(height: i64, time: i64) -> InitMsg {
@@ -219,8 +209,7 @@ mod tests {
         assert_eq!(0, res.messages.len());
 
         // it worked, let's query the state
-        let val = deps.storage.get(CONFIG_KEY).expect("init must set data");
-        let state: State = from_slice(&val).unwrap();
+        let state = config(&mut deps.storage).load().unwrap();
         assert_eq!(
             state,
             State {
