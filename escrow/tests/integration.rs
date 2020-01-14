@@ -1,11 +1,10 @@
 use cosmwasm::mock::mock_params;
-use cosmwasm::serde::from_slice;
-use cosmwasm::traits::{Api, ReadonlyStorage};
+use cosmwasm::traits::Api;
 use cosmwasm::types::{coin, Coin, ContractResult, CosmosMsg, HumanAddr, Params};
 
 use cosmwasm_vm::testing::{handle, init, mock_instance};
 
-use cw_escrow::contract::{HandleMsg, InitMsg, State, CONFIG_KEY};
+use cw_escrow::contract::{config, HandleMsg, InitMsg, State};
 
 /**
 This integration test tries to run and call the generated wasm.
@@ -83,8 +82,7 @@ fn proper_initialization() {
 
     // it worked, let's query the state
     deps.with_storage(|store| {
-        let val = store.get(CONFIG_KEY).expect("init must set data");
-        let state: State = from_slice(&val).unwrap();
+        let state = config(store).load().unwrap();
         assert_eq!(
             state,
             State {

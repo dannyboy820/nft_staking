@@ -3,10 +3,10 @@ use named_type_derive::NamedType;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use cw_storage::{singleton, Singleton};
 use cosmwasm::errors::{ContractErr, Result, Unauthorized};
 use cosmwasm::traits::{Api, Extern, Storage};
 use cosmwasm::types::{CanonicalAddr, Coin, CosmosMsg, HumanAddr, Params, Response};
+use cw_storage::{singleton, Singleton};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct InitMsg {
@@ -113,10 +113,7 @@ fn try_approve<A: Api>(
         }
         .fail()
     } else {
-        let amount = match quantity {
-            None => params.contract.balance.unwrap_or_default(),
-            Some(coins) => coins,
-        };
+        let amount = quantity.unwrap_or(params.contract.balance.unwrap_or_default());
         let res = Response {
             messages: vec![CosmosMsg::Send {
                 from_address: api.human_address(&params.contract.address)?,
@@ -173,7 +170,7 @@ mod tests {
     use super::*;
     use cosmwasm::errors::Error;
     use cosmwasm::mock::{dependencies, mock_params};
-    use cosmwasm::traits::{Api};
+    use cosmwasm::traits::Api;
     use cosmwasm::types::coin;
 
     fn init_msg(height: i64, time: i64) -> InitMsg {
