@@ -1,7 +1,10 @@
+use named_type::NamedType;
+use named_type_derive::NamedType;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use snafu::{OptionExt, ResultExt};
 
+use cw_storage::{singleton, Singleton};
 use cosmwasm::errors::{ContractErr, ParseErr, Result, SerializeErr, Unauthorized};
 use cosmwasm::serde::{from_slice, to_vec};
 use cosmwasm::traits::{Api, Extern, Storage};
@@ -41,7 +44,7 @@ pub enum QueryMsg {
 //    pub count: i32,
 //}
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema, NamedType)]
 pub struct State {
     pub arbiter: CanonicalAddr,
     pub recipient: CanonicalAddr,
@@ -58,6 +61,10 @@ impl State {
 }
 
 pub static CONFIG_KEY: &[u8] = b"config";
+
+pub fn config<S: Storage>(storage: &mut S) -> Singleton<S, State> {
+    singleton(storage, CONFIG_KEY)
+}
 
 pub fn init<S: Storage, A: Api>(
     deps: &mut Extern<S, A>,
