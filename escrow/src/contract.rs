@@ -3,7 +3,7 @@ use named_type_derive::NamedType;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use cosmwasm::errors::{ContractErr, Result, Unauthorized};
+use cosmwasm::errors::{contract_err, Result, unauthorized};
 use cosmwasm::traits::{Api, Extern, Storage};
 use cosmwasm::types::{CanonicalAddr, Coin, CosmosMsg, HumanAddr, Params, Response};
 use cw_storage::{singleton, Singleton};
@@ -77,10 +77,7 @@ pub fn init<S: Storage, A: Api>(
         end_time: msg.end_time,
     };
     if state.is_expired(&params) {
-        ContractErr {
-            msg: "creating expired escrow",
-        }
-        .fail()
+        contract_err("creating expired escrow")
     } else {
         config(&mut deps.storage).save(&state)?;
         Ok(Response::default())
@@ -106,12 +103,9 @@ fn try_approve<A: Api>(
     quantity: Option<Vec<Coin>>,
 ) -> Result<Response> {
     if params.message.signer != state.arbiter {
-        Unauthorized {}.fail()
+        unauthorized()
     } else if state.is_expired(&params) {
-        ContractErr {
-            msg: "escrow expired",
-        }
-        .fail()
+        contract_err("escrow expired")
     } else {
         let amount = quantity.unwrap_or(params.contract.balance.unwrap_or_default());
         let res = Response {
@@ -130,10 +124,7 @@ fn try_approve<A: Api>(
 fn try_refund<A: Api>(api: &A, params: Params, state: State) -> Result<Response> {
     // anyone can try to refund, as long as the contract is expired
     if !state.is_expired(&params) {
-        ContractErr {
-            msg: "escrow not yet expired",
-        }
-        .fail()
+        contract_err("escrow not yet expired")
     } else {
         let res = Response {
             messages: vec![CosmosMsg::Send {
