@@ -62,6 +62,86 @@ fn get_allowance<S: ReadonlyStorage, A: Api>(
     return read_u128(&owner_storage, spender_raw_address.as_bytes()).unwrap();
 }
 
+mod helpers {
+    use super::super::parse_u128;
+    use cosmwasm::errors::Error;
+
+    #[test]
+    fn works_for_simple_inputs() {
+        assert_eq!(parse_u128("0").expect("could not be parsed"), 0);
+        assert_eq!(parse_u128("1").expect("could not be parsed"), 1);
+        assert_eq!(parse_u128("345").expect("could not be parsed"), 345);
+        assert_eq!(
+            parse_u128("340282366920938463463374607431768211455").expect("could not be parsed"),
+            340282366920938463463374607431768211455
+        );
+    }
+
+    #[test]
+    fn works_for_leading_zeros() {
+        assert_eq!(parse_u128("01").expect("could not be parsed"), 1);
+        assert_eq!(parse_u128("001").expect("could not be parsed"), 1);
+        assert_eq!(parse_u128("0001").expect("could not be parsed"), 1);
+    }
+
+    #[test]
+    fn errors_for_empty_input() {
+        match parse_u128("") {
+            Ok(_) => panic!("must not pass"),
+            Err(Error::ContractErr { msg, .. }) => {
+                assert_eq!(msg, "Error while parsing string to u128")
+            }
+            Err(e) => panic!("unexpected error: {:?}", e),
+        }
+    }
+
+    #[test]
+    fn errors_for_values_out_of_range() {
+        match parse_u128("-1") {
+            Ok(_) => panic!("must not pass"),
+            Err(Error::ContractErr { msg, .. }) => {
+                assert_eq!(msg, "Error while parsing string to u128")
+            }
+            Err(e) => panic!("unexpected error: {:?}", e),
+        }
+
+        match parse_u128("340282366920938463463374607431768211456") {
+            Ok(_) => panic!("must not pass"),
+            Err(Error::ContractErr { msg, .. }) => {
+                assert_eq!(msg, "Error while parsing string to u128")
+            }
+            Err(e) => panic!("unexpected error: {:?}", e),
+        }
+    }
+
+    #[test]
+    fn fails_for_non_decadic_strings() {
+        match parse_u128("0xAB") {
+            Ok(_) => panic!("must not pass"),
+            Err(Error::ContractErr { msg, .. }) => {
+                assert_eq!(msg, "Error while parsing string to u128")
+            }
+            Err(e) => panic!("unexpected error: {:?}", e),
+        }
+
+        match parse_u128("0xab") {
+            Ok(_) => panic!("must not pass"),
+            Err(Error::ContractErr { msg, .. }) => {
+                assert_eq!(msg, "Error while parsing string to u128")
+            }
+            Err(e) => panic!("unexpected error: {:?}", e),
+        }
+
+        match parse_u128("0b1100") {
+            Ok(_) => panic!("must not pass"),
+            Err(Error::ContractErr { msg, .. }) => {
+                assert_eq!(msg, "Error while parsing string to u128")
+            }
+            Err(e) => panic!("unexpected error: {:?}", e),
+        }
+    }
+}
+
 mod init {
     use super::*;
 
@@ -229,7 +309,7 @@ mod init {
         match result {
             Ok(_) => panic!("expected error"),
             Err(Error::ContractErr { msg, .. }) => {
-                assert_eq!(msg, "Error while parsing decimal string to u128")
+                assert_eq!(msg, "Error while parsing string to u128")
             }
             Err(e) => panic!("unexpected error: {:?}", e),
         }
