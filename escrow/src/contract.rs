@@ -3,7 +3,7 @@ use named_type_derive::NamedType;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use cosmwasm::errors::{ContractErr, Result, Unauthorized};
+use cosmwasm::errors::{contract_err, unauthorized, Result};
 use cosmwasm::traits::{Api, Extern, Storage};
 use cosmwasm::types::{CanonicalAddr, Coin, CosmosMsg, HumanAddr, Params, Response};
 use cw_storage::{singleton, Singleton};
@@ -31,16 +31,7 @@ pub enum HandleMsg {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "lowercase")]
-pub enum QueryMsg {
-    //    // GetCount returns the current count as a json-encoded number
-//    GetCount {},
-}
-
-//// We define a custom struct for each query response
-//#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-//pub struct CountResponse {
-//    pub count: i32,
-//}
+pub enum QueryMsg {}
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema, NamedType)]
 pub struct State {
@@ -58,10 +49,8 @@ impl State {
     }
 }
 
-pub static CONFIG_KEY: &[u8] = b"config";
-
 pub fn config<S: Storage>(storage: &mut S) -> Singleton<S, State> {
-    singleton(storage, CONFIG_KEY)
+    singleton(storage, b"config")
 }
 
 pub fn init<S: Storage, A: Api>(
@@ -77,10 +66,7 @@ pub fn init<S: Storage, A: Api>(
         end_time: msg.end_time,
     };
     if state.is_expired(&params) {
-        ContractErr {
-            msg: "creating expired escrow",
-        }
-        .fail()
+        contract_err("creating expired escrow")
     } else {
         config(&mut deps.storage).save(&state)?;
         Ok(Response::default())
@@ -106,64 +92,61 @@ fn try_approve<A: Api>(
     quantity: Option<Vec<Coin>>,
 ) -> Result<Response> {
     if params.message.signer != state.arbiter {
-        Unauthorized {}.fail()
+        unauthorized()
     } else if state.is_expired(&params) {
-        ContractErr {
-            msg: "escrow expired",
-        }
-        .fail()
+        contract_err("escrow expired")
     } else {
+        #[allow(clippy::or_fun_call)]
         let amount = quantity.unwrap_or(params.contract.balance.unwrap_or_default());
-        let res = Response {
-            messages: vec![CosmosMsg::Send {
-                from_address: api.human_address(&params.contract.address)?,
-                to_address: api.human_address(&state.recipient)?,
-                amount,
-            }],
-            log: Some("paid out funds".to_string()),
-            data: None,
-        };
-        Ok(res)
+        send_tokens(
+            api,
+            &params.contract.address,
+            &state.recipient,
+            amount,
+            "paid out funds",
+        )
     }
 }
 
 fn try_refund<A: Api>(api: &A, params: Params, state: State) -> Result<Response> {
     // anyone can try to refund, as long as the contract is expired
     if !state.is_expired(&params) {
-        ContractErr {
-            msg: "escrow not yet expired",
-        }
-        .fail()
+        contract_err("escrow not yet expired")
     } else {
-        let res = Response {
-            messages: vec![CosmosMsg::Send {
-                from_address: api.human_address(&params.contract.address)?,
-                to_address: api.human_address(&state.source)?,
-                amount: params.contract.balance.unwrap_or_default(),
-            }],
-            log: Some("returned funds".to_string()),
-            data: None,
-        };
-        Ok(res)
+        send_tokens(
+            api,
+            &params.contract.address,
+            &state.source,
+            params.contract.balance.unwrap_or_default(),
+            "returned funds",
+        )
     }
+}
+
+// this is a helper to move the tokens, so the business logic is easy to read
+fn send_tokens<A: Api>(
+    api: &A,
+    from_address: &CanonicalAddr,
+    to_address: &CanonicalAddr,
+    amount: Vec<Coin>,
+    log: &str,
+) -> Result<Response> {
+    let r = Response {
+        messages: vec![CosmosMsg::Send {
+            from_address: api.human_address(from_address)?,
+            to_address: api.human_address(to_address)?,
+            amount,
+        }],
+        log: Some(log.to_string()),
+        data: None,
+    };
+    Ok(r)
 }
 
 pub fn query<S: Storage, A: Api>(_deps: &Extern<S, A>, msg: QueryMsg) -> Result<Vec<u8>> {
-    match msg {
-//        QueryMsg::GetCount {} => query_count(deps),
-    }
+    // this always returns error
+    match msg {}
 }
-
-//fn query_count<S: Storage, A: Api>(deps: &Extern<S, A>) -> Result<Vec<u8>> {
-//    let data = deps.storage.get(CONFIG_KEY).context(ContractErr {
-//        msg: "uninitialized data",
-//    })?;
-//    let state: State = from_slice(&data).context(ParseErr { kind: "State" })?;
-//    let resp = CountResponse { count: state.count };
-//    to_vec(&resp).context(SerializeErr {
-//        kind: "CountResponse",
-//    })
-//}
 
 #[cfg(test)]
 mod tests {
