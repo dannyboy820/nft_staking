@@ -89,7 +89,7 @@ mod helpers {
         match parse_u128("") {
             Ok(_) => panic!("must not pass"),
             Err(Error::ContractErr { msg, .. }) => {
-                assert_eq!(msg, "Error while parsing decimal string to u128")
+                assert_eq!(msg, "Error while parsing string to u128")
             }
             Err(e) => panic!("unexpected error: {:?}", e),
         }
@@ -100,7 +100,7 @@ mod helpers {
         match parse_u128("-1") {
             Ok(_) => panic!("must not pass"),
             Err(Error::ContractErr { msg, .. }) => {
-                assert_eq!(msg, "Error while parsing decimal string to u128")
+                assert_eq!(msg, "Error while parsing string to u128")
             }
             Err(e) => panic!("unexpected error: {:?}", e),
         }
@@ -108,7 +108,7 @@ mod helpers {
         match parse_u128("340282366920938463463374607431768211456") {
             Ok(_) => panic!("must not pass"),
             Err(Error::ContractErr { msg, .. }) => {
-                assert_eq!(msg, "Error while parsing decimal string to u128")
+                assert_eq!(msg, "Error while parsing string to u128")
             }
             Err(e) => panic!("unexpected error: {:?}", e),
         }
@@ -119,7 +119,7 @@ mod helpers {
         match parse_u128("0xAB") {
             Ok(_) => panic!("must not pass"),
             Err(Error::ContractErr { msg, .. }) => {
-                assert_eq!(msg, "Error while parsing decimal string to u128")
+                assert_eq!(msg, "Error while parsing string to u128")
             }
             Err(e) => panic!("unexpected error: {:?}", e),
         }
@@ -293,7 +293,7 @@ mod init {
         match result {
             Ok(_) => panic!("expected error"),
             Err(Error::ContractErr { msg, .. }) => {
-                assert_eq!(msg, "Error while parsing decimal string to u128")
+                assert_eq!(msg, "Error while parsing string to u128")
             }
             Err(e) => panic!("unexpected error: {:?}", e),
         }

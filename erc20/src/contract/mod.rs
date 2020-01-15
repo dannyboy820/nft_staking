@@ -318,11 +318,12 @@ pub fn read_u128<S: ReadonlyStorage>(store: &S, key: &[u8]) -> Result<u128> {
     };
 }
 
-pub fn parse_u128(decimal: &str) -> Result<u128> {
-    match decimal.parse::<u128>() {
+// Source must be a decadic integer >= 0
+pub fn parse_u128(source: &str) -> Result<u128> {
+    match source.parse::<u128>() {
         Ok(value) => Ok(value),
         Err(_) => ContractErr {
-            msg: "Error while parsing decimal string to u128",
+            msg: "Error while parsing string to u128",
         }
         .fail(),
     }
