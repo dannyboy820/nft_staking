@@ -123,6 +123,22 @@ mod helpers {
             }
             Err(e) => panic!("unexpected error: {:?}", e),
         }
+
+        match parse_u128("0xab") {
+            Ok(_) => panic!("must not pass"),
+            Err(Error::ContractErr { msg, .. }) => {
+                assert_eq!(msg, "Error while parsing string to u128")
+            }
+            Err(e) => panic!("unexpected error: {:?}", e),
+        }
+
+        match parse_u128("0b1100") {
+            Ok(_) => panic!("must not pass"),
+            Err(Error::ContractErr { msg, .. }) => {
+                assert_eq!(msg, "Error while parsing string to u128")
+            }
+            Err(e) => panic!("unexpected error: {:?}", e),
+        }
     }
 }
 
