@@ -49,24 +49,13 @@ published against a claim. You will want the following files:
 
 The following commands should allow you to generate the artifacts:
 
-`schema/*.json`:
+`schema/*.json`, `contract.wasm`, `hash.txt`:
 
-```shell script
-rm -rf schema
-cargo schema
-# or cargo run --example schema
-```
-
-`contract.wasm`:
-
-```shell script
-docker run --rm -u $(id -u):$(id -g) -v $(pwd):/code confio/cosmwasm-opt:0.4.1
-```
-
-`hash.txt`:
-
-```shell script
-sha256sum contract.wasm > hash.txt
+```sh
+docker run --rm -v $(pwd):/code \
+  --mount type=volume,source=$(basename $(pwd))_cache,target=/code/target \
+  --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
+  confio/cosmwasm-opt:0.6.1
 ```
 
 Ensure you check in all the artifacts, and make a git commit with the final state.
