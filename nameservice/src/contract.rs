@@ -1,21 +1,17 @@
-use snafu::ResultExt;
-
-use cosmwasm::errors::{ContractErr, Result, SerializeErr, Unauthorized};
-use cosmwasm::serde::to_vec;
+use cosmwasm::errors::{contract_err, Result, unauthorized};
 use cosmwasm::traits::{Api, Extern, Storage};
 use cosmwasm::types::{HumanAddr, Params, Response};
 
 use crate::msg::{HandleMsg, InitMsg, QueryMsg, ResolveRecordResponse};
-use crate::state::{config, resolver, resolver_read, Config, NameRecord};
+use crate::state::{resolver, resolver_read, NameRecord};
+
+use cw_storage::serialize;
 
 pub fn init<S: Storage, A: Api>(
-    deps: &mut Extern<S, A>,
+    _deps: &mut Extern<S, A>,
     _params: Params,
-    msg: InitMsg,
+    _msg: InitMsg,
 ) -> Result<Response> {
-    let config_state = Config { name: msg.name };
-
-    config(&mut deps.storage).save(&config_state)?;
     Ok(Response::default())
 }
 
@@ -46,10 +42,7 @@ pub fn try_register<S: Storage, A: Api>(
         resolver(&mut deps.storage).save(key, &record)?;
     } else {
         // name is already taken
-        ContractErr {
-            msg: "Name is already taken",
-        }
-        .fail()?;
+        contract_err("Name is already taken")?;
     }
 
     Ok(Response::default())
@@ -66,7 +59,7 @@ pub fn try_transfer<S: Storage, A: Api>(
 
     resolver(&mut deps.storage).update(key, &|mut record| {
         if params.message.signer != record.owner {
-            Unauthorized {}.fail()?;
+            unauthorized()?;
         }
 
         record.owner = new_owner.clone();
@@ -89,9 +82,7 @@ fn query_resolver<S: Storage, A: Api>(deps: &Extern<S, A>, name: String) -> Resu
 
     let resp = ResolveRecordResponse { address };
 
-    to_vec(&resp).context(SerializeErr {
-        kind: "ResolveAddressResponse",
-    })
+    serialize(&resp)
 }
 
 #[cfg(test)]
@@ -99,13 +90,25 @@ mod tests {
     use super::*;
     use cosmwasm::errors::Error;
     use cosmwasm::mock::{dependencies, mock_params, MockApi, MockStorage};
-    use cosmwasm::serde::from_slice;
     use cosmwasm::types::coin;
 
+    use cw_storage::deserialize;
+
+    fn assert_name_owner(deps: &mut Extern<MockStorage, MockApi>, name: &str, owner: &str) {
+        let res = query(
+            &deps,
+            QueryMsg::ResolveRecord {
+                name: name.to_string(),
+            },
+        )
+        .unwrap();
+
+        let value: ResolveRecordResponse = deserialize(&res).unwrap();
+        assert_eq!(HumanAddr::from(owner), value.address);
+    }
+
     fn mock_init_and_alice_registers_name(mut deps: &mut Extern<MockStorage, MockApi>) {
-        let msg = InitMsg {
-            name: "Cool Name Service".to_string(),
-        };
+        let msg = InitMsg {};
         let params = mock_params(&deps.api, "creator", &coin("2", "token"), &[]);
         let _res = init(&mut deps, params, msg).unwrap();
 
@@ -122,26 +125,12 @@ mod tests {
     fn proper_initialization() {
         let mut deps = dependencies(20);
 
-        let msg = InitMsg {
-            name: "Cool Name Service".to_string(),
-        };
+        let msg = InitMsg {};
         let params = mock_params(&deps.api, "creator", &coin("1000", "earth"), &[]);
 
         // we can just call .unwrap() to assert this was a success
         let res = init(&mut deps, params, msg).unwrap();
         assert_eq!(0, res.messages.len());
-
-        // assert the name was set correctly
-        let config_state = config(&mut deps.storage)
-            .load()
-            .expect("Config loads successfully from storage");
-
-        assert_eq!(
-            config_state,
-            Config {
-                name: "Cool Name Service".to_string()
-            }
-        );
     }
 
     #[test]
@@ -150,16 +139,7 @@ mod tests {
         mock_init_and_alice_registers_name(&mut deps);
 
         // querying for name resolves to correct address
-        let res = query(
-            &deps,
-            QueryMsg::ResolveRecord {
-                name: "alice".to_string(),
-            },
-        )
-        .unwrap();
-
-        let value: ResolveRecordResponse = from_slice(&res).unwrap();
-        assert_eq!(HumanAddr::from("alice_key"), value.address);
+        assert_name_owner(&mut deps, "alice", "alice_key");
     }
 
     #[test]
@@ -208,16 +188,7 @@ mod tests {
         let _res =
             handle(&mut deps, params, msg).expect("contract successfully handles Transfer message");
         // querying for name resolves to correct address (bob_key)
-        let res = query(
-            &deps,
-            QueryMsg::ResolveRecord {
-                name: "alice".to_string(),
-            },
-        )
-        .unwrap();
-
-        let value: ResolveRecordResponse = from_slice(&res).unwrap();
-        assert_eq!(HumanAddr::from("bob_key"), value.address);
+        assert_name_owner(&mut deps, "alice", "bob_key");
     }
 
     #[test]
@@ -241,25 +212,14 @@ mod tests {
         }
 
         // querying for name resolves to correct address (alice_key)
-        let res = query(
-            &deps,
-            QueryMsg::ResolveRecord {
-                name: "alice".to_string(),
-            },
-        )
-        .unwrap();
-
-        let value: ResolveRecordResponse = from_slice(&res).unwrap();
-        assert_eq!(HumanAddr::from("alice_key"), value.address);
+        assert_name_owner(&mut deps, "alice", "alice_key");
     }
 
     #[test]
     fn fails_on_query_unregistered_name() {
         let mut deps = dependencies(20);
 
-        let msg = InitMsg {
-            name: "Cool Name Service".to_string(),
-        };
+        let msg = InitMsg {};
         let params = mock_params(&deps.api, "creator", &coin("2", "token"), &[]);
         let _res = init(&mut deps, params, msg).unwrap();
 

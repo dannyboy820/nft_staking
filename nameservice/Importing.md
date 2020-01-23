@@ -59,7 +59,10 @@ cargo run --example schema
 And to generate the `contract.wasm` and `hash.txt`:
 
 ```sh
-docker run --rm -u $(id -u):$(id -g) -v $(pwd):/code confio/cosmwasm-opt:0.4.1
+docker run --rm -v $(pwd):/code \
+  --mount type=volume,source=$(basename $(pwd))_cache,target=/code/target \
+  --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
+  confio/cosmwasm-opt:0.6.1
 sha256sum contract.wasm > hash.txt
 ```
 

@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use cosmwasm::traits::Storage;
 use cosmwasm::types::CanonicalAddr;
-use cw_storage::{bucket, bucket_read, Bucket, ReadonlyBucket, singleton, Singleton};
+use cw_storage::{bucket, bucket_read, Bucket, ReadonlyBucket};
 
 pub static NAME_RESOLVER_KEY: &[u8] = b"nameresolver";
 pub static CONFIG_KEY: &[u8] = b"config";
@@ -13,15 +13,6 @@ pub static CONFIG_KEY: &[u8] = b"config";
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema, NamedType)]
 pub struct NameRecord {
     pub owner: CanonicalAddr,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema, NamedType)]
-pub struct Config {
-    pub name: String
-}
-
-pub fn config<S: Storage>(storage: &mut S) -> Singleton<S, Config> {
-    singleton(storage, CONFIG_KEY)
 }
 
 pub fn resolver<S: Storage>(storage: &mut S) -> Bucket<S, NameRecord> {
