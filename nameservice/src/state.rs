@@ -4,11 +4,21 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use cosmwasm::traits::Storage;
-use cosmwasm::types::CanonicalAddr;
-use cw_storage::{bucket, bucket_read, Bucket, ReadonlyBucket};
+use cosmwasm::types::{CanonicalAddr, Coin};
+use cw_storage::{bucket, bucket_read, singleton, Bucket, ReadonlyBucket, Singleton};
 
 pub static NAME_RESOLVER_KEY: &[u8] = b"nameresolver";
 pub static CONFIG_KEY: &[u8] = b"config";
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema, NamedType)]
+pub struct Config {
+    pub purchase_price: Option<Coin>,
+    pub transfer_price: Option<Coin>,
+}
+
+pub fn config<S: Storage>(storage: &mut S) -> Singleton<S, Config> {
+    singleton(storage, CONFIG_KEY)
+}
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema, NamedType)]
 pub struct NameRecord {

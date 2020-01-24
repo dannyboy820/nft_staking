@@ -1,11 +1,14 @@
-use cosmwasm::types::HumanAddr;
+use cosmwasm::types::{HumanAddr, Coin};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use named_type::NamedType;
 use named_type_derive::NamedType;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct InitMsg {}
+pub struct InitMsg {
+    pub purchase_price: Option<Coin>,
+    pub transfer_price: Option<Coin>
+}
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "lowercase")]
