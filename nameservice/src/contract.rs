@@ -2,9 +2,9 @@ use cosmwasm::errors::{contract_err, unauthorized, Result};
 use cosmwasm::traits::{Api, Extern, Storage};
 use cosmwasm::types::{HumanAddr, Params, Response};
 
+use crate::coin_helpers::assert_sent_sufficient_coin;
 use crate::msg::{HandleMsg, InitMsg, QueryMsg, ResolveRecordResponse};
 use crate::state::{config, resolver, resolver_read, Config, NameRecord};
-use crate::coin_helpers::assert_sent_sufficient_coin;
 
 use cw_storage::serialize;
 
@@ -34,16 +34,13 @@ pub fn handle<S: Storage, A: Api>(
     }
 }
 
-
 pub fn try_register<S: Storage, A: Api>(
     deps: &mut Extern<S, A>,
     params: Params,
     name: String,
 ) -> Result<Response> {
     let config_state = config(&mut deps.storage).load()?;
-    if let Some(coin_required) = config_state.purchase_price {
-        assert_sent_sufficient_coin(&params.message.sent_funds, coin_required)?;
-    }
+    assert_sent_sufficient_coin(&params.message.sent_funds, config_state.purchase_price)?;
 
     let key = name.as_bytes();
     let record = NameRecord {
@@ -68,13 +65,10 @@ pub fn try_transfer<S: Storage, A: Api>(
     to: HumanAddr,
 ) -> Result<Response> {
     let config_state = config(&mut deps.storage).load()?;
-    if let Some(coin_required) = config_state.transfer_price {
-        assert_sent_sufficient_coin(&params.message.sent_funds, coin_required)?;
-    }
+    assert_sent_sufficient_coin(&params.message.sent_funds, config_state.transfer_price)?;
 
     let key = name.as_bytes();
     let new_owner = deps.api.canonical_address(&to)?;
-
 
     resolver(&mut deps.storage).update(key, &|mut record| {
         if params.message.signer != record.owner {

@@ -9,25 +9,24 @@ fn parse_u128(source: &str) -> Result<u128> {
     }
 }
 
-pub fn assert_sent_sufficient_coin(sent: &Option<Vec<Coin>>, required: Coin) -> Result<()> {
-    let required_amount = parse_u128(&required.amount)?;
-
-    match sent {
-        Some(coins) => {
-            if coins.iter().any(|coin| {
-                let amount = parse_u128(&coin.amount).unwrap_or(0);
-                coin.denom == required.denom && amount >= required_amount
-            }) {
-                return Ok(());
+pub fn assert_sent_sufficient_coin(sent: &Option<Vec<Coin>>, required: Option<Coin>) -> Result<()> {
+    if let Some(required_coin) = required {
+        let required_amount = parse_u128(&required_coin.amount)?;
+        if required_amount > 0 {
+            if let Some(coins) = sent {
+                if coins.iter().any(|coin| {
+                    // check if a given sent coin matches denom
+                    // and has sufficient amount
+                    let amount = parse_u128(&coin.amount).unwrap_or(0);
+                    coin.denom == required_coin.denom && amount >= required_amount
+                }) {
+                    return Ok(());
+                }
             }
-        }
-        None => {
-            if required_amount == 0 {
-                return Ok(());
-            }
+            return contract_err("Insufficient funds sent");
         }
     }
-    return contract_err("Insufficient funds sent");
+    Ok(())
 }
 
 pub fn coin(amount: &str, denom: &str) -> Coin {
@@ -39,24 +38,24 @@ pub fn coin(amount: &str, denom: &str) -> Coin {
 
 #[test]
 fn assert_sent_sufficient_coin_works() {
-    match assert_sent_sufficient_coin(&None, coin("0", "token")) {
+    match assert_sent_sufficient_coin(&None, Some(coin("0", "token"))) {
         Ok(()) => {}
         Err(e) => panic!("Unexpected error: {:?}", e),
     };
 
-    match assert_sent_sufficient_coin(&None, coin("5", "token")) {
+    match assert_sent_sufficient_coin(&None, Some(coin("5", "token"))) {
         Ok(()) => panic!("Should have raised insufficient funds error"),
         Err(Error::ContractErr { msg, .. }) => assert_eq!(msg, "Insufficient funds sent"),
         Err(e) => panic!("Unexpected error: {:?}", e),
     };
 
-    match assert_sent_sufficient_coin(&Some(coin_vec("10", "smokin")), coin("5", "token")) {
+    match assert_sent_sufficient_coin(&Some(coin_vec("10", "smokin")), Some(coin("5", "token"))) {
         Ok(()) => panic!("Should have raised insufficient funds error"),
         Err(Error::ContractErr { msg, .. }) => assert_eq!(msg, "Insufficient funds sent"),
         Err(e) => panic!("Unexpected error: {:?}", e),
     };
 
-    match assert_sent_sufficient_coin(&Some(coin_vec("10", "token")), coin("5", "token")) {
+    match assert_sent_sufficient_coin(&Some(coin_vec("10", "token")), Some(coin("5", "token"))) {
         Ok(()) => {}
         Err(e) => panic!("Unexpected error: {:?}", e),
     };
@@ -67,7 +66,7 @@ fn assert_sent_sufficient_coin_works() {
         coin("1", "earth"),
     ]);
 
-    match assert_sent_sufficient_coin(&sent_coins, coin("5", "token")) {
+    match assert_sent_sufficient_coin(&sent_coins, Some(coin("5", "token"))) {
         Ok(()) => {}
         Err(e) => panic!("Unexpected error: {:?}", e),
     };
@@ -75,28 +74,24 @@ fn assert_sent_sufficient_coin_works() {
 
 #[test]
 fn assert_sent_sufficient_coin_handles_parse_failure() {
-    match assert_sent_sufficient_coin(&None, coin("ff", "token")) {
+    match assert_sent_sufficient_coin(&None, Some(coin("ff", "token"))) {
         Ok(()) => panic!("Should have raised parse error"),
-        Err(Error::ContractErr { msg, .. }) => assert_eq!(msg, "Error while parsing string to u128"),
+        Err(Error::ContractErr { msg, .. }) => {
+            assert_eq!(msg, "Error while parsing string to u128")
+        }
         Err(e) => panic!("Unexpected error: {:?}", e),
     };
 
-    let sent_coins = Some(vec![
-        coin("abcd", "smokin"),
-        coin("5", "token"),
-    ]);
+    let sent_coins = Some(vec![coin("abcd", "smokin"), coin("5", "token")]);
 
-    match assert_sent_sufficient_coin(&sent_coins, coin("5", "token")) {
+    match assert_sent_sufficient_coin(&sent_coins, Some(coin("5", "token"))) {
         Ok(()) => {}
         Err(e) => panic!("Unexpected error: {:?}", e),
     };
 
-    let sent_coins = Some(vec![
-        coin("abcd", "smokin"),
-        coin("efg", "token"),
-    ]);
+    let sent_coins = Some(vec![coin("abcd", "smokin"), coin("efg", "token")]);
 
-    match assert_sent_sufficient_coin(&sent_coins, coin("5", "token")) {
+    match assert_sent_sufficient_coin(&sent_coins, Some(coin("5", "token"))) {
         Ok(()) => panic!("Should have raised parse error"),
         Err(Error::ContractErr { msg, .. }) => assert_eq!(msg, "Insufficient funds sent"),
         Err(e) => panic!("Unexpected error: {:?}", e),
