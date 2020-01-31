@@ -1,12 +1,14 @@
 use cosmwasm::mock::{mock_params, MockApi, MockStorage};
-use cosmwasm::types::{coin, ContractResult, HumanAddr, QueryResult};
+use cosmwasm::types::{Coin, ContractResult, HumanAddr, QueryResult};
 
 use cosmwasm_vm::testing::{handle, init, mock_instance, query};
 use cosmwasm_vm::Instance;
 
 use cw_storage::deserialize;
 
+use cw_nameservice::coin_helpers::{coin, coin_vec};
 use cw_nameservice::msg::{HandleMsg, InitMsg, QueryMsg, ResolveRecordResponse};
+use cw_nameservice::state::{config, Config};
 
 /**
 This integration test tries to run and call the generated wasm.
@@ -63,47 +65,122 @@ fn assert_name_owner(mut deps: &mut Instance<MockStorage, MockApi>, name: &str, 
     assert_eq!(HumanAddr::from(owner), value.address);
 }
 
-fn mock_init_and_alice_registers_name(mut deps: &mut Instance<MockStorage, MockApi>) {
-    let msg = InitMsg {};
-    let params = mock_params(&deps.api, "creator", &coin("2", "token"), &[]);
-    let _res = init(&mut deps, params, msg).unwrap();
+fn mock_init_with_fees(
+    mut deps: &mut Instance<MockStorage, MockApi>,
+    purchase_price: Coin,
+    transfer_price: Coin,
+) {
+    let msg = InitMsg {
+        purchase_price: Some(purchase_price),
+        transfer_price: Some(transfer_price),
+    };
 
-    // anyone can register an available name
-    let params = mock_params(&deps.api, "alice_key", &coin("2", "token"), &[]);
+    let params = mock_params(&deps.api, "creator", &coin_vec("2", "token"), &[]);
+    // unwrap: contract successfully handles InitMsg
+    let _res = init(&mut deps, params, msg).unwrap();
+}
+
+fn mock_init_no_fees(mut deps: &mut Instance<MockStorage, MockApi>) {
+    let msg = InitMsg {
+        purchase_price: None,
+        transfer_price: None,
+    };
+
+    let params = mock_params(&deps.api, "creator", &coin_vec("2", "token"), &[]);
+    // unwrap: contract successfully handles InitMsg
+    let _res = init(&mut deps, params, msg).unwrap();
+}
+
+fn mock_alice_registers_name(mut deps: &mut Instance<MockStorage, MockApi>, sent: &[Coin]) {
+    // alice can register an available name
+    let params = mock_params(&deps.api, "alice_key", sent, &[]);
     let msg = HandleMsg::Register {
         name: "alice".to_string(),
     };
+    // unwrap: contract successfully handles Register message
     let _res = handle(&mut deps, params, msg).unwrap();
 }
 
 #[test]
-fn proper_initialization() {
+fn proper_init_no_fees() {
     let mut deps = mock_instance(WASM);
 
-    let msg = InitMsg {};
-    let params = mock_params(&deps.api, "creator", &coin("1000", "earth"), &[]);
+    mock_init_no_fees(&mut deps);
 
-    // we can just call .unwrap() to assert this was a success
-    let res = init(&mut deps, params, msg).unwrap();
-    assert_eq!(0, res.messages.len());
+    deps.with_storage(|storage| {
+        let config_state = config(storage)
+            .load()
+            .expect("can load config from storage");
+
+        assert_eq!(
+            config_state,
+            Config {
+                purchase_price: None,
+                transfer_price: None
+            }
+        );
+    });
+}
+
+#[test]
+fn proper_init_with_fees() {
+    let mut deps = mock_instance(WASM);
+
+    mock_init_with_fees(&mut deps, coin("2", "token"), coin("2", "token"));
+
+    deps.with_storage(|storage| {
+        let config_state = config(storage)
+            .load()
+            .expect("can load config from storage");
+
+        assert_eq!(
+            config_state,
+            Config {
+                purchase_price: Some(coin("2", "token")),
+                transfer_price: Some(coin("2", "token")),
+            }
+        );
+    });
+}
+
+#[test]
+fn register_available_name_and_query_works_with_fees() {
+    let mut deps = mock_instance(WASM);
+    mock_init_with_fees(&mut deps, coin("2", "token"), coin("2", "token"));
+    mock_alice_registers_name(&mut deps, &coin_vec("2", "token"));
+
+    // anyone can register an available name with more fees than needed
+    let params = mock_params(&deps.api, "bob_key", &coin_vec("5", "token"), &[]);
+    let msg = HandleMsg::Register {
+        name: "bob".to_string(),
+    };
+
+    // unwrap: contract successfully handles Register message
+    let _res = handle(&mut deps, params, msg).unwrap();
+
+    // querying for name resolves to correct address
+    assert_name_owner(&mut deps, "alice", "alice_key");
+    assert_name_owner(&mut deps, "bob", "bob_key");
 }
 
 #[test]
 fn register_available_name_and_query_works() {
     let mut deps = mock_instance(WASM);
-    mock_init_and_alice_registers_name(&mut deps);
+    mock_init_no_fees(&mut deps);
+    mock_alice_registers_name(&mut deps, &[]);
 
-    // querying for name resolves to correct address (alice_key)
+    // querying for name resolves to correct address
     assert_name_owner(&mut deps, "alice", "alice_key");
 }
 
 #[test]
 fn fails_on_register_already_taken_name() {
     let mut deps = mock_instance(WASM);
-    mock_init_and_alice_registers_name(&mut deps);
+    mock_init_no_fees(&mut deps);
+    mock_alice_registers_name(&mut deps, &[]);
 
     // bob can't register the same name
-    let params = mock_params(&deps.api, "bob_key", &coin("2", "token"), &[]);
+    let params = mock_params(&deps.api, "bob_key", &coin_vec("2", "token"), &[]);
     let msg = HandleMsg::Register {
         name: "alice".to_string(),
     };
@@ -114,7 +191,7 @@ fn fails_on_register_already_taken_name() {
         ContractResult::Err(e) => assert_eq!(e, "Contract error: Name is already taken"),
     }
     // alice can't register the same name again
-    let params = mock_params(&deps.api, "alice_key", &coin("2", "token"), &[]);
+    let params = mock_params(&deps.api, "alice_key", &coin_vec("2", "token"), &[]);
     let msg = HandleMsg::Register {
         name: "alice".to_string(),
     };
@@ -127,12 +204,74 @@ fn fails_on_register_already_taken_name() {
 }
 
 #[test]
+fn fails_on_register_insufficient_fees() {
+    let mut deps = mock_instance(WASM);
+    mock_init_with_fees(&mut deps, coin("2", "token"), coin("2", "token"));
+
+    // anyone can register an available name with sufficient fees
+    let params = mock_params(&deps.api, "alice_key", &[], &[]);
+    let msg = HandleMsg::Register {
+        name: "alice".to_string(),
+    };
+
+    let res = handle(&mut deps, params, msg);
+
+    match res {
+        ContractResult::Ok(_) => panic!("Must return error"),
+        ContractResult::Err(e) => assert_eq!(e, "Contract error: Insufficient funds sent"),
+    }
+}
+
+#[test]
+fn fails_on_register_wrong_fee_denom() {
+    let mut deps = mock_instance(WASM);
+    mock_init_with_fees(&mut deps, coin("2", "token"), coin("2", "token"));
+
+    // anyone can register an available name with sufficient fees
+    let params = mock_params(&deps.api, "alice_key", &coin_vec("2", "earth"), &[]);
+    let msg = HandleMsg::Register {
+        name: "alice".to_string(),
+    };
+
+    let res = handle(&mut deps, params, msg);
+
+    match res {
+        ContractResult::Ok(_) => panic!("Must return error"),
+        ContractResult::Err(e) => assert_eq!(e, "Contract error: Insufficient funds sent"),
+    }
+}
+
+#[test]
 fn transfer_works() {
     let mut deps = mock_instance(WASM);
-    mock_init_and_alice_registers_name(&mut deps);
+    mock_init_no_fees(&mut deps);
+    mock_alice_registers_name(&mut deps, &[]);
 
     // alice can transfer her name successfully to bob
-    let params = mock_params(&deps.api, "alice_key", &coin("2", "token"), &[]);
+    let params = mock_params(&deps.api, "alice_key", &[], &[]);
+    let msg = HandleMsg::Transfer {
+        name: "alice".to_string(),
+        to: HumanAddr::from("bob_key"),
+    };
+
+    let _res = handle(&mut deps, params, msg).unwrap();
+    // querying for name resolves to correct address (bob_key)
+    assert_name_owner(&mut deps, "alice", "bob_key");
+}
+
+#[test]
+fn transfer_works_with_fees() {
+    let mut deps = mock_instance(WASM);
+    mock_init_with_fees(&mut deps, coin("2", "token"), coin("2", "token"));
+    mock_alice_registers_name(&mut deps, &coin_vec("2", "token"));
+
+    // alice can transfer her name successfully to bob
+    let params = mock_params(
+        &deps.api,
+        "alice_key",
+        &vec![coin("1", "earth"), coin("2", "token")],
+        &[],
+    );
     let msg = HandleMsg::Transfer {
         name: "alice".to_string(),
         to: HumanAddr::from("bob_key"),
@@ -146,10 +285,11 @@ fn transfer_works() {
 #[test]
 fn fails_on_transfer_from_nonowner() {
     let mut deps = mock_instance(WASM);
-    mock_init_and_alice_registers_name(&mut deps);
+    mock_init_no_fees(&mut deps);
+    mock_alice_registers_name(&mut deps, &[]);
 
     // alice can transfer her name successfully to bob
-    let params = mock_params(&deps.api, "frank_key", &coin("2", "token"), &[]);
+    let params = mock_params(&deps.api, "frank_key", &coin_vec("2", "token"), &[]);
     let msg = HandleMsg::Transfer {
         name: "alice".to_string(),
         to: HumanAddr::from("bob_key"),
@@ -167,12 +307,39 @@ fn fails_on_transfer_from_nonowner() {
 }
 
 #[test]
+fn fails_on_transfer_insufficient_fees() {
+    let mut deps = mock_instance(WASM);
+    mock_init_with_fees(&mut deps, coin("2", "token"), coin("5", "token"));
+    mock_alice_registers_name(&mut deps, &coin_vec("2", "token"));
+
+    // alice can transfer her name successfully to bob
+    let params = mock_params(
+        &deps.api,
+        "alice_key",
+        &vec![coin("1", "earth"), coin("2", "token")],
+        &[],
+    );
+    let msg = HandleMsg::Transfer {
+        name: "alice".to_string(),
+        to: HumanAddr::from("bob_key"),
+    };
+
+    let res = handle(&mut deps, params, msg);
+
+    match res {
+        ContractResult::Ok(_) => panic!("Must return error"),
+        ContractResult::Err(e) => assert_eq!(e, "Contract error: Insufficient funds sent"),
+    }
+
+    // querying for name resolves to correct address (bob_key)
+    assert_name_owner(&mut deps, "alice", "alice_key");
+}
+
+#[test]
 fn fails_on_query_unregistered_name() {
     let mut deps = mock_instance(WASM);
 
-    let msg = InitMsg {};
-    let params = mock_params(&deps.api, "creator", &coin("2", "token"), &[]);
-    let _res = init(&mut deps, params, msg).unwrap();
+    mock_init_no_fees(&mut deps);
 
     // querying for unregistered name results in NotFound error
     let res = query(
