@@ -1,13 +1,13 @@
-use cosmwasm::types::{HumanAddr, Coin};
-use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
+use cosmwasm::types::{Coin, HumanAddr};
 use named_type::NamedType;
 use named_type_derive::NamedType;
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct InitMsg {
     pub purchase_price: Option<Coin>,
-    pub transfer_price: Option<Coin>
+    pub transfer_price: Option<Coin>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

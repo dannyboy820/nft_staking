@@ -5,10 +5,10 @@ use cosmwasm::types::{Coin, HumanAddr};
 
 use cw_storage::deserialize;
 
+use crate::coin_helpers::{coin, coin_vec};
 use crate::contract::{handle, init, query};
 use crate::msg::{HandleMsg, InitMsg, QueryMsg, ResolveRecordResponse};
 use crate::state::{config, Config};
-use crate::coin_helpers::{coin, coin_vec};
 
 fn assert_name_owner(deps: &mut Extern<MockStorage, MockApi>, name: &str, owner: &str) {
     let res = query(
