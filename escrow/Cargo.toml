@@ -33,7 +33,7 @@ singlepass = [ "cosmwasm-vm/default-singlepass"]
 
 [dependencies]
 cosmwasm = { version = "0.6.3" }
-cw-storage = "0.1"
+cw-storage = "0.1.1"
 named_type = "=0.2.1"
 named_type_derive = "=0.2.1"
 schemars = "=0.5"

@@ -324,7 +324,7 @@ version = "0.2.1"
 dependencies = [
  "cosmwasm 0.6.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "cosmwasm-vm 0.6.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "cw-storage 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "cw-storage 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "named_type 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "named_type_derive 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "schemars 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -336,7 +336,7 @@ dependencies = [
 
 [[package]]
 name = "cw-storage"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "cosmwasm 0.6.3 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1371,7 +1371,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum crossbeam-epoch 0.7.2 (registry+https://github.com/rust-lang/crates.io-index)" = "fedcd6772e37f3da2a9af9bf12ebe046c0dfe657992377b4df982a2b54cd37a9"
 "checksum crossbeam-queue 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)" = "7c979cd6cfe72335896575c6b5688da489e420d36a27a0b9eb0c73db574b4a4b"
 "checksum crossbeam-utils 0.6.6 (registry+https://github.com/rust-lang/crates.io-index)" = "04973fa96e96579258a5091af6003abde64af786b860f18622b82e026cca60e6"
-"checksum cw-storage 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "bbe856e4d77298718fcdd1591fdaeaf295e8374fc387e2c3b555df1e261b8165"
+"checksum cw-storage 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "31e777074eb3fff69ac20cbce138d48530674d73e385ae32a2ad7bfd229d1e05"
 "checksum digest 0.8.1 (registry+https://github.com/rust-lang/crates.io-index)" = "f3d0c8c8752312f9713efd397ff63acb9f85585afbf179282e720e7704954dd5"
 "checksum doc-comment 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)" = "923dea538cea0aa3025e8685b20d6ee21ef99c4f77e954a30febbaac5ec73a97"
 "checksum dynasm 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)" = "42a814e1edeb85dd2a3c6fc0d6bf76d02ca5695d438c70ecee3d90774f3259c5"
