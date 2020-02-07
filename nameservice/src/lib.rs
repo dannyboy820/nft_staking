@@ -1,7 +1,7 @@
+pub mod coin_helpers;
 pub mod contract;
 pub mod msg;
 pub mod state;
-pub mod coin_helpers;
 
 /** Below we expose wasm exports * **/
 #[cfg(target_arch = "wasm32")]
@@ -42,7 +42,6 @@ mod wasm {
         )
     }
 }
-
 
 #[cfg(test)]
 mod tests;

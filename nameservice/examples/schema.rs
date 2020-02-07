@@ -4,7 +4,7 @@ use std::path::PathBuf;
 
 use schemars::{schema::RootSchema, schema_for};
 
-use cw_nameservice::msg::{ResolveRecordResponse, HandleMsg, InitMsg, QueryMsg};
+use cw_nameservice::msg::{HandleMsg, InitMsg, QueryMsg, ResolveRecordResponse};
 
 fn main() {
     let mut pwd = current_dir().unwrap();
