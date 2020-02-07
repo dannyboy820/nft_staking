@@ -20,7 +20,7 @@ jobs:
           command: rustc --version; cargo --version; rustup --version
       - restore_cache:
           keys:
-            - v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
+            - cargo-cache-v2-{{ checksum "Cargo.lock" }}
       - run:
           name: Add wasm32 target
           command: rustup target add wasm32-unknown-unknown
@@ -55,13 +55,8 @@ jobs:
       - save_cache:
           paths:
             - /usr/local/cargo/registry
-            - target/debug/.fingerprint
-            - target/debug/build
-            - target/debug/deps
-            - target/wasm32-unknown-unknown/release/.fingerprint
-            - target/wasm32-unknown-unknown/release/build
-            - target/wasm32-unknown-unknown/release/deps
-          key: v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
+            - target
+          key: cargo-cache-v2-{{ checksum "Cargo.lock" }}
   escrow:
     docker:
       - image: rust:1.38
@@ -74,7 +69,7 @@ jobs:
           command: rustc --version; cargo --version; rustup --version
       - restore_cache:
           keys:
-            - v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
+            - cargo-cache-v2-{{ checksum "Cargo.lock" }}
       - run:
           name: Add wasm32 target
           command: rustup target add wasm32-unknown-unknown
@@ -109,13 +104,8 @@ jobs:
       - save_cache:
           paths:
             - /usr/local/cargo/registry
-            - target/debug/.fingerprint
-            - target/debug/build
-            - target/debug/deps
-            - target/wasm32-unknown-unknown/release/.fingerprint
-            - target/wasm32-unknown-unknown/release/build
-            - target/wasm32-unknown-unknown/release/deps
-          key: v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
+            - target
+          key: cargo-cache-v2-{{ checksum "Cargo.lock" }}
   nameservice:
     docker:
       - image: rust:1.38
@@ -128,7 +118,7 @@ jobs:
           command: rustc --version; cargo --version; rustup --version
       - restore_cache:
           keys:
-            - v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
+            - cargo-cache-v2-{{ checksum "Cargo.lock" }}
       - run:
           name: Add wasm32 target
           command: rustup target add wasm32-unknown-unknown
@@ -163,10 +153,5 @@ jobs:
       - save_cache:
           paths:
             - /usr/local/cargo/registry
-            - target/debug/.fingerprint
-            - target/debug/build
-            - target/debug/deps
-            - target/wasm32-unknown-unknown/release/.fingerprint
-            - target/wasm32-unknown-unknown/release/build
-            - target/wasm32-unknown-unknown/release/deps
-          key: v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
+            - target
+          key: cargo-cache-v2-{{ checksum "Cargo.lock" }}
