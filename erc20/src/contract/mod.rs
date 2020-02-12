@@ -6,7 +6,7 @@ use std::convert::TryInto;
 use serde::{Deserialize, Serialize};
 use snafu::ResultExt;
 
-use cosmwasm::errors::{ContractErr, DynContractErr, Result, SerializeErr};
+use cosmwasm::errors::{contract_err, dyn_contract_err, Result, SerializeErr};
 use cosmwasm::serde::to_vec;
 use cosmwasm::traits::{Api, Extern, ReadonlyStorage, Storage};
 use cosmwasm::types::{CanonicalAddr, HumanAddr, Params, Response};
@@ -98,22 +98,13 @@ pub fn init<S: Storage, A: Api>(
 
     // Check name, symbol, decimals
     if !is_valid_name(&msg.name) {
-        return ContractErr {
-            msg: "Name is not in the expected format (3-30 UTF-8 bytes)",
-        }
-        .fail();
+        return contract_err("Name is not in the expected format (3-30 UTF-8 bytes)");
     }
     if !is_valid_symbol(&msg.symbol) {
-        return ContractErr {
-            msg: "Ticker symbol is not in expected format [A-Z]{3,6}",
-        }
-        .fail();
+        return contract_err("Ticker symbol is not in expected format [A-Z]{3,6}");
     }
     if msg.decimals > 18 {
-        return ContractErr {
-            msg: "Decimals must not exceed 18",
-        }
-        .fail();
+        return contract_err("Decimals must not exceed 18");
     }
 
     let mut config_store = PrefixedStorage::new(PREFIX_CONFIG, &mut deps.storage);
@@ -214,13 +205,10 @@ fn try_transfer_from<S: Storage, A: Api>(
 
     let mut allowance = read_allowance(&deps.storage, &owner_address_raw, &spender_address_raw)?;
     if allowance < amount_raw {
-        return DynContractErr {
-            msg: format!(
-                "Insufficient allowance: allowance={}, required={}",
-                allowance, amount_raw
-            ),
-        }
-        .fail();
+        return dyn_contract_err(format!(
+            "Insufficient allowance: allowance={}, required={}",
+            allowance, amount_raw
+        ));
     }
     allowance -= amount_raw;
     write_allowance(
@@ -277,13 +265,10 @@ fn perform_transfer<T: Storage>(
 
     let mut from_balance = read_u128(&balances_store, from.as_bytes())?;
     if from_balance < amount {
-        return DynContractErr {
-            msg: format!(
-                "Insufficient funds: balance={}, required={}",
-                from_balance, amount
-            ),
-        }
-        .fail();
+        return dyn_contract_err(format!(
+            "Insufficient funds: balance={}, required={}",
+            from_balance, amount
+        ));
     }
     from_balance -= amount;
     balances_store.set(from.as_bytes(), &from_balance.to_be_bytes());
@@ -300,10 +285,7 @@ fn perform_transfer<T: Storage>(
 pub fn bytes_to_u128(data: &[u8]) -> Result<u128> {
     match data[0..16].try_into() {
         Ok(bytes) => Ok(u128::from_be_bytes(bytes)),
-        Err(_) => ContractErr {
-            msg: "Corrupted data found. 16 byte expected.",
-        }
-        .fail(),
+        Err(_) => contract_err("Corrupted data found. 16 byte expected."),
     }
 }
 
@@ -320,10 +302,7 @@ pub fn read_u128<S: ReadonlyStorage>(store: &S, key: &[u8]) -> Result<u128> {
 pub fn parse_u128(source: &str) -> Result<u128> {
     match source.parse::<u128>() {
         Ok(value) => Ok(value),
-        Err(_) => ContractErr {
-            msg: "Error while parsing string to u128",
-        }
-        .fail(),
+        Err(_) => contract_err("Error while parsing string to u128"),
     }
 }
 
