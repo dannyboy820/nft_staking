@@ -1,8 +1,6 @@
-pub mod prefixedstorage;
-
 use schemars::JsonSchema;
 
-use prefixedstorage::{PrefixedStorage, ReadonlyPrefixedStorage};
+use cw_storage::{PrefixedStorage, ReadonlyPrefixedStorage};
 use std::convert::TryInto;
 
 use serde::{Deserialize, Serialize};
@@ -89,7 +87,7 @@ pub fn init<S: Storage, A: Api>(
     let mut total_supply: u128 = 0;
     {
         // Initial balances
-        let mut balances_store = PrefixedStorage::new(&mut deps.storage, PREFIX_BALANCES);
+        let mut balances_store = PrefixedStorage::new(PREFIX_BALANCES, &mut deps.storage);
         for row in msg.initial_balances {
             let raw_address = deps.api.canonical_address(&row.address)?;
             let amount_raw = parse_u128(&row.amount)?;
@@ -118,7 +116,7 @@ pub fn init<S: Storage, A: Api>(
         .fail();
     }
 
-    let mut config_store = PrefixedStorage::new(&mut deps.storage, PREFIX_CONFIG);
+    let mut config_store = PrefixedStorage::new(PREFIX_CONFIG, &mut deps.storage);
     let constants = to_vec(&Constants {
         name: msg.name,
         symbol: msg.symbol,
@@ -275,7 +273,7 @@ fn perform_transfer<T: Storage>(
     to: &CanonicalAddr,
     amount: u128,
 ) -> Result<()> {
-    let mut balances_store = PrefixedStorage::new(store, PREFIX_BALANCES);
+    let mut balances_store = PrefixedStorage::new(PREFIX_BALANCES, store);
 
     let mut from_balance = read_u128(&balances_store, from.as_bytes())?;
     if from_balance < amount {
@@ -330,7 +328,7 @@ pub fn parse_u128(source: &str) -> Result<u128> {
 }
 
 fn read_balance<S: Storage>(store: &S, owner: &CanonicalAddr) -> Result<u128> {
-    let balance_store = ReadonlyPrefixedStorage::new(store, PREFIX_BALANCES);
+    let balance_store = ReadonlyPrefixedStorage::new(PREFIX_BALANCES, store);
     return read_u128(&balance_store, owner.as_bytes());
 }
 
@@ -339,8 +337,8 @@ fn read_allowance<S: Storage>(
     owner: &CanonicalAddr,
     spender: &CanonicalAddr,
 ) -> Result<u128> {
-    let allowances_store = ReadonlyPrefixedStorage::new(store, PREFIX_ALLOWANCES);
-    let owner_store = ReadonlyPrefixedStorage::new(&allowances_store, owner.as_bytes());
+    let allowances_store = ReadonlyPrefixedStorage::new(PREFIX_ALLOWANCES, store);
+    let owner_store = ReadonlyPrefixedStorage::new(owner.as_bytes(), &allowances_store);
     return read_u128(&owner_store, spender.as_bytes());
 }
 
@@ -350,8 +348,8 @@ fn write_allowance<S: Storage>(
     spender: &CanonicalAddr,
     amount: u128,
 ) -> () {
-    let mut allowances_store = PrefixedStorage::new(store, PREFIX_ALLOWANCES);
-    let mut owner_store = PrefixedStorage::new(&mut allowances_store, owner.as_bytes());
+    let mut allowances_store = PrefixedStorage::new(PREFIX_ALLOWANCES, store);
+    let mut owner_store = PrefixedStorage::new(owner.as_bytes(), &mut allowances_store);
     owner_store.set(spender.as_bytes(), &amount.to_be_bytes());
 }
 

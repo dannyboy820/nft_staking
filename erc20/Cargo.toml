@@ -30,7 +30,8 @@ cranelift = [ "cosmwasm-vm/default-cranelift"]
 singlepass = [ "cosmwasm-vm/default-singlepass"]
 
 [dependencies]
-cosmwasm = { version = "0.6.3" }
+cosmwasm = { version = "0.6.4" }
+cw-storage = "0.1.1"
 schemars = "=0.5"
 serde = { version = "=1.0.103", default-features = false, features = ["derive"] }
 snafu = { version = "=0.5.0", default-features = false, features = ["rust_1_30"] }
