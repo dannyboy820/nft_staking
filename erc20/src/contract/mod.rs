@@ -1,15 +1,13 @@
-use schemars::JsonSchema;
-
-use cw_storage::{PrefixedStorage, ReadonlyPrefixedStorage};
 use std::convert::TryInto;
-
+use named_type::NamedType;
+use named_type_derive::NamedType;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use snafu::ResultExt;
 
-use cosmwasm::errors::{contract_err, dyn_contract_err, Result, SerializeErr};
-use cosmwasm::serde::to_vec;
+use cosmwasm::errors::{contract_err, dyn_contract_err, Result};
 use cosmwasm::traits::{Api, Extern, ReadonlyStorage, Storage};
 use cosmwasm::types::{CanonicalAddr, HumanAddr, Params, Response};
+use cw_storage::{PrefixedStorage, ReadonlyPrefixedStorage, serialize};
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema)]
 pub struct InitialBalance {
@@ -55,17 +53,17 @@ pub enum QueryMsg {
     },
 }
 
-#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, NamedType)]
 pub struct BalanceResponse {
     pub balance: String,
 }
 
-#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, NamedType)]
 pub struct AllowanceResponse {
     pub allowance: String,
 }
 
-#[derive(Serialize, Debug, Deserialize, Clone, PartialEq, JsonSchema)]
+#[derive(Serialize, Debug, Deserialize, Clone, PartialEq, JsonSchema, NamedType)]
 pub struct Constants {
     pub name: String,
     pub symbol: String,
@@ -108,12 +106,11 @@ pub fn init<S: Storage, A: Api>(
     }
 
     let mut config_store = PrefixedStorage::new(PREFIX_CONFIG, &mut deps.storage);
-    let constants = to_vec(&Constants {
+    let constants = serialize(&Constants {
         name: msg.name,
         symbol: msg.symbol,
         decimals: msg.decimals,
-    })
-    .context(SerializeErr { kind: "Constants" })?;
+    })?;
     config_store.set(KEY_CONSTANTS, &constants);
     config_store.set(KEY_TOTAL_SUPPLY, &total_supply.to_be_bytes());
 
@@ -143,11 +140,8 @@ pub fn query<S: Storage, A: Api>(deps: &Extern<S, A>, msg: QueryMsg) -> Result<V
         QueryMsg::Balance { address } => {
             let address_key = deps.api.canonical_address(&address)?;
             let balance = read_balance(&deps.storage, &address_key)?;
-            let out = to_vec(&BalanceResponse {
+            let out = serialize(&BalanceResponse {
                 balance: balance.to_string(),
-            })
-            .context(SerializeErr {
-                kind: "BalanceResponse",
             })?;
             Ok(out)
         }
@@ -155,11 +149,8 @@ pub fn query<S: Storage, A: Api>(deps: &Extern<S, A>, msg: QueryMsg) -> Result<V
             let owner_key = deps.api.canonical_address(&owner)?;
             let spender_key = deps.api.canonical_address(&spender)?;
             let allowance = read_allowance(&deps.storage, &owner_key, &spender_key)?;
-            let out = to_vec(&AllowanceResponse {
+            let out = serialize(&AllowanceResponse {
                 allowance: allowance.to_string(),
-            })
-            .context(SerializeErr {
-                kind: "AllowanceResponse",
             })?;
             Ok(out)
         }
