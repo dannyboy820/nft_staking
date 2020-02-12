@@ -5,7 +5,7 @@ use cosmwasm::traits::{Api, ReadonlyStorage, Storage};
 use cosmwasm::types::{HumanAddr, Params};
 use cw_storage::ReadonlyPrefixedStorage;
 
-use super::{
+use crate::contract::{
     bytes_to_u128, handle, init, query, read_u128, Constants, HandleMsg, InitMsg, InitialBalance,
     QueryMsg, KEY_CONSTANTS, KEY_TOTAL_SUPPLY, PREFIX_ALLOWANCES, PREFIX_BALANCES, PREFIX_CONFIG,
 };
@@ -62,7 +62,7 @@ fn get_allowance<S: ReadonlyStorage, A: Api>(
 }
 
 mod helpers {
-    use super::super::parse_u128;
+    use crate::contract::parse_u128;
     use cosmwasm::errors::Error;
 
     #[test]

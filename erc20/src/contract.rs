@@ -1,13 +1,13 @@
-use std::convert::TryInto;
 use named_type::NamedType;
 use named_type_derive::NamedType;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use std::convert::TryInto;
 
 use cosmwasm::errors::{contract_err, dyn_contract_err, Result};
 use cosmwasm::traits::{Api, Extern, ReadonlyStorage, Storage};
 use cosmwasm::types::{CanonicalAddr, HumanAddr, Params, Response};
-use cw_storage::{PrefixedStorage, ReadonlyPrefixedStorage, serialize};
+use cw_storage::{serialize, PrefixedStorage, ReadonlyPrefixedStorage};
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema)]
 pub struct InitialBalance {
@@ -345,6 +345,3 @@ fn is_valid_symbol(symbol: &str) -> bool {
 
     return true;
 }
-
-#[cfg(test)]
-mod tests;
