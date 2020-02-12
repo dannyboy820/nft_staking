@@ -3,13 +3,12 @@ use cosmwasm::mock::{dependencies, mock_params};
 use cosmwasm::serde::from_slice;
 use cosmwasm::traits::{Api, ReadonlyStorage, Storage};
 use cosmwasm::types::{HumanAddr, Params};
+use cw_storage::ReadonlyPrefixedStorage;
 
-use super::{
-    bytes_to_u128, handle, init, prefixedstorage, query, read_u128, Constants, HandleMsg, InitMsg,
-    InitialBalance, QueryMsg, KEY_CONSTANTS, KEY_TOTAL_SUPPLY, PREFIX_ALLOWANCES, PREFIX_BALANCES,
-    PREFIX_CONFIG,
+use crate::contract::{
+    bytes_to_u128, handle, init, query, read_u128, Constants, HandleMsg, InitMsg, InitialBalance,
+    QueryMsg, KEY_CONSTANTS, KEY_TOTAL_SUPPLY, PREFIX_ALLOWANCES, PREFIX_BALANCES, PREFIX_CONFIG,
 };
-use prefixedstorage::ReadonlyPrefixedStorage;
 
 static CANONICAL_LENGTH: usize = 20;
 
@@ -21,7 +20,7 @@ fn mock_params_height<A: Api>(api: &A, signer: &HumanAddr, height: i64, time: i6
 }
 
 fn get_constants<S: Storage>(storage: &S) -> Constants {
-    let config_storage = ReadonlyPrefixedStorage::new(storage, PREFIX_CONFIG);
+    let config_storage = ReadonlyPrefixedStorage::new(PREFIX_CONFIG, storage);
     let data = config_storage
         .get(KEY_CONSTANTS)
         .expect("no config data stored");
@@ -29,7 +28,7 @@ fn get_constants<S: Storage>(storage: &S) -> Constants {
 }
 
 fn get_total_supply<S: Storage>(storage: &S) -> u128 {
-    let config_storage = ReadonlyPrefixedStorage::new(storage, PREFIX_CONFIG);
+    let config_storage = ReadonlyPrefixedStorage::new(PREFIX_CONFIG, storage);
     let data = config_storage
         .get(KEY_TOTAL_SUPPLY)
         .expect("no decimals data stored");
@@ -40,7 +39,7 @@ fn get_balance<S: ReadonlyStorage, A: Api>(api: &A, storage: &S, address: &Human
     let address_key = api
         .canonical_address(address)
         .expect("canonical_address failed");
-    let balances_storage = ReadonlyPrefixedStorage::new(storage, PREFIX_BALANCES);
+    let balances_storage = ReadonlyPrefixedStorage::new(PREFIX_BALANCES, storage);
     return read_u128(&balances_storage, address_key.as_bytes()).unwrap();
 }
 
@@ -56,14 +55,14 @@ fn get_allowance<S: ReadonlyStorage, A: Api>(
     let spender_raw_address = api
         .canonical_address(spender)
         .expect("canonical_address failed");
-    let allowances_storage = ReadonlyPrefixedStorage::new(storage, PREFIX_ALLOWANCES);
+    let allowances_storage = ReadonlyPrefixedStorage::new(PREFIX_ALLOWANCES, storage);
     let owner_storage =
-        ReadonlyPrefixedStorage::new(&allowances_storage, owner_raw_address.as_bytes());
+        ReadonlyPrefixedStorage::new(owner_raw_address.as_bytes(), &allowances_storage);
     return read_u128(&owner_storage, spender_raw_address.as_bytes()).unwrap();
 }
 
 mod helpers {
-    use super::super::parse_u128;
+    use crate::contract::parse_u128;
     use cosmwasm::errors::Error;
 
     #[test]

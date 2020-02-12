@@ -1,17 +1,13 @@
-pub mod prefixedstorage;
-
+use named_type::NamedType;
+use named_type_derive::NamedType;
 use schemars::JsonSchema;
-
-use prefixedstorage::{PrefixedStorage, ReadonlyPrefixedStorage};
+use serde::{Deserialize, Serialize};
 use std::convert::TryInto;
 
-use serde::{Deserialize, Serialize};
-use snafu::ResultExt;
-
-use cosmwasm::errors::{ContractErr, DynContractErr, Result, SerializeErr};
-use cosmwasm::serde::to_vec;
+use cosmwasm::errors::{contract_err, dyn_contract_err, Result};
 use cosmwasm::traits::{Api, Extern, ReadonlyStorage, Storage};
 use cosmwasm::types::{CanonicalAddr, HumanAddr, Params, Response};
+use cw_storage::{serialize, PrefixedStorage, ReadonlyPrefixedStorage};
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema)]
 pub struct InitialBalance {
@@ -57,17 +53,17 @@ pub enum QueryMsg {
     },
 }
 
-#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, NamedType)]
 pub struct BalanceResponse {
     pub balance: String,
 }
 
-#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, NamedType)]
 pub struct AllowanceResponse {
     pub allowance: String,
 }
 
-#[derive(Serialize, Debug, Deserialize, Clone, PartialEq, JsonSchema)]
+#[derive(Serialize, Debug, Deserialize, Clone, PartialEq, JsonSchema, NamedType)]
 pub struct Constants {
     pub name: String,
     pub symbol: String,
@@ -89,7 +85,7 @@ pub fn init<S: Storage, A: Api>(
     let mut total_supply: u128 = 0;
     {
         // Initial balances
-        let mut balances_store = PrefixedStorage::new(&mut deps.storage, PREFIX_BALANCES);
+        let mut balances_store = PrefixedStorage::new(PREFIX_BALANCES, &mut deps.storage);
         for row in msg.initial_balances {
             let raw_address = deps.api.canonical_address(&row.address)?;
             let amount_raw = parse_u128(&row.amount)?;
@@ -100,31 +96,21 @@ pub fn init<S: Storage, A: Api>(
 
     // Check name, symbol, decimals
     if !is_valid_name(&msg.name) {
-        return ContractErr {
-            msg: "Name is not in the expected format (3-30 UTF-8 bytes)",
-        }
-        .fail();
+        return contract_err("Name is not in the expected format (3-30 UTF-8 bytes)");
     }
     if !is_valid_symbol(&msg.symbol) {
-        return ContractErr {
-            msg: "Ticker symbol is not in expected format [A-Z]{3,6}",
-        }
-        .fail();
+        return contract_err("Ticker symbol is not in expected format [A-Z]{3,6}");
     }
     if msg.decimals > 18 {
-        return ContractErr {
-            msg: "Decimals must not exceed 18",
-        }
-        .fail();
+        return contract_err("Decimals must not exceed 18");
     }
 
-    let mut config_store = PrefixedStorage::new(&mut deps.storage, PREFIX_CONFIG);
-    let constants = to_vec(&Constants {
+    let mut config_store = PrefixedStorage::new(PREFIX_CONFIG, &mut deps.storage);
+    let constants = serialize(&Constants {
         name: msg.name,
         symbol: msg.symbol,
         decimals: msg.decimals,
-    })
-    .context(SerializeErr { kind: "Constants" })?;
+    })?;
     config_store.set(KEY_CONSTANTS, &constants);
     config_store.set(KEY_TOTAL_SUPPLY, &total_supply.to_be_bytes());
 
@@ -154,11 +140,8 @@ pub fn query<S: Storage, A: Api>(deps: &Extern<S, A>, msg: QueryMsg) -> Result<V
         QueryMsg::Balance { address } => {
             let address_key = deps.api.canonical_address(&address)?;
             let balance = read_balance(&deps.storage, &address_key)?;
-            let out = to_vec(&BalanceResponse {
+            let out = serialize(&BalanceResponse {
                 balance: balance.to_string(),
-            })
-            .context(SerializeErr {
-                kind: "BalanceResponse",
             })?;
             Ok(out)
         }
@@ -166,11 +149,8 @@ pub fn query<S: Storage, A: Api>(deps: &Extern<S, A>, msg: QueryMsg) -> Result<V
             let owner_key = deps.api.canonical_address(&owner)?;
             let spender_key = deps.api.canonical_address(&spender)?;
             let allowance = read_allowance(&deps.storage, &owner_key, &spender_key)?;
-            let out = to_vec(&AllowanceResponse {
+            let out = serialize(&AllowanceResponse {
                 allowance: allowance.to_string(),
-            })
-            .context(SerializeErr {
-                kind: "AllowanceResponse",
             })?;
             Ok(out)
         }
@@ -216,13 +196,10 @@ fn try_transfer_from<S: Storage, A: Api>(
 
     let mut allowance = read_allowance(&deps.storage, &owner_address_raw, &spender_address_raw)?;
     if allowance < amount_raw {
-        return DynContractErr {
-            msg: format!(
-                "Insufficient allowance: allowance={}, required={}",
-                allowance, amount_raw
-            ),
-        }
-        .fail();
+        return dyn_contract_err(format!(
+            "Insufficient allowance: allowance={}, required={}",
+            allowance, amount_raw
+        ));
     }
     allowance -= amount_raw;
     write_allowance(
@@ -275,17 +252,14 @@ fn perform_transfer<T: Storage>(
     to: &CanonicalAddr,
     amount: u128,
 ) -> Result<()> {
-    let mut balances_store = PrefixedStorage::new(store, PREFIX_BALANCES);
+    let mut balances_store = PrefixedStorage::new(PREFIX_BALANCES, store);
 
     let mut from_balance = read_u128(&balances_store, from.as_bytes())?;
     if from_balance < amount {
-        return DynContractErr {
-            msg: format!(
-                "Insufficient funds: balance={}, required={}",
-                from_balance, amount
-            ),
-        }
-        .fail();
+        return dyn_contract_err(format!(
+            "Insufficient funds: balance={}, required={}",
+            from_balance, amount
+        ));
     }
     from_balance -= amount;
     balances_store.set(from.as_bytes(), &from_balance.to_be_bytes());
@@ -302,10 +276,7 @@ fn perform_transfer<T: Storage>(
 pub fn bytes_to_u128(data: &[u8]) -> Result<u128> {
     match data[0..16].try_into() {
         Ok(bytes) => Ok(u128::from_be_bytes(bytes)),
-        Err(_) => ContractErr {
-            msg: "Corrupted data found. 16 byte expected.",
-        }
-        .fail(),
+        Err(_) => contract_err("Corrupted data found. 16 byte expected."),
     }
 }
 
@@ -322,15 +293,12 @@ pub fn read_u128<S: ReadonlyStorage>(store: &S, key: &[u8]) -> Result<u128> {
 pub fn parse_u128(source: &str) -> Result<u128> {
     match source.parse::<u128>() {
         Ok(value) => Ok(value),
-        Err(_) => ContractErr {
-            msg: "Error while parsing string to u128",
-        }
-        .fail(),
+        Err(_) => contract_err("Error while parsing string to u128"),
     }
 }
 
 fn read_balance<S: Storage>(store: &S, owner: &CanonicalAddr) -> Result<u128> {
-    let balance_store = ReadonlyPrefixedStorage::new(store, PREFIX_BALANCES);
+    let balance_store = ReadonlyPrefixedStorage::new(PREFIX_BALANCES, store);
     return read_u128(&balance_store, owner.as_bytes());
 }
 
@@ -339,8 +307,8 @@ fn read_allowance<S: Storage>(
     owner: &CanonicalAddr,
     spender: &CanonicalAddr,
 ) -> Result<u128> {
-    let allowances_store = ReadonlyPrefixedStorage::new(store, PREFIX_ALLOWANCES);
-    let owner_store = ReadonlyPrefixedStorage::new(&allowances_store, owner.as_bytes());
+    let allowances_store = ReadonlyPrefixedStorage::new(PREFIX_ALLOWANCES, store);
+    let owner_store = ReadonlyPrefixedStorage::new(owner.as_bytes(), &allowances_store);
     return read_u128(&owner_store, spender.as_bytes());
 }
 
@@ -350,8 +318,8 @@ fn write_allowance<S: Storage>(
     spender: &CanonicalAddr,
     amount: u128,
 ) -> () {
-    let mut allowances_store = PrefixedStorage::new(store, PREFIX_ALLOWANCES);
-    let mut owner_store = PrefixedStorage::new(&mut allowances_store, owner.as_bytes());
+    let mut allowances_store = PrefixedStorage::new(PREFIX_ALLOWANCES, store);
+    let mut owner_store = PrefixedStorage::new(owner.as_bytes(), &mut allowances_store);
     owner_store.set(spender.as_bytes(), &amount.to_be_bytes());
 }
 
@@ -377,6 +345,3 @@ fn is_valid_symbol(symbol: &str) -> bool {
 
     return true;
 }
-
-#[cfg(test)]
-mod tests;
