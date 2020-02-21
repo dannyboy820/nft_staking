@@ -3,10 +3,14 @@
   "title": "InitMsg",
   "type": "object",
   "required": [
+    "name",
     "purchase_price",
     "transfer_price"
   ],
   "properties": {
+    "name": {
+      "type": "string"
+    },
     "purchase_price": {
       "anyOf": [
         {
