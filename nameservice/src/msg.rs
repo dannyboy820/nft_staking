@@ -23,6 +23,7 @@ pub enum HandleMsg {
 pub enum QueryMsg {
     // ResolveAddress returns the current address that the name resolves to
     ResolveRecord { name: String },
+    Config {},
 }
 
 // We define a custom struct for each query response

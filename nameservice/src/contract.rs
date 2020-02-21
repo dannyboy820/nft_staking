@@ -4,7 +4,7 @@ use cosmwasm::types::{HumanAddr, Params, Response};
 
 use crate::coin_helpers::assert_sent_sufficient_coin;
 use crate::msg::{HandleMsg, InitMsg, QueryMsg, ResolveRecordResponse};
-use crate::state::{config, resolver, resolver_read, Config, NameRecord};
+use crate::state::{config, config_read, resolver, resolver_read, Config, NameRecord};
 
 use cw_storage::serialize;
 
@@ -85,6 +85,7 @@ pub fn try_transfer<S: Storage, A: Api>(
 pub fn query<S: Storage, A: Api>(deps: &Extern<S, A>, msg: QueryMsg) -> Result<Vec<u8>> {
     match msg {
         QueryMsg::ResolveRecord { name } => query_resolver(deps, name),
+        QueryMsg::Config {} => serialize(&config_read(&deps.storage).load()?),
     }
 }
 

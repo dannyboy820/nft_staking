@@ -3,9 +3,12 @@ use named_type_derive::NamedType;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use cosmwasm::traits::Storage;
+use cosmwasm::traits::{ReadonlyStorage, Storage};
 use cosmwasm::types::{CanonicalAddr, Coin};
-use cw_storage::{bucket, bucket_read, singleton, Bucket, ReadonlyBucket, Singleton};
+use cw_storage::{
+    bucket, bucket_read, singleton, singleton_read, Bucket, ReadonlyBucket, ReadonlySingleton,
+    Singleton,
+};
 
 pub static NAME_RESOLVER_KEY: &[u8] = b"nameresolver";
 pub static CONFIG_KEY: &[u8] = b"config";
@@ -19,6 +22,10 @@ pub struct Config {
 
 pub fn config<S: Storage>(storage: &mut S) -> Singleton<S, Config> {
     singleton(storage, CONFIG_KEY)
+}
+
+pub fn config_read<S: ReadonlyStorage>(storage: &S) -> ReadonlySingleton<S, Config> {
+    singleton_read(storage, CONFIG_KEY)
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema, NamedType)]

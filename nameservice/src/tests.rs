@@ -8,7 +8,7 @@ use cw_storage::deserialize;
 use crate::coin_helpers::{coin, coin_vec};
 use crate::contract::{handle, init, query};
 use crate::msg::{HandleMsg, InitMsg, QueryMsg, ResolveRecordResponse};
-use crate::state::{config, Config};
+use crate::state::Config;
 
 fn assert_name_owner(deps: &mut Extern<MockStorage, MockApi>, name: &str, owner: &str) {
     let res = query(
@@ -21,6 +21,12 @@ fn assert_name_owner(deps: &mut Extern<MockStorage, MockApi>, name: &str, owner:
 
     let value: ResolveRecordResponse = deserialize(&res).unwrap();
     assert_eq!(HumanAddr::from(owner), value.address);
+}
+
+fn assert_config_state(deps: &mut Extern<MockStorage, MockApi>, expected: Config) {
+    let res = query(&deps, QueryMsg::Config {}).unwrap();
+    let value: Config = deserialize(&res).unwrap();
+    assert_eq!(value, expected);
 }
 
 fn mock_init_with_fees(
@@ -65,17 +71,13 @@ fn proper_init_no_fees() {
 
     mock_init_no_fees(&mut deps);
 
-    let config_state = config(&mut deps.storage)
-        .load()
-        .expect("can load config from storage");
-
-    assert_eq!(
-        config_state,
+    assert_config_state(
+        &mut deps,
         Config {
             name: "cheap".to_string(),
             purchase_price: None,
-            transfer_price: None
-        }
+            transfer_price: None,
+        },
     );
 }
 
@@ -85,17 +87,13 @@ fn proper_init_with_fees() {
 
     mock_init_with_fees(&mut deps, coin("2", "token"), coin("2", "token"));
 
-    let config_state = config(&mut deps.storage)
-        .load()
-        .expect("can load config from storage");
-
-    assert_eq!(
-        config_state,
+    assert_config_state(
+        &mut deps,
         Config {
             name: "costly".to_string(),
             purchase_price: Some(coin("2", "token")),
             transfer_price: Some(coin("2", "token")),
-        }
+        },
     );
 }
 
