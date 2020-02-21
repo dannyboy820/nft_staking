@@ -52,8 +52,8 @@ so it can easily be validate by others (please change `CONTRACT` to the name of 
 
 ```sh
 docker run --rm -v $(pwd):/code \
-  --mount type=volume,source=CONTRACT_cache,target=/code/target \
-  confio/cosmwasm-opt:0.6.0
+  --mount type=volume,source=nameservice_cache,target=/code/target \
+  confio/cosmwasm-opt:0.6.2
 ```
 
 Ensure you check in all the artifacts, and make a git commit with the final state.

@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct InitMsg {
+    pub name: String,
     pub purchase_price: Option<Coin>,
     pub transfer_price: Option<Coin>,
 }
@@ -22,6 +23,7 @@ pub enum HandleMsg {
 pub enum QueryMsg {
     // ResolveAddress returns the current address that the name resolves to
     ResolveRecord { name: String },
+    Config {},
 }
 
 // We define a custom struct for each query response
