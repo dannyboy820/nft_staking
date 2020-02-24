@@ -4,7 +4,8 @@ use std::path::PathBuf;
 
 use schemars::{schema::RootSchema, schema_for};
 
-use cw_escrow::contract::{HandleMsg, InitMsg, QueryMsg, State};
+use cw_escrow::contract::State;
+use cw_escrow::msg::{HandleMsg, InitMsg, QueryMsg};
 
 fn main() {
     let mut pwd = current_dir().unwrap();
