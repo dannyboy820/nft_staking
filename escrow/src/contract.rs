@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use crate::msg::{HandleMsg, InitMsg, QueryMsg};
 use cosmwasm::errors::{contract_err, unauthorized, Result};
 use cosmwasm::traits::{Api, Extern, Storage};
-use cosmwasm::types::{CanonicalAddr, Coin, CosmosMsg, Params, Response};
+use cosmwasm::types::{CanonicalAddr, Coin, CosmosMsg, HumanAddr, Params, Response};
 use cw_storage::{singleton, Singleton};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema, NamedType)]
