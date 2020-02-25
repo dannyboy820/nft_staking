@@ -1,3 +1,5 @@
+use named_type::NamedType;
+use named_type_derive::NamedType;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -45,4 +47,14 @@ pub enum QueryMsg {
         owner: HumanAddr,
         spender: HumanAddr,
     },
+}
+
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, NamedType)]
+pub struct BalanceResponse {
+    pub balance: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, NamedType)]
+pub struct AllowanceResponse {
+    pub allowance: String,
 }

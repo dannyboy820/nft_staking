@@ -4,21 +4,11 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::convert::TryInto;
 
-use crate::msg::{HandleMsg, InitMsg, QueryMsg};
+use crate::msg::{AllowanceResponse, BalanceResponse, HandleMsg, InitMsg, QueryMsg};
 use cosmwasm::errors::{contract_err, dyn_contract_err, Result};
 use cosmwasm::traits::{Api, Extern, ReadonlyStorage, Storage};
 use cosmwasm::types::{CanonicalAddr, HumanAddr, Params, Response};
 use cw_storage::{serialize, PrefixedStorage, ReadonlyPrefixedStorage};
-
-#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, NamedType)]
-pub struct BalanceResponse {
-    pub balance: String,
-}
-
-#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, NamedType)]
-pub struct AllowanceResponse {
-    pub allowance: String,
-}
 
 #[derive(Serialize, Debug, Deserialize, Clone, PartialEq, JsonSchema, NamedType)]
 pub struct Constants {
