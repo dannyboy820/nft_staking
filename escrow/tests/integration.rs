@@ -4,7 +4,8 @@ use cosmwasm::types::{coin, Coin, ContractResult, CosmosMsg, HumanAddr, Params};
 
 use cosmwasm_vm::testing::{handle, init, mock_instance};
 
-use cw_escrow::contract::{config, HandleMsg, InitMsg, State};
+use cw_escrow::contract::{config, State};
+use cw_escrow::msg::{HandleMsg, InitMsg};
 
 /**
 This integration test tries to run and call the generated wasm.
