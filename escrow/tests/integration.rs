@@ -1,6 +1,6 @@
 use cosmwasm::mock::mock_env;
 use cosmwasm::traits::Api;
-use cosmwasm::types::{coin, Coin, ContractResult, CosmosMsg, HumanAddr, Env};
+use cosmwasm::types::{coin, Coin, ContractResult, CosmosMsg, Env, HumanAddr};
 
 use cosmwasm_vm::testing::{handle, init, mock_instance};
 
