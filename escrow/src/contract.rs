@@ -1,5 +1,3 @@
-use named_type::NamedType;
-use named_type_derive::NamedType;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -9,7 +7,7 @@ use cosmwasm::traits::{Api, Extern, Storage};
 use cosmwasm::types::{CanonicalAddr, Coin, CosmosMsg, HumanAddr, Params, Response};
 use cw_storage::{singleton, Singleton};
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema, NamedType)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct State {
     pub arbiter: CanonicalAddr,
     pub recipient: CanonicalAddr,
