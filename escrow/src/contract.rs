@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use crate::msg::{HandleMsg, InitMsg, QueryMsg};
 use cosmwasm::errors::{contract_err, unauthorized, Result};
 use cosmwasm::traits::{Api, Extern, Storage};
-use cosmwasm::types::{CanonicalAddr, Coin, CosmosMsg, Env, Response};
+use cosmwasm::types::{CanonicalAddr, Coin, CosmosMsg, Env, log, Response};
 use cw_storage::{singleton, Singleton};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -77,7 +77,7 @@ fn try_approve<A: Api>(
             &env.contract.address,
             &state.recipient,
             amount,
-            "paid out funds",
+            "approve",
         )
     }
 }
@@ -92,7 +92,7 @@ fn try_refund<A: Api>(api: &A, env: Env, state: State) -> Result<Response> {
             &env.contract.address,
             &state.source,
             env.contract.balance.unwrap_or_default(),
-            "returned funds",
+            "refund",
         )
     }
 }
@@ -103,15 +103,19 @@ fn send_tokens<A: Api>(
     from_address: &CanonicalAddr,
     to_address: &CanonicalAddr,
     amount: Vec<Coin>,
-    log: &str,
+    action: &str,
 ) -> Result<Response> {
+    let from_human = api.human_address(from_address)?;
+    let to_human = api.human_address(to_address)?;
+    let log = vec![log("action", action), log("to", to_human.as_str())];
+
     let r = Response {
         messages: vec![CosmosMsg::Send {
-            from_address: api.human_address(from_address)?,
-            to_address: api.human_address(to_address)?,
+            from_address: from_human,
+            to_address: to_human,
             amount,
         }],
-        log: Some(log.to_string()),
+        log: log,
         data: None,
     };
     Ok(r)
