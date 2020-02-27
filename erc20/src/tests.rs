@@ -1,8 +1,8 @@
 use cosmwasm::errors::Error;
-use cosmwasm::mock::{dependencies, mock_params};
+use cosmwasm::mock::{dependencies, mock_env};
 use cosmwasm::serde::from_slice;
 use cosmwasm::traits::{Api, ReadonlyStorage, Storage};
-use cosmwasm::types::{HumanAddr, Params};
+use cosmwasm::types::{log, Env, HumanAddr};
 use cw_storage::ReadonlyPrefixedStorage;
 
 use crate::contract::{
@@ -13,11 +13,11 @@ use crate::msg::{HandleMsg, InitMsg, InitialBalance, QueryMsg};
 
 static CANONICAL_LENGTH: usize = 20;
 
-fn mock_params_height<A: Api>(api: &A, signer: &HumanAddr, height: i64, time: i64) -> Params {
-    let mut params = mock_params(api, signer, &[], &[]);
-    params.block.height = height;
-    params.block.time = time;
-    params
+fn mock_env_height<A: Api>(api: &A, signer: &HumanAddr, height: i64, time: i64) -> Env {
+    let mut env = mock_env(api, signer, &[], &[]);
+    env.block.height = height;
+    env.block.time = time;
+    env
 }
 
 fn get_constants<S: Storage>(storage: &S) -> Constants {
@@ -41,7 +41,7 @@ fn get_balance<S: ReadonlyStorage, A: Api>(api: &A, storage: &S, address: &Human
         .canonical_address(address)
         .expect("canonical_address failed");
     let balances_storage = ReadonlyPrefixedStorage::new(PREFIX_BALANCES, storage);
-    return read_u128(&balances_storage, address_key.as_bytes()).unwrap();
+    return read_u128(&balances_storage, address_key.as_slice()).unwrap();
 }
 
 fn get_allowance<S: ReadonlyStorage, A: Api>(
@@ -58,8 +58,8 @@ fn get_allowance<S: ReadonlyStorage, A: Api>(
         .expect("canonical_address failed");
     let allowances_storage = ReadonlyPrefixedStorage::new(PREFIX_ALLOWANCES, storage);
     let owner_storage =
-        ReadonlyPrefixedStorage::new(owner_raw_address.as_bytes(), &allowances_storage);
-    return read_u128(&owner_storage, spender_raw_address.as_bytes()).unwrap();
+        ReadonlyPrefixedStorage::new(owner_raw_address.as_slice(), &allowances_storage);
+    return read_u128(&owner_storage, spender_raw_address.as_slice()).unwrap();
 }
 
 mod helpers {
@@ -158,8 +158,8 @@ mod init {
             }]
             .to_vec(),
         };
-        let params = mock_params_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
-        let res = init(&mut deps, params, init_msg).unwrap();
+        let env = mock_env_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
+        let res = init(&mut deps, env, init_msg).unwrap();
         assert_eq!(0, res.messages.len());
 
         assert_eq!(
@@ -186,8 +186,8 @@ mod init {
             decimals: 9,
             initial_balances: [].to_vec(),
         };
-        let params = mock_params_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
-        let res = init(&mut deps, params, init_msg).unwrap();
+        let env = mock_env_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
+        let res = init(&mut deps, env, init_msg).unwrap();
         assert_eq!(0, res.messages.len());
 
         assert_eq!(get_total_supply(&deps.storage), 0);
@@ -216,8 +216,8 @@ mod init {
             ]
             .to_vec(),
         };
-        let params = mock_params_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
-        let res = init(&mut deps, params, init_msg).unwrap();
+        let env = mock_env_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
+        let res = init(&mut deps, env, init_msg).unwrap();
         assert_eq!(0, res.messages.len());
 
         assert_eq!(
@@ -253,8 +253,8 @@ mod init {
             }]
             .to_vec(),
         };
-        let params = mock_params_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
-        let res = init(&mut deps, params, init_msg).unwrap();
+        let env = mock_env_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
+        let res = init(&mut deps, env, init_msg).unwrap();
         assert_eq!(0, res.messages.len());
 
         assert_eq!(
@@ -279,8 +279,8 @@ mod init {
             }]
             .to_vec(),
         };
-        let params = mock_params_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
-        let res = init(&mut deps, params, init_msg).unwrap();
+        let env = mock_env_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
+        let res = init(&mut deps, env, init_msg).unwrap();
         assert_eq!(0, res.messages.len());
 
         assert_eq!(
@@ -304,8 +304,8 @@ mod init {
             }]
             .to_vec(),
         };
-        let params = mock_params_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
-        let result = init(&mut deps, params, init_msg);
+        let env = mock_env_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
+        let result = init(&mut deps, env, init_msg);
         match result {
             Ok(_) => panic!("expected error"),
             Err(Error::ContractErr { msg, .. }) => {
@@ -324,8 +324,8 @@ mod init {
             decimals: 42,
             initial_balances: [].to_vec(),
         };
-        let params = mock_params_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
-        let result = init(&mut deps, params, init_msg);
+        let env = mock_env_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
+        let result = init(&mut deps, env, init_msg);
         match result {
             Ok(_) => panic!("expected error"),
             Err(Error::ContractErr { msg, .. }) => assert_eq!(msg, "Decimals must not exceed 18"),
@@ -342,8 +342,8 @@ mod init {
             decimals: 9,
             initial_balances: [].to_vec(),
         };
-        let params = mock_params_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
-        let result = init(&mut deps, params, init_msg);
+        let env = mock_env_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
+        let result = init(&mut deps, env, init_msg);
         match result {
             Ok(_) => panic!("expected error"),
             Err(Error::ContractErr { msg, .. }) => {
@@ -362,8 +362,8 @@ mod init {
             decimals: 9,
             initial_balances: [].to_vec(),
         };
-        let params = mock_params_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
-        let result = init(&mut deps, params, init_msg);
+        let env = mock_env_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
+        let result = init(&mut deps, env, init_msg);
         match result {
             Ok(_) => panic!("expected error"),
             Err(Error::ContractErr { msg, .. }) => {
@@ -382,8 +382,8 @@ mod init {
             decimals: 9,
             initial_balances: [].to_vec(),
         };
-        let params = mock_params_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
-        let result = init(&mut deps, params, init_msg);
+        let env = mock_env_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
+        let result = init(&mut deps, env, init_msg);
         match result {
             Ok(_) => panic!("expected error"),
             Err(Error::ContractErr { msg, .. }) => {
@@ -402,8 +402,8 @@ mod init {
             decimals: 9,
             initial_balances: [].to_vec(),
         };
-        let params = mock_params_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
-        let result = init(&mut deps, params, init_msg);
+        let env = mock_env_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
+        let result = init(&mut deps, env, init_msg);
         match result {
             Ok(_) => panic!("expected error"),
             Err(Error::ContractErr { msg, .. }) => {
@@ -422,8 +422,8 @@ mod init {
             decimals: 9,
             initial_balances: [].to_vec(),
         };
-        let params = mock_params_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
-        let result = init(&mut deps, params, init_msg);
+        let env = mock_env_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
+        let result = init(&mut deps, env, init_msg);
         match result {
             Ok(_) => panic!("expected error"),
             Err(Error::ContractErr { msg, .. }) => {
@@ -463,8 +463,8 @@ mod transfer {
     fn can_send_to_existing_recipient() {
         let mut deps = dependencies(CANONICAL_LENGTH);
         let init_msg = make_init_msg();
-        let params1 = mock_params_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
-        let res = init(&mut deps, params1, init_msg).unwrap();
+        let env1 = mock_env_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
+        let res = init(&mut deps, env1, init_msg).unwrap();
         assert_eq!(0, res.messages.len());
 
         // Initial state
@@ -487,10 +487,17 @@ mod transfer {
             recipient: HumanAddr("addr1111".to_string()),
             amount: "1".to_string(),
         };
-        let params2 = mock_params_height(&deps.api, &HumanAddr("addr0000".to_string()), 450, 550);
-        let transfer_result = handle(&mut deps, params2, transfer_msg).unwrap();
+        let env2 = mock_env_height(&deps.api, &HumanAddr("addr0000".to_string()), 450, 550);
+        let transfer_result = handle(&mut deps, env2, transfer_msg).unwrap();
         assert_eq!(transfer_result.messages.len(), 0);
-        assert_eq!(transfer_result.log, Some("transfer successful".to_string()));
+        assert_eq!(
+            transfer_result.log,
+            vec![
+                log("action", "transfer"),
+                log("sender", "addr0000"),
+                log("recipient", "addr1111"),
+            ]
+        );
 
         // New state
         assert_eq!(
@@ -512,8 +519,8 @@ mod transfer {
     fn can_send_to_non_existent_recipient() {
         let mut deps = dependencies(CANONICAL_LENGTH);
         let init_msg = make_init_msg();
-        let params1 = mock_params_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
-        let res = init(&mut deps, params1, init_msg).unwrap();
+        let env1 = mock_env_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
+        let res = init(&mut deps, env1, init_msg).unwrap();
         assert_eq!(0, res.messages.len());
 
         // Initial state
@@ -536,10 +543,17 @@ mod transfer {
             recipient: HumanAddr("addr2323".to_string()),
             amount: "1".to_string(),
         };
-        let params2 = mock_params_height(&deps.api, &HumanAddr("addr0000".to_string()), 450, 550);
-        let transfer_result = handle(&mut deps, params2, transfer_msg).unwrap();
+        let env2 = mock_env_height(&deps.api, &HumanAddr("addr0000".to_string()), 450, 550);
+        let transfer_result = handle(&mut deps, env2, transfer_msg).unwrap();
         assert_eq!(transfer_result.messages.len(), 0);
-        assert_eq!(transfer_result.log, Some("transfer successful".to_string()));
+        assert_eq!(
+            transfer_result.log,
+            vec![
+                log("action", "transfer"),
+                log("sender", "addr0000"),
+                log("recipient", "addr2323"),
+            ]
+        );
 
         // New state
         assert_eq!(
@@ -565,8 +579,8 @@ mod transfer {
     fn can_send_zero_amount() {
         let mut deps = dependencies(CANONICAL_LENGTH);
         let init_msg = make_init_msg();
-        let params1 = mock_params_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
-        let res = init(&mut deps, params1, init_msg).unwrap();
+        let env1 = mock_env_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
+        let res = init(&mut deps, env1, init_msg).unwrap();
         assert_eq!(0, res.messages.len());
 
         // Initial state
@@ -589,10 +603,17 @@ mod transfer {
             recipient: HumanAddr("addr1111".to_string()),
             amount: "0".to_string(),
         };
-        let params2 = mock_params_height(&deps.api, &HumanAddr("addr0000".to_string()), 450, 550);
-        let transfer_result = handle(&mut deps, params2, transfer_msg).unwrap();
+        let env2 = mock_env_height(&deps.api, &HumanAddr("addr0000".to_string()), 450, 550);
+        let transfer_result = handle(&mut deps, env2, transfer_msg).unwrap();
         assert_eq!(transfer_result.messages.len(), 0);
-        assert_eq!(transfer_result.log, Some("transfer successful".to_string()));
+        assert_eq!(
+            transfer_result.log,
+            vec![
+                log("action", "transfer"),
+                log("sender", "addr0000"),
+                log("recipient", "addr1111"),
+            ]
+        );
 
         // New state (unchanged)
         assert_eq!(
@@ -614,8 +635,8 @@ mod transfer {
     fn can_send_to_sender() {
         let mut deps = dependencies(CANONICAL_LENGTH);
         let init_msg = make_init_msg();
-        let params1 = mock_params_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
-        let res = init(&mut deps, params1, init_msg).unwrap();
+        let env1 = mock_env_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
+        let res = init(&mut deps, env1, init_msg).unwrap();
         assert_eq!(0, res.messages.len());
 
         let sender = HumanAddr("addr0000".to_string());
@@ -628,10 +649,17 @@ mod transfer {
             recipient: sender.clone(),
             amount: "3".to_string(),
         };
-        let params2 = mock_params_height(&deps.api, &sender, 450, 550);
-        let transfer_result = handle(&mut deps, params2, transfer_msg).unwrap();
+        let env2 = mock_env_height(&deps.api, &sender, 450, 550);
+        let transfer_result = handle(&mut deps, env2, transfer_msg).unwrap();
         assert_eq!(transfer_result.messages.len(), 0);
-        assert_eq!(transfer_result.log, Some("transfer successful".to_string()));
+        assert_eq!(
+            transfer_result.log,
+            vec![
+                log("action", "transfer"),
+                log("sender", "addr0000"),
+                log("recipient", "addr0000"),
+            ]
+        );
 
         // New state
         assert_eq!(get_balance(&deps.api, &deps.storage, &sender), 11);
@@ -641,8 +669,8 @@ mod transfer {
     fn fails_on_insufficient_balance() {
         let mut deps = dependencies(CANONICAL_LENGTH);
         let init_msg = make_init_msg();
-        let params1 = mock_params_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
-        let res = init(&mut deps, params1, init_msg).unwrap();
+        let env1 = mock_env_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
+        let res = init(&mut deps, env1, init_msg).unwrap();
         assert_eq!(0, res.messages.len());
 
         // Initial state
@@ -665,8 +693,8 @@ mod transfer {
             recipient: HumanAddr("addr1111".to_string()),
             amount: "12".to_string(),
         };
-        let params2 = mock_params_height(&deps.api, &HumanAddr("addr0000".to_string()), 450, 550);
-        let transfer_result = handle(&mut deps, params2, transfer_msg);
+        let env2 = mock_env_height(&deps.api, &HumanAddr("addr0000".to_string()), 450, 550);
+        let transfer_result = handle(&mut deps, env2, transfer_msg);
         match transfer_result {
             Ok(_) => panic!("expected error"),
             Err(Error::DynContractErr { msg, .. }) => {
@@ -725,8 +753,8 @@ mod approve {
     fn has_zero_allowance_by_default() {
         let mut deps = dependencies(CANONICAL_LENGTH);
         let init_msg = make_init_msg();
-        let params1 = mock_params_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
-        let res = init(&mut deps, params1, init_msg).unwrap();
+        let env1 = mock_env_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
+        let res = init(&mut deps, env1, init_msg).unwrap();
         assert_eq!(0, res.messages.len());
 
         // Existing owner
@@ -756,8 +784,8 @@ mod approve {
     fn can_set_allowance() {
         let mut deps = dependencies(CANONICAL_LENGTH);
         let init_msg = make_init_msg();
-        let params1 = mock_params_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
-        let res = init(&mut deps, params1, init_msg).unwrap();
+        let env1 = mock_env_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
+        let res = init(&mut deps, env1, init_msg).unwrap();
         assert_eq!(0, res.messages.len());
 
         assert_eq!(
@@ -772,14 +800,22 @@ mod approve {
 
         // First approval
         let owner = HumanAddr("addr7654".to_string());
+        let spender = make_spender();
         let approve_msg1 = HandleMsg::Approve {
-            spender: make_spender(),
+            spender: spender.clone(),
             amount: "334422".to_string(),
         };
-        let params2 = mock_params_height(&deps.api, &owner, 450, 550);
-        let transfer_result = handle(&mut deps, params2, approve_msg1).unwrap();
-        assert_eq!(transfer_result.messages.len(), 0);
-        assert_eq!(transfer_result.log, Some("approve successful".to_string()));
+        let env2 = mock_env_height(&deps.api, &owner, 450, 550);
+        let approve_result1 = handle(&mut deps, env2, approve_msg1).unwrap();
+        assert_eq!(approve_result1.messages.len(), 0);
+        assert_eq!(
+            approve_result1.log,
+            vec![
+                log("action", "approve"),
+                log("owner", owner.as_str()),
+                log("spender", spender.as_str()),
+            ]
+        );
 
         assert_eq!(
             get_allowance(&deps.api, &deps.storage, &owner, &make_spender()),
@@ -788,16 +824,23 @@ mod approve {
 
         // Updated approval
         let approve_msg2 = HandleMsg::Approve {
-            spender: make_spender(),
+            spender: spender.clone(),
             amount: "777888".to_string(),
         };
-        let params3 = mock_params_height(&deps.api, &owner, 450, 550);
-        let transfer_result = handle(&mut deps, params3, approve_msg2).unwrap();
-        assert_eq!(transfer_result.messages.len(), 0);
-        assert_eq!(transfer_result.log, Some("approve successful".to_string()));
+        let env3 = mock_env_height(&deps.api, &owner, 450, 550);
+        let approve_result2 = handle(&mut deps, env3, approve_msg2).unwrap();
+        assert_eq!(approve_result2.messages.len(), 0);
+        assert_eq!(
+            approve_result2.log,
+            vec![
+                log("action", "approve"),
+                log("owner", owner.as_str()),
+                log("spender", spender.as_str()),
+            ]
+        );
 
         assert_eq!(
-            get_allowance(&deps.api, &deps.storage, &owner, &make_spender()),
+            get_allowance(&deps.api, &deps.storage, &owner, &spender),
             777888
         );
     }
@@ -836,70 +879,89 @@ mod transfer_from {
     fn works() {
         let mut deps = dependencies(CANONICAL_LENGTH);
         let init_msg = make_init_msg();
-        let params1 = mock_params_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
-        let res = init(&mut deps, params1, init_msg).unwrap();
+        let env1 = mock_env_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
+        let res = init(&mut deps, env1, init_msg).unwrap();
         assert_eq!(0, res.messages.len());
 
         let owner = HumanAddr("addr0000".to_string());
-        let spender = &make_spender();
+        let spender = make_spender();
         let recipient = HumanAddr("addr1212".to_string());
 
         // Set approval
         let approve_msg = HandleMsg::Approve {
-            spender: make_spender(),
+            spender: spender.clone(),
             amount: "4".to_string(),
         };
-        let params2 = mock_params_height(&deps.api, &owner, 450, 550);
-        let approve_result = handle(&mut deps, params2, approve_msg).unwrap();
+        let env2 = mock_env_height(&deps.api, &owner, 450, 550);
+        let approve_result = handle(&mut deps, env2, approve_msg).unwrap();
         assert_eq!(approve_result.messages.len(), 0);
-        assert_eq!(approve_result.log, Some("approve successful".to_string()));
+        assert_eq!(
+            approve_result.log,
+            vec![
+                log("action", "approve"),
+                log("owner", owner.as_str()),
+                log("spender", spender.as_str()),
+            ]
+        );
 
         assert_eq!(get_balance(&deps.api, &deps.storage, &owner), 11);
-        assert_eq!(get_allowance(&deps.api, &deps.storage, &owner, spender), 4);
+        assert_eq!(get_allowance(&deps.api, &deps.storage, &owner, &spender), 4);
 
         // Transfer less than allowance but more than balance
-        let fransfer_from_msg = HandleMsg::TransferFrom {
+        let transfer_from_msg = HandleMsg::TransferFrom {
             owner: owner.clone(),
             recipient: recipient.clone(),
             amount: "3".to_string(),
         };
-        let params3 = mock_params_height(&deps.api, spender, 450, 550);
-        let transfer_result = handle(&mut deps, params3, fransfer_from_msg).unwrap();
-        assert_eq!(transfer_result.messages.len(), 0);
+        let env3 = mock_env_height(&deps.api, &spender, 450, 550);
+        let transfer_from_result = handle(&mut deps, env3, transfer_from_msg).unwrap();
+        assert_eq!(transfer_from_result.messages.len(), 0);
         assert_eq!(
-            transfer_result.log,
-            Some("transfer from successful".to_string())
+            transfer_from_result.log,
+            vec![
+                log("action", "transfer_from"),
+                log("spender", spender.as_str()),
+                log("sender", owner.as_str()),
+                log("recipient", recipient.as_str()),
+            ]
         );
 
         // State changed
         assert_eq!(get_balance(&deps.api, &deps.storage, &owner), 8);
-        assert_eq!(get_allowance(&deps.api, &deps.storage, &owner, spender), 1);
+        assert_eq!(get_allowance(&deps.api, &deps.storage, &owner, &spender), 1);
     }
 
     #[test]
     fn fails_when_allowance_too_low() {
         let mut deps = dependencies(CANONICAL_LENGTH);
         let init_msg = make_init_msg();
-        let params1 = mock_params_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
-        let res = init(&mut deps, params1, init_msg).unwrap();
+        let env1 = mock_env_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
+        let res = init(&mut deps, env1, init_msg).unwrap();
         assert_eq!(0, res.messages.len());
 
         let owner = HumanAddr("addr0000".to_string());
-        let spender = &make_spender();
+        let spender = make_spender();
         let recipient = HumanAddr("addr1212".to_string());
 
         // Set approval
         let approve_msg = HandleMsg::Approve {
-            spender: make_spender(),
+            spender: spender.clone(),
             amount: "2".to_string(),
         };
-        let params2 = mock_params_height(&deps.api, &owner, 450, 550);
-        let approve_result = handle(&mut deps, params2, approve_msg).unwrap();
+        let env2 = mock_env_height(&deps.api, &owner, 450, 550);
+        let approve_result = handle(&mut deps, env2, approve_msg).unwrap();
         assert_eq!(approve_result.messages.len(), 0);
-        assert_eq!(approve_result.log, Some("approve successful".to_string()));
+        assert_eq!(
+            approve_result.log,
+            vec![
+                log("action", "approve"),
+                log("owner", owner.as_str()),
+                log("spender", spender.as_str()),
+            ]
+        );
 
         assert_eq!(get_balance(&deps.api, &deps.storage, &owner), 11);
-        assert_eq!(get_allowance(&deps.api, &deps.storage, &owner, spender), 2);
+        assert_eq!(get_allowance(&deps.api, &deps.storage, &owner, &spender), 2);
 
         // Transfer less than allowance but more than balance
         let fransfer_from_msg = HandleMsg::TransferFrom {
@@ -907,8 +969,8 @@ mod transfer_from {
             recipient: recipient.clone(),
             amount: "3".to_string(),
         };
-        let params3 = mock_params_height(&deps.api, spender, 450, 550);
-        let transfer_result = handle(&mut deps, params3, fransfer_from_msg);
+        let env3 = mock_env_height(&deps.api, &spender, 450, 550);
+        let transfer_result = handle(&mut deps, env3, fransfer_from_msg);
         match transfer_result {
             Ok(_) => panic!("expected error"),
             Err(Error::DynContractErr { msg, .. }) => {
@@ -922,26 +984,36 @@ mod transfer_from {
     fn fails_when_allowance_is_set_but_balance_too_low() {
         let mut deps = dependencies(CANONICAL_LENGTH);
         let init_msg = make_init_msg();
-        let params1 = mock_params_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
-        let res = init(&mut deps, params1, init_msg).unwrap();
+        let env1 = mock_env_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
+        let res = init(&mut deps, env1, init_msg).unwrap();
         assert_eq!(0, res.messages.len());
 
         let owner = HumanAddr("addr0000".to_string());
-        let spender = &make_spender();
+        let spender = make_spender();
         let recipient = HumanAddr("addr1212".to_string());
 
         // Set approval
         let approve_msg = HandleMsg::Approve {
-            spender: make_spender(),
+            spender: spender.clone(),
             amount: "20".to_string(),
         };
-        let params2 = mock_params_height(&deps.api, &owner, 450, 550);
-        let approve_result = handle(&mut deps, params2, approve_msg).unwrap();
+        let env2 = mock_env_height(&deps.api, &owner, 450, 550);
+        let approve_result = handle(&mut deps, env2, approve_msg).unwrap();
         assert_eq!(approve_result.messages.len(), 0);
-        assert_eq!(approve_result.log, Some("approve successful".to_string()));
+        assert_eq!(
+            approve_result.log,
+            vec![
+                log("action", "approve"),
+                log("owner", owner.as_str()),
+                log("spender", spender.as_str()),
+            ]
+        );
 
         assert_eq!(get_balance(&deps.api, &deps.storage, &owner), 11);
-        assert_eq!(get_allowance(&deps.api, &deps.storage, &owner, spender), 20);
+        assert_eq!(
+            get_allowance(&deps.api, &deps.storage, &owner, &spender),
+            20
+        );
 
         // Transfer less than allowance but more than balance
         let fransfer_from_msg = HandleMsg::TransferFrom {
@@ -949,8 +1021,8 @@ mod transfer_from {
             recipient: recipient.clone(),
             amount: "15".to_string(),
         };
-        let params3 = mock_params_height(&deps.api, spender, 450, 550);
-        let transfer_result = handle(&mut deps, params3, fransfer_from_msg);
+        let env3 = mock_env_height(&deps.api, &spender, 450, 550);
+        let transfer_result = handle(&mut deps, env3, fransfer_from_msg);
         match transfer_result {
             Ok(_) => panic!("expected error"),
             Err(Error::DynContractErr { msg, .. }) => {
@@ -1001,8 +1073,8 @@ mod query {
     fn can_query_balance_of_existing_address() {
         let mut deps = dependencies(CANONICAL_LENGTH);
         let init_msg = make_init_msg();
-        let params1 = mock_params_height(&deps.api, &address(0), 450, 550);
-        let res = init(&mut deps, params1, init_msg).unwrap();
+        let env1 = mock_env_height(&deps.api, &address(0), 450, 550);
+        let res = init(&mut deps, env1, init_msg).unwrap();
         assert_eq!(0, res.messages.len());
 
         let query_msg = QueryMsg::Balance {
@@ -1016,8 +1088,8 @@ mod query {
     fn can_query_balance_of_nonexisting_address() {
         let mut deps = dependencies(CANONICAL_LENGTH);
         let init_msg = make_init_msg();
-        let params1 = mock_params_height(&deps.api, &address(0), 450, 550);
-        let res = init(&mut deps, params1, init_msg).unwrap();
+        let env1 = mock_env_height(&deps.api, &address(0), 450, 550);
+        let res = init(&mut deps, env1, init_msg).unwrap();
         assert_eq!(0, res.messages.len());
 
         let query_msg = QueryMsg::Balance {
@@ -1031,8 +1103,8 @@ mod query {
     fn can_query_allowance_of_existing_addresses() {
         let mut deps = dependencies(CANONICAL_LENGTH);
         let init_msg = make_init_msg();
-        let params1 = mock_params_height(&deps.api, &address(0), 450, 550);
-        let res = init(&mut deps, params1, init_msg).unwrap();
+        let env1 = mock_env_height(&deps.api, &address(0), 450, 550);
+        let res = init(&mut deps, env1, init_msg).unwrap();
         assert_eq!(0, res.messages.len());
 
         let owner = address(2);
@@ -1042,10 +1114,17 @@ mod query {
             spender: spender.clone(),
             amount: "42".to_string(),
         };
-        let params2 = mock_params_height(&deps.api, &owner, 450, 550);
-        let transfer_result = handle(&mut deps, params2, approve_msg).unwrap();
-        assert_eq!(transfer_result.messages.len(), 0);
-        assert_eq!(transfer_result.log, Some("approve successful".to_string()));
+        let env2 = mock_env_height(&deps.api, &owner, 450, 550);
+        let action_result = handle(&mut deps, env2, approve_msg).unwrap();
+        assert_eq!(action_result.messages.len(), 0);
+        assert_eq!(
+            action_result.log,
+            vec![
+                log("action", "approve"),
+                log("owner", owner.as_str()),
+                log("spender", spender.as_str()),
+            ]
+        );
 
         let query_msg = QueryMsg::Allowance {
             owner: owner.clone(),
@@ -1059,8 +1138,8 @@ mod query {
     fn can_query_allowance_of_nonexisting_owner() {
         let mut deps = dependencies(CANONICAL_LENGTH);
         let init_msg = make_init_msg();
-        let params1 = mock_params_height(&deps.api, &address(0), 450, 550);
-        let res = init(&mut deps, params1, init_msg).unwrap();
+        let env1 = mock_env_height(&deps.api, &address(0), 450, 550);
+        let res = init(&mut deps, env1, init_msg).unwrap();
         assert_eq!(0, res.messages.len());
 
         let owner = address(2);
@@ -1071,10 +1150,17 @@ mod query {
             spender: spender.clone(),
             amount: "42".to_string(),
         };
-        let params2 = mock_params_height(&deps.api, &owner, 450, 550);
-        let transfer_result = handle(&mut deps, params2, approve_msg).unwrap();
-        assert_eq!(transfer_result.messages.len(), 0);
-        assert_eq!(transfer_result.log, Some("approve successful".to_string()));
+        let env2 = mock_env_height(&deps.api, &owner, 450, 550);
+        let approve_result = handle(&mut deps, env2, approve_msg).unwrap();
+        assert_eq!(approve_result.messages.len(), 0);
+        assert_eq!(
+            approve_result.log,
+            vec![
+                log("action", "approve"),
+                log("owner", owner.as_str()),
+                log("spender", spender.as_str()),
+            ]
+        );
 
         // different spender
         let query_msg = QueryMsg::Allowance {

@@ -7,7 +7,7 @@ use std::convert::TryInto;
 use crate::msg::{AllowanceResponse, BalanceResponse, HandleMsg, InitMsg, QueryMsg};
 use cosmwasm::errors::{contract_err, dyn_contract_err, Result};
 use cosmwasm::traits::{Api, Extern, ReadonlyStorage, Storage};
-use cosmwasm::types::{CanonicalAddr, HumanAddr, Params, Response};
+use cosmwasm::types::{log, CanonicalAddr, Env, HumanAddr, Response};
 use cw_storage::{serialize, PrefixedStorage, ReadonlyPrefixedStorage};
 
 #[derive(Serialize, Debug, Deserialize, Clone, PartialEq, JsonSchema, NamedType)]
@@ -26,7 +26,7 @@ pub const KEY_TOTAL_SUPPLY: &[u8] = b"total_supply";
 
 pub fn init<S: Storage, A: Api>(
     deps: &mut Extern<S, A>,
-    _params: Params,
+    _env: Env,
     msg: InitMsg,
 ) -> Result<Response> {
     let mut total_supply: u128 = 0;
@@ -36,7 +36,7 @@ pub fn init<S: Storage, A: Api>(
         for row in msg.initial_balances {
             let raw_address = deps.api.canonical_address(&row.address)?;
             let amount_raw = parse_u128(&row.amount)?;
-            balances_store.set(raw_address.as_bytes(), &amount_raw.to_be_bytes());
+            balances_store.set(raw_address.as_slice(), &amount_raw.to_be_bytes());
             total_supply += amount_raw;
         }
     }
@@ -66,19 +66,17 @@ pub fn init<S: Storage, A: Api>(
 
 pub fn handle<S: Storage, A: Api>(
     deps: &mut Extern<S, A>,
-    params: Params,
+    env: Env,
     msg: HandleMsg,
 ) -> Result<Response> {
     match msg {
-        HandleMsg::Approve { spender, amount } => try_approve(deps, params, &spender, &amount),
-        HandleMsg::Transfer { recipient, amount } => {
-            try_transfer(deps, params, &recipient, &amount)
-        }
+        HandleMsg::Approve { spender, amount } => try_approve(deps, env, &spender, &amount),
+        HandleMsg::Transfer { recipient, amount } => try_transfer(deps, env, &recipient, &amount),
         HandleMsg::TransferFrom {
             owner,
             recipient,
             amount,
-        } => try_transfer_from(deps, params, &owner, &recipient, &amount),
+        } => try_transfer_from(deps, env, &owner, &recipient, &amount),
     }
 }
 
@@ -106,11 +104,11 @@ pub fn query<S: Storage, A: Api>(deps: &Extern<S, A>, msg: QueryMsg) -> Result<V
 
 fn try_transfer<S: Storage, A: Api>(
     deps: &mut Extern<S, A>,
-    params: Params,
+    env: Env,
     recipient: &HumanAddr,
     amount: &str,
 ) -> Result<Response> {
-    let sender_address_raw = &params.message.signer;
+    let sender_address_raw = &env.message.signer;
     let recipient_address_raw = deps.api.canonical_address(recipient)?;
     let amount_raw = parse_u128(amount)?;
 
@@ -123,7 +121,14 @@ fn try_transfer<S: Storage, A: Api>(
 
     let res = Response {
         messages: vec![],
-        log: Some("transfer successful".to_string()),
+        log: vec![
+            log("action", "transfer"),
+            log(
+                "sender",
+                deps.api.human_address(&env.message.signer)?.as_str(),
+            ),
+            log("recipient", recipient.as_str()),
+        ],
         data: None,
     };
     Ok(res)
@@ -131,12 +136,12 @@ fn try_transfer<S: Storage, A: Api>(
 
 fn try_transfer_from<S: Storage, A: Api>(
     deps: &mut Extern<S, A>,
-    params: Params,
+    env: Env,
     owner: &HumanAddr,
     recipient: &HumanAddr,
     amount: &str,
 ) -> Result<Response> {
-    let spender_address_raw = &params.message.signer;
+    let spender_address_raw = &env.message.signer;
     let owner_address_raw = deps.api.canonical_address(owner)?;
     let recipient_address_raw = deps.api.canonical_address(recipient)?;
     let amount_raw = parse_u128(amount)?;
@@ -164,7 +169,15 @@ fn try_transfer_from<S: Storage, A: Api>(
 
     let res = Response {
         messages: vec![],
-        log: Some("transfer from successful".to_string()),
+        log: vec![
+            log("action", "transfer_from"),
+            log(
+                "spender",
+                deps.api.human_address(&env.message.signer)?.as_str(),
+            ),
+            log("sender", owner.as_str()),
+            log("recipient", recipient.as_str()),
+        ],
         data: None,
     };
     Ok(res)
@@ -172,11 +185,11 @@ fn try_transfer_from<S: Storage, A: Api>(
 
 fn try_approve<S: Storage, A: Api>(
     deps: &mut Extern<S, A>,
-    params: Params,
+    env: Env,
     spender: &HumanAddr,
     amount: &str,
 ) -> Result<Response> {
-    let owner_address_raw = &params.message.signer;
+    let owner_address_raw = &env.message.signer;
     let spender_address_raw = deps.api.canonical_address(spender)?;
     let amount_raw = parse_u128(amount)?;
     write_allowance(
@@ -187,7 +200,14 @@ fn try_approve<S: Storage, A: Api>(
     );
     let res = Response {
         messages: vec![],
-        log: Some("approve successful".to_string()),
+        log: vec![
+            log("action", "approve"),
+            log(
+                "owner",
+                deps.api.human_address(&env.message.signer)?.as_str(),
+            ),
+            log("spender", spender.as_str()),
+        ],
         data: None,
     };
     Ok(res)
@@ -201,7 +221,7 @@ fn perform_transfer<T: Storage>(
 ) -> Result<()> {
     let mut balances_store = PrefixedStorage::new(PREFIX_BALANCES, store);
 
-    let mut from_balance = read_u128(&balances_store, from.as_bytes())?;
+    let mut from_balance = read_u128(&balances_store, from.as_slice())?;
     if from_balance < amount {
         return dyn_contract_err(format!(
             "Insufficient funds: balance={}, required={}",
@@ -209,11 +229,11 @@ fn perform_transfer<T: Storage>(
         ));
     }
     from_balance -= amount;
-    balances_store.set(from.as_bytes(), &from_balance.to_be_bytes());
+    balances_store.set(from.as_slice(), &from_balance.to_be_bytes());
 
-    let mut to_balance = read_u128(&balances_store, to.as_bytes())?;
+    let mut to_balance = read_u128(&balances_store, to.as_slice())?;
     to_balance += amount;
-    balances_store.set(to.as_bytes(), &to_balance.to_be_bytes());
+    balances_store.set(to.as_slice(), &to_balance.to_be_bytes());
 
     Ok(())
 }
@@ -246,7 +266,7 @@ pub fn parse_u128(source: &str) -> Result<u128> {
 
 fn read_balance<S: Storage>(store: &S, owner: &CanonicalAddr) -> Result<u128> {
     let balance_store = ReadonlyPrefixedStorage::new(PREFIX_BALANCES, store);
-    return read_u128(&balance_store, owner.as_bytes());
+    return read_u128(&balance_store, owner.as_slice());
 }
 
 fn read_allowance<S: Storage>(
@@ -255,8 +275,8 @@ fn read_allowance<S: Storage>(
     spender: &CanonicalAddr,
 ) -> Result<u128> {
     let allowances_store = ReadonlyPrefixedStorage::new(PREFIX_ALLOWANCES, store);
-    let owner_store = ReadonlyPrefixedStorage::new(owner.as_bytes(), &allowances_store);
-    return read_u128(&owner_store, spender.as_bytes());
+    let owner_store = ReadonlyPrefixedStorage::new(owner.as_slice(), &allowances_store);
+    return read_u128(&owner_store, spender.as_slice());
 }
 
 fn write_allowance<S: Storage>(
@@ -266,8 +286,8 @@ fn write_allowance<S: Storage>(
     amount: u128,
 ) -> () {
     let mut allowances_store = PrefixedStorage::new(PREFIX_ALLOWANCES, store);
-    let mut owner_store = PrefixedStorage::new(owner.as_bytes(), &mut allowances_store);
-    owner_store.set(spender.as_bytes(), &amount.to_be_bytes());
+    let mut owner_store = PrefixedStorage::new(owner.as_slice(), &mut allowances_store);
+    owner_store.set(spender.as_slice(), &amount.to_be_bytes());
 }
 
 fn is_valid_name(name: &str) -> bool {
