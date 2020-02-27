@@ -1,7 +1,7 @@
-use cosmwasm::mock::mock_params;
+use cosmwasm::mock::mock_env;
 use cosmwasm::serde::from_slice;
 use cosmwasm::traits::{Api, ReadonlyStorage, Storage};
-use cosmwasm::types::{HumanAddr, Params};
+use cosmwasm::types::{log, Env, HumanAddr};
 use cosmwasm_vm::testing::{handle, init, mock_instance, query};
 use cw_storage::ReadonlyPrefixedStorage;
 
@@ -13,11 +13,11 @@ use cw_erc20::msg::{HandleMsg, InitMsg, InitialBalance, QueryMsg};
 
 static WASM: &[u8] = include_bytes!("../target/wasm32-unknown-unknown/release/cw_erc20.wasm");
 
-fn mock_params_height<A: Api>(api: &A, signer: &HumanAddr, height: i64, time: i64) -> Params {
-    let mut params = mock_params(api, signer, &[], &[]);
-    params.block.height = height;
-    params.block.time = time;
-    params
+fn mock_env_height<A: Api>(api: &A, signer: &HumanAddr, height: i64, time: i64) -> Env {
+    let mut env = mock_env(api, signer, &[], &[]);
+    env.block.height = height;
+    env.block.time = time;
+    env
 }
 
 fn get_constants<S: Storage>(storage: &S) -> Constants {
@@ -41,7 +41,7 @@ fn get_balance<S: ReadonlyStorage, A: Api>(api: &A, storage: &S, address: &Human
         .canonical_address(address)
         .expect("canonical_address failed");
     let balances_storage = ReadonlyPrefixedStorage::new(PREFIX_BALANCES, storage);
-    return read_u128(&balances_storage, address_key.as_bytes()).unwrap();
+    return read_u128(&balances_storage, address_key.as_slice()).unwrap();
 }
 
 fn get_allowance<S: ReadonlyStorage, A: Api>(
@@ -58,8 +58,8 @@ fn get_allowance<S: ReadonlyStorage, A: Api>(
         .expect("canonical_address failed");
     let allowances_storage = ReadonlyPrefixedStorage::new(PREFIX_ALLOWANCES, storage);
     let owner_storage =
-        ReadonlyPrefixedStorage::new(owner_raw_address.as_bytes(), &allowances_storage);
-    return read_u128(&owner_storage, spender_raw_address.as_bytes()).unwrap();
+        ReadonlyPrefixedStorage::new(owner_raw_address.as_slice(), &allowances_storage);
+    return read_u128(&owner_storage, spender_raw_address.as_slice()).unwrap();
 }
 
 fn address(index: u8) -> HumanAddr {
@@ -99,7 +99,7 @@ fn init_msg() -> InitMsg {
 fn init_works() {
     let mut deps = mock_instance(WASM);
     let init_msg = init_msg();
-    let params = mock_params_height(&deps.api, &address(0), 876, 0);
+    let params = mock_env_height(&deps.api, &address(0), 876, 0);
     let res = init(&mut deps, params, init_msg).unwrap();
     assert_eq!(0, res.messages.len());
 
@@ -124,8 +124,8 @@ fn init_works() {
 fn transfer_works() {
     let mut deps = mock_instance(WASM);
     let init_msg = init_msg();
-    let params1 = mock_params_height(&deps.api, &address(0), 876, 0);
-    let res = init(&mut deps, params1, init_msg).unwrap();
+    let env1 = mock_env_height(&deps.api, &address(0), 876, 0);
+    let res = init(&mut deps, env1, init_msg).unwrap();
     assert_eq!(0, res.messages.len());
 
     let sender = address(1);
@@ -142,10 +142,17 @@ fn transfer_works() {
         recipient: recipient.clone(),
         amount: "1".to_string(),
     };
-    let params2 = mock_params_height(&deps.api, &sender, 877, 0);
-    let transfer_result = handle(&mut deps, params2, transfer_msg).unwrap();
+    let env2 = mock_env_height(&deps.api, &sender, 877, 0);
+    let transfer_result = handle(&mut deps, env2, transfer_msg).unwrap();
     assert_eq!(transfer_result.messages.len(), 0);
-    assert_eq!(transfer_result.log, Some("transfer successful".to_string()));
+    assert_eq!(
+        transfer_result.log,
+        vec![
+            log("action", "transfer"),
+            log("sender", sender.as_str()),
+            log("recipient", recipient.as_str()),
+        ]
+    );
 
     // After
     deps.with_storage(|storage| {
@@ -158,8 +165,8 @@ fn transfer_works() {
 fn approve_works() {
     let mut deps = mock_instance(WASM);
     let init_msg = init_msg();
-    let params1 = mock_params_height(&deps.api, &address(0), 876, 0);
-    let res = init(&mut deps, params1, init_msg).unwrap();
+    let env1 = mock_env_height(&deps.api, &address(0), 876, 0);
+    let res = init(&mut deps, env1, init_msg).unwrap();
     assert_eq!(0, res.messages.len());
 
     let owner = address(1);
@@ -175,10 +182,17 @@ fn approve_works() {
         spender: spender.clone(),
         amount: "42".to_string(),
     };
-    let params2 = mock_params_height(&deps.api, &owner, 877, 0);
-    let approve_result = handle(&mut deps, params2, approve_msg).unwrap();
+    let env2 = mock_env_height(&deps.api, &owner, 877, 0);
+    let approve_result = handle(&mut deps, env2, approve_msg).unwrap();
     assert_eq!(approve_result.messages.len(), 0);
-    assert_eq!(approve_result.log, Some("approve successful".to_string()));
+    assert_eq!(
+        approve_result.log,
+        vec![
+            log("action", "approve"),
+            log("owner", owner.as_str()),
+            log("spender", spender.as_str()),
+        ]
+    );
 
     // After
     deps.with_storage(|storage| {
@@ -190,8 +204,8 @@ fn approve_works() {
 fn transfer_from_works() {
     let mut deps = mock_instance(WASM);
     let init_msg = init_msg();
-    let params1 = mock_params_height(&deps.api, &address(0), 876, 0);
-    let res = init(&mut deps, params1, init_msg).unwrap();
+    let env1 = mock_env_height(&deps.api, &address(0), 876, 0);
+    let res = init(&mut deps, env1, init_msg).unwrap();
     assert_eq!(0, res.messages.len());
 
     let owner = address(1);
@@ -210,10 +224,17 @@ fn transfer_from_works() {
         spender: spender.clone(),
         amount: "42".to_string(),
     };
-    let params2 = mock_params_height(&deps.api, &owner, 877, 0);
-    let approve_result = handle(&mut deps, params2, approve_msg).unwrap();
+    let env2 = mock_env_height(&deps.api, &owner, 877, 0);
+    let approve_result = handle(&mut deps, env2, approve_msg).unwrap();
     assert_eq!(approve_result.messages.len(), 0);
-    assert_eq!(approve_result.log, Some("approve successful".to_string()));
+    assert_eq!(
+        approve_result.log,
+        vec![
+            log("action", "approve"),
+            log("owner", owner.as_str()),
+            log("spender", spender.as_str()),
+        ]
+    );
 
     // Transfer from
     let transfer_from_msg = HandleMsg::TransferFrom {
@@ -221,12 +242,17 @@ fn transfer_from_works() {
         recipient: recipient.clone(),
         amount: "2".to_string(),
     };
-    let params3 = mock_params_height(&deps.api, &spender, 878, 0);
-    let transfer_from_result = handle(&mut deps, params3, transfer_from_msg).unwrap();
+    let env3 = mock_env_height(&deps.api, &spender, 878, 0);
+    let transfer_from_result = handle(&mut deps, env3, transfer_from_msg).unwrap();
     assert_eq!(transfer_from_result.messages.len(), 0);
     assert_eq!(
         transfer_from_result.log,
-        Some("transfer from successful".to_string())
+        vec![
+            log("action", "transfer_from"),
+            log("spender", spender.as_str()),
+            log("sender", owner.as_str()),
+            log("recipient", recipient.as_str()),
+        ]
     );
 
     // After
@@ -241,13 +267,13 @@ fn transfer_from_works() {
 fn can_query_balance_of_existing_address() {
     let mut deps = mock_instance(WASM);
     let init_msg = init_msg();
-    let params1 = mock_params_height(&deps.api, &address(0), 450, 550);
-    let res = init(&mut deps, params1, init_msg).unwrap();
+    let env1 = mock_env_height(&deps.api, &address(0), 450, 550);
+    let res = init(&mut deps, env1, init_msg).unwrap();
     assert_eq!(0, res.messages.len());
 
     let query_msg = QueryMsg::Balance {
         address: address(2),
     };
     let query_result = query(&mut deps, query_msg).unwrap();
-    assert_eq!(query_result, b"{\"balance\":\"22\"}");
+    assert_eq!(query_result.as_slice(), b"{\"balance\":\"22\"}");
 }
