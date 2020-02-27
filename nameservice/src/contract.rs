@@ -80,7 +80,7 @@ pub fn try_transfer<S: Storage, A: Api>(
             record.owner = new_owner.clone();
             Ok(record)
         } else {
-            unauthorized()
+            contract_err("Name does not exist")
         }
     })?;
     Ok(Response::default())

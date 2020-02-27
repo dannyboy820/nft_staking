@@ -239,6 +239,31 @@ fn transfer_works_with_fees() {
 }
 
 #[test]
+fn fails_on_transfer_non_existent() {
+    let mut deps = dependencies(20);
+    mock_init_no_fees(&mut deps);
+    mock_alice_registers_name(&mut deps, &[]);
+
+    // alice can transfer her name successfully to bob
+    let env = mock_env(&deps.api, "frank_key", &coin_vec("2", "token"), &[]);
+    let msg = HandleMsg::Transfer {
+        name: "alice42".to_string(),
+        to: HumanAddr::from("bob_key"),
+    };
+
+    let res = handle(&mut deps, env, msg);
+
+    match res {
+        Ok(_) => panic!("Must return error"),
+        Err(Error::ContractErr { msg, .. }) => assert_eq!(msg, "Name does not exist"),
+        Err(e) => panic!("Unexpected error: {:?}", e),
+    }
+
+    // querying for name resolves to correct address (alice_key)
+    assert_name_owner(&mut deps, "alice", "alice_key");
+}
+
+#[test]
 fn fails_on_transfer_from_nonowner() {
     let mut deps = dependencies(20);
     mock_init_no_fees(&mut deps);
