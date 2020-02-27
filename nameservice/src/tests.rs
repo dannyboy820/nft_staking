@@ -1,5 +1,5 @@
 use cosmwasm::errors::Error;
-use cosmwasm::mock::{dependencies, mock_params, MockApi, MockStorage};
+use cosmwasm::mock::{dependencies, mock_env, MockApi, MockStorage};
 use cosmwasm::traits::Extern;
 use cosmwasm::types::{Coin, HumanAddr};
 
@@ -40,8 +40,8 @@ fn mock_init_with_fees(
         transfer_price: Some(transfer_price),
     };
 
-    let params = mock_params(&deps.api, "creator", &coin_vec("2", "token"), &[]);
-    let _res = init(&mut deps, params, msg).expect("contract successfully handles InitMsg");
+    let env = mock_env(&deps.api, "creator", &coin_vec("2", "token"), &[]);
+    let _res = init(&mut deps, env, msg).expect("contract successfully handles InitMsg");
 }
 
 fn mock_init_no_fees(mut deps: &mut Extern<MockStorage, MockApi>) {
@@ -51,18 +51,17 @@ fn mock_init_no_fees(mut deps: &mut Extern<MockStorage, MockApi>) {
         transfer_price: None,
     };
 
-    let params = mock_params(&deps.api, "creator", &coin_vec("2", "token"), &[]);
-    let _res = init(&mut deps, params, msg).expect("contract successfully handles InitMsg");
+    let env = mock_env(&deps.api, "creator", &coin_vec("2", "token"), &[]);
+    let _res = init(&mut deps, env, msg).expect("contract successfully handles InitMsg");
 }
 
 fn mock_alice_registers_name(mut deps: &mut Extern<MockStorage, MockApi>, sent: &[Coin]) {
     // alice can register an available name
-    let params = mock_params(&deps.api, "alice_key", sent, &[]);
+    let env = mock_env(&deps.api, "alice_key", sent, &[]);
     let msg = HandleMsg::Register {
         name: "alice".to_string(),
     };
-    let _res =
-        handle(&mut deps, params, msg).expect("contract successfully handles Register message");
+    let _res = handle(&mut deps, env, msg).expect("contract successfully handles Register message");
 }
 
 #[test]
@@ -114,13 +113,12 @@ fn register_available_name_and_query_works_with_fees() {
     mock_alice_registers_name(&mut deps, &coin_vec("2", "token"));
 
     // anyone can register an available name with more fees than needed
-    let params = mock_params(&deps.api, "bob_key", &coin_vec("5", "token"), &[]);
+    let env = mock_env(&deps.api, "bob_key", &coin_vec("5", "token"), &[]);
     let msg = HandleMsg::Register {
         name: "bob".to_string(),
     };
 
-    let _res =
-        handle(&mut deps, params, msg).expect("contract successfully handles Register message");
+    let _res = handle(&mut deps, env, msg).expect("contract successfully handles Register message");
 
     // querying for name resolves to correct address
     assert_name_owner(&mut deps, "alice", "alice_key");
@@ -134,11 +132,11 @@ fn fails_on_register_already_taken_name() {
     mock_alice_registers_name(&mut deps, &[]);
 
     // bob can't register the same name
-    let params = mock_params(&deps.api, "bob_key", &coin_vec("2", "token"), &[]);
+    let env = mock_env(&deps.api, "bob_key", &coin_vec("2", "token"), &[]);
     let msg = HandleMsg::Register {
         name: "alice".to_string(),
     };
-    let res = handle(&mut deps, params, msg);
+    let res = handle(&mut deps, env, msg);
 
     match res {
         Ok(_) => panic!("Must return error"),
@@ -146,11 +144,11 @@ fn fails_on_register_already_taken_name() {
         Err(_) => panic!("Unknown error"),
     }
     // alice can't register the same name again
-    let params = mock_params(&deps.api, "alice_key", &coin_vec("2", "token"), &[]);
+    let env = mock_env(&deps.api, "alice_key", &coin_vec("2", "token"), &[]);
     let msg = HandleMsg::Register {
         name: "alice".to_string(),
     };
-    let res = handle(&mut deps, params, msg);
+    let res = handle(&mut deps, env, msg);
 
     match res {
         Ok(_) => panic!("Must return error"),
@@ -165,12 +163,12 @@ fn fails_on_register_insufficient_fees() {
     mock_init_with_fees(&mut deps, coin("2", "token"), coin("2", "token"));
 
     // anyone can register an available name with sufficient fees
-    let params = mock_params(&deps.api, "alice_key", &[], &[]);
+    let env = mock_env(&deps.api, "alice_key", &[], &[]);
     let msg = HandleMsg::Register {
         name: "alice".to_string(),
     };
 
-    let res = handle(&mut deps, params, msg);
+    let res = handle(&mut deps, env, msg);
 
     match res {
         Ok(_) => panic!("register call should fail with insufficient fees"),
@@ -185,12 +183,12 @@ fn fails_on_register_wrong_fee_denom() {
     mock_init_with_fees(&mut deps, coin("2", "token"), coin("2", "token"));
 
     // anyone can register an available name with sufficient fees
-    let params = mock_params(&deps.api, "alice_key", &coin_vec("2", "earth"), &[]);
+    let env = mock_env(&deps.api, "alice_key", &coin_vec("2", "earth"), &[]);
     let msg = HandleMsg::Register {
         name: "alice".to_string(),
     };
 
-    let res = handle(&mut deps, params, msg);
+    let res = handle(&mut deps, env, msg);
 
     match res {
         Ok(_) => panic!("register call should fail with insufficient fees"),
@@ -206,14 +204,13 @@ fn transfer_works() {
     mock_alice_registers_name(&mut deps, &[]);
 
     // alice can transfer her name successfully to bob
-    let params = mock_params(&deps.api, "alice_key", &[], &[]);
+    let env = mock_env(&deps.api, "alice_key", &[], &[]);
     let msg = HandleMsg::Transfer {
         name: "alice".to_string(),
         to: HumanAddr::from("bob_key"),
     };
 
-    let _res =
-        handle(&mut deps, params, msg).expect("contract successfully handles Transfer message");
+    let _res = handle(&mut deps, env, msg).expect("contract successfully handles Transfer message");
     // querying for name resolves to correct address (bob_key)
     assert_name_owner(&mut deps, "alice", "bob_key");
 }
@@ -225,7 +222,7 @@ fn transfer_works_with_fees() {
     mock_alice_registers_name(&mut deps, &coin_vec("2", "token"));
 
     // alice can transfer her name successfully to bob
-    let params = mock_params(
+    let env = mock_env(
         &deps.api,
         "alice_key",
         &vec![coin("1", "earth"), coin("2", "token")],
@@ -236,10 +233,34 @@ fn transfer_works_with_fees() {
         to: HumanAddr::from("bob_key"),
     };
 
-    let _res =
-        handle(&mut deps, params, msg).expect("contract successfully handles Transfer message");
+    let _res = handle(&mut deps, env, msg).expect("contract successfully handles Transfer message");
     // querying for name resolves to correct address (bob_key)
     assert_name_owner(&mut deps, "alice", "bob_key");
+}
+
+#[test]
+fn fails_on_transfer_non_existent() {
+    let mut deps = dependencies(20);
+    mock_init_no_fees(&mut deps);
+    mock_alice_registers_name(&mut deps, &[]);
+
+    // alice can transfer her name successfully to bob
+    let env = mock_env(&deps.api, "frank_key", &coin_vec("2", "token"), &[]);
+    let msg = HandleMsg::Transfer {
+        name: "alice42".to_string(),
+        to: HumanAddr::from("bob_key"),
+    };
+
+    let res = handle(&mut deps, env, msg);
+
+    match res {
+        Ok(_) => panic!("Must return error"),
+        Err(Error::ContractErr { msg, .. }) => assert_eq!(msg, "Name does not exist"),
+        Err(e) => panic!("Unexpected error: {:?}", e),
+    }
+
+    // querying for name resolves to correct address (alice_key)
+    assert_name_owner(&mut deps, "alice", "alice_key");
 }
 
 #[test]
@@ -249,13 +270,13 @@ fn fails_on_transfer_from_nonowner() {
     mock_alice_registers_name(&mut deps, &[]);
 
     // alice can transfer her name successfully to bob
-    let params = mock_params(&deps.api, "frank_key", &coin_vec("2", "token"), &[]);
+    let env = mock_env(&deps.api, "frank_key", &coin_vec("2", "token"), &[]);
     let msg = HandleMsg::Transfer {
         name: "alice".to_string(),
         to: HumanAddr::from("bob_key"),
     };
 
-    let res = handle(&mut deps, params, msg);
+    let res = handle(&mut deps, env, msg);
 
     match res {
         Ok(_) => panic!("Must return error"),
@@ -274,7 +295,7 @@ fn fails_on_transfer_insufficient_fees() {
     mock_alice_registers_name(&mut deps, &coin_vec("2", "token"));
 
     // alice can transfer her name successfully to bob
-    let params = mock_params(
+    let env = mock_env(
         &deps.api,
         "alice_key",
         &vec![coin("1", "earth"), coin("2", "token")],
@@ -285,7 +306,7 @@ fn fails_on_transfer_insufficient_fees() {
         to: HumanAddr::from("bob_key"),
     };
 
-    let res = handle(&mut deps, params, msg);
+    let res = handle(&mut deps, env, msg);
 
     match res {
         Ok(_) => panic!("register call should fail with insufficient fees"),
@@ -313,7 +334,7 @@ fn fails_on_query_unregistered_name() {
 
     match res {
         Ok(_) => panic!("Must return error"),
-        Err(Error::NotFound { kind, .. }) => assert_eq!(kind, "NameRecord"),
+        Err(Error::NotFound { kind, .. }) => assert_eq!(kind, "cw_nameservice::state::NameRecord"),
         Err(e) => panic!("Unexpected error: {:?}", e),
     }
 }
