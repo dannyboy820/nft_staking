@@ -1,8 +1,11 @@
 [package]
 name = "cw-nameservice"
+description = "A name service"
 version = "0.1.0"
 authors = ["Cory Levinson <cjlevinson@gmail.com>"]
 edition = "2018"
+license = "Apache-2.0"
+repository = "https://github.com/confio/cosmwasm-examples"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
