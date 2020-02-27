@@ -51,22 +51,19 @@ The following commands should allow you to generate the artifacts:
 
 `schema/*.json`:
 
-```shell script
+```sh
 rm -rf schema
 cargo schema
 # or cargo run --example schema
 ```
 
-`contract.wasm`:
+`contract.wasm` and `hash.txt`:
 
-```shell script
-docker run --rm -u $(id -u):$(id -g) -v $(pwd):/code confio/cosmwasm-opt:0.4.1
-```
-
-`hash.txt`:
-
-```shell script
-sha256sum contract.wasm > hash.txt
+```sh
+docker run --rm -v $(pwd):/code \
+  --mount type=volume,source=$(basename $(pwd))_cache,target=/code/target \
+  --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
+  confio/cosmwasm-opt:0.7.0
 ```
 
 Ensure you check in all the artifacts, and make a git commit with the final state.
