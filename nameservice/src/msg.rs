@@ -4,7 +4,6 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct InitMsg {
-    pub name: String,
     pub purchase_price: Option<Coin>,
     pub transfer_price: Option<Coin>,
 }

@@ -13,7 +13,6 @@ pub static CONFIG_KEY: &[u8] = b"config";
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct Config {
-    pub name: String,
     pub purchase_price: Option<Coin>,
     pub transfer_price: Option<Coin>,
 }

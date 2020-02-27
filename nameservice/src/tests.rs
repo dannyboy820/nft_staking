@@ -35,7 +35,6 @@ fn mock_init_with_fees(
     transfer_price: Coin,
 ) {
     let msg = InitMsg {
-        name: "costly".to_string(),
         purchase_price: Some(purchase_price),
         transfer_price: Some(transfer_price),
     };
@@ -46,7 +45,6 @@ fn mock_init_with_fees(
 
 fn mock_init_no_fees(mut deps: &mut Extern<MockStorage, MockApi>) {
     let msg = InitMsg {
-        name: "cheap".to_string(),
         purchase_price: None,
         transfer_price: None,
     };
@@ -73,7 +71,6 @@ fn proper_init_no_fees() {
     assert_config_state(
         &mut deps,
         Config {
-            name: "cheap".to_string(),
             purchase_price: None,
             transfer_price: None,
         },
@@ -89,7 +86,6 @@ fn proper_init_with_fees() {
     assert_config_state(
         &mut deps,
         Config {
-            name: "costly".to_string(),
             purchase_price: Some(coin("2", "token")),
             transfer_price: Some(coin("2", "token")),
         },
