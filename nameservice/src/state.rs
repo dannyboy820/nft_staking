@@ -1,5 +1,3 @@
-use named_type::NamedType;
-use named_type_derive::NamedType;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -13,7 +11,7 @@ use cw_storage::{
 pub static NAME_RESOLVER_KEY: &[u8] = b"nameresolver";
 pub static CONFIG_KEY: &[u8] = b"config";
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema, NamedType)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct Config {
     pub name: String,
     pub purchase_price: Option<Coin>,
@@ -28,7 +26,7 @@ pub fn config_read<S: ReadonlyStorage>(storage: &S) -> ReadonlySingleton<S, Conf
     singleton_read(storage, CONFIG_KEY)
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema, NamedType)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct NameRecord {
     pub owner: CanonicalAddr,
 }

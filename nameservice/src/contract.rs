@@ -1,6 +1,6 @@
 use cosmwasm::errors::{contract_err, unauthorized, Result};
 use cosmwasm::traits::{Api, Extern, Storage};
-use cosmwasm::types::{HumanAddr, Params, Response};
+use cosmwasm::types::{Env, HumanAddr, Response};
 
 use crate::coin_helpers::assert_sent_sufficient_coin;
 use crate::msg::{HandleMsg, InitMsg, QueryMsg, ResolveRecordResponse};
@@ -10,7 +10,7 @@ use cw_storage::serialize;
 
 pub fn init<S: Storage, A: Api>(
     deps: &mut Extern<S, A>,
-    _params: Params,
+    _env: Env,
     msg: InitMsg,
 ) -> Result<Response> {
     let config_state = Config {
@@ -26,26 +26,26 @@ pub fn init<S: Storage, A: Api>(
 
 pub fn handle<S: Storage, A: Api>(
     deps: &mut Extern<S, A>,
-    params: Params,
+    env: Env,
     msg: HandleMsg,
 ) -> Result<Response> {
     match msg {
-        HandleMsg::Register { name } => try_register(deps, params, name),
-        HandleMsg::Transfer { name, to } => try_transfer(deps, params, name, to),
+        HandleMsg::Register { name } => try_register(deps, env, name),
+        HandleMsg::Transfer { name, to } => try_transfer(deps, env, name, to),
     }
 }
 
 pub fn try_register<S: Storage, A: Api>(
     deps: &mut Extern<S, A>,
-    params: Params,
+    env: Env,
     name: String,
 ) -> Result<Response> {
     let config_state = config(&mut deps.storage).load()?;
-    assert_sent_sufficient_coin(&params.message.sent_funds, config_state.purchase_price)?;
+    assert_sent_sufficient_coin(&env.message.sent_funds, config_state.purchase_price)?;
 
     let key = name.as_bytes();
     let record = NameRecord {
-        owner: params.message.signer,
+        owner: env.message.signer,
     };
 
     if let None = resolver(&mut deps.storage).may_load(key)? {
@@ -61,23 +61,27 @@ pub fn try_register<S: Storage, A: Api>(
 
 pub fn try_transfer<S: Storage, A: Api>(
     deps: &mut Extern<S, A>,
-    params: Params,
+    env: Env,
     name: String,
     to: HumanAddr,
 ) -> Result<Response> {
     let config_state = config(&mut deps.storage).load()?;
-    assert_sent_sufficient_coin(&params.message.sent_funds, config_state.transfer_price)?;
+    assert_sent_sufficient_coin(&env.message.sent_funds, config_state.transfer_price)?;
 
     let key = name.as_bytes();
     let new_owner = deps.api.canonical_address(&to)?;
 
-    resolver(&mut deps.storage).update(key, &|mut record| {
-        if params.message.signer != record.owner {
-            unauthorized()?;
-        }
+    resolver(&mut deps.storage).update(key, &|record| {
+        if let Some(mut record) = record {
+            if env.message.signer != record.owner {
+                unauthorized()?;
+            }
 
-        record.owner = new_owner.clone();
-        Ok(record)
+            record.owner = new_owner.clone();
+            Ok(record)
+        } else {
+            unauthorized()
+        }
     })?;
     Ok(Response::default())
 }
