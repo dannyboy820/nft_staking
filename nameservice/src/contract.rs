@@ -14,7 +14,6 @@ pub fn init<S: Storage, A: Api>(
     msg: InitMsg,
 ) -> Result<Response> {
     let config_state = Config {
-        name: msg.name,
         purchase_price: msg.purchase_price,
         transfer_price: msg.transfer_price,
     };
