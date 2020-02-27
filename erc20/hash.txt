@@ -1,1 +1,1 @@
-d5b7df4e95a0ae82978877bf72d5ed102110fac118e4f978b0dfa7cdbb5515a3  contract.wasm
+aff8c8873d79d2153a8b9066a0683fec3c903669267eb806ffa831dcd4b3daae  contract.wasm
