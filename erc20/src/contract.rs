@@ -1,5 +1,3 @@
-use named_type::NamedType;
-use named_type_derive::NamedType;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::convert::TryInto;
@@ -10,7 +8,7 @@ use cosmwasm::traits::{Api, Extern, ReadonlyStorage, Storage};
 use cosmwasm::types::{log, CanonicalAddr, Env, HumanAddr, Response};
 use cw_storage::{serialize, PrefixedStorage, ReadonlyPrefixedStorage};
 
-#[derive(Serialize, Debug, Deserialize, Clone, PartialEq, JsonSchema, NamedType)]
+#[derive(Serialize, Debug, Deserialize, Clone, PartialEq, JsonSchema)]
 pub struct Constants {
     pub name: String,
     pub symbol: String,
