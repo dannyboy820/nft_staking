@@ -7,6 +7,14 @@ edition = "2018"
 license = "Apache-2.0"
 repository = "https://github.com/confio/cosmwasm-examples"
 
+exclude = [
+  # Those files are cosmwasm-opt artifacts. You might want to commit them for convenience but they should not be part of the source code publication.
+  "contract.wasm",
+  "hash.txt",
+]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
 [lib]
 crate-type = ["cdylib", "rlib"]
 
@@ -25,9 +33,9 @@ overflow-checks = true
 default = ["cranelift"]
 # for quicker tests, cargo test --lib
 # for more explicit tests, cargo test --features=backtraces
-backtraces = [ "cosmwasm/backtraces", "cosmwasm-vm/backtraces" ]
-cranelift = [ "cosmwasm-vm/default-cranelift"]
-singlepass = [ "cosmwasm-vm/default-singlepass"]
+backtraces = ["cosmwasm/backtraces", "cosmwasm-vm/backtraces"]
+cranelift = ["cosmwasm-vm/default-cranelift"]
+singlepass = ["cosmwasm-vm/default-singlepass"]
 
 [dependencies]
 cosmwasm = { version = "0.7.0" }
