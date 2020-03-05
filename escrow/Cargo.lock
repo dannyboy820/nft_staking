@@ -312,7 +312,7 @@ dependencies = [
 
 [[package]]
 name = "cw-escrow"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "cosmwasm 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "cosmwasm-vm 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
