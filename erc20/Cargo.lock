@@ -300,7 +300,7 @@ dependencies = [
 
 [[package]]
 name = "cw-erc20"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "cosmwasm 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "cosmwasm-vm 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
