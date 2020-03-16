@@ -220,12 +220,15 @@ fn try_burn<S: Storage, A: Api>(
     let owner_address_raw = &env.message.signer;
     let amount_raw = parse_u128(amount)?;
 
-    let mut balances_store = PrefixedStorage::new(PREFIX_BALANCES, &mut deps.storage);
+    let store = &mut deps.storage;
+
+    let mut balances_store = PrefixedStorage::new(PREFIX_BALANCES, store);
 
     let mut account_balance = read_u128(&balances_store, owner_address_raw.as_slice())?;
+
     if account_balance < amount_raw {
         return dyn_contract_err(format!(
-            "Insufficient funds: balance={}, required={}",
+            "Insufficient funds to burn: balance={}, required={}",
             account_balance, amount_raw
         ));
     }
