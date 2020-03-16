@@ -264,6 +264,42 @@ fn transfer_from_works() {
 }
 
 #[test]
+fn burn_works() {
+    let mut deps = mock_instance(WASM);
+    let init_msg = init_msg();
+    let env1 = mock_env_height(&deps.api, &address(0), 876, 0);
+    let res = init(&mut deps, env1, init_msg).unwrap();
+    assert_eq!(0, res.messages.len());
+
+    let sender = address(1);
+
+    // Before
+    deps.with_storage(|storage| {
+        assert_eq!(get_balance(&deps.api, storage, &sender), 100);
+    });
+
+    // Burn
+    let burn_msg = HandleMsg::Burn {
+        amount: "10".to_string(),
+    };
+    let env2 = mock_env_height(&deps.api, &sender, 877, 0);
+    let burn_result = handle(&mut deps, env2, burn_msg).unwrap();
+    assert_eq!(burn_result.messages.len(), 0);
+    assert_eq!(
+        burn_result.log,
+        vec![
+            log("action", "burn"),
+            log("sender", sender.as_str())
+        ]
+    );
+
+    // After
+    deps.with_storage(|storage| {
+        assert_eq!(get_balance(&deps.api, storage, &sender), 90);
+    });
+}
+
+#[test]
 fn can_query_balance_of_existing_address() {
     let mut deps = mock_instance(WASM);
     let init_msg = init_msg();
