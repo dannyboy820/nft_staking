@@ -75,6 +75,7 @@ pub fn handle<S: Storage, A: Api>(
             recipient,
             amount,
         } => try_transfer_from(deps, env, &owner, &recipient, &amount),
+        HandleMsg::Burn { amount } => try_burn(deps, env, &amount),
     }
 }
 
@@ -208,6 +209,42 @@ fn try_approve<S: Storage, A: Api>(
         ],
         data: None,
     };
+    Ok(res)
+}
+
+fn try_burn<S: Storage, A: Api>(
+    deps: &mut Extern<S, A>,
+    env: Env,
+    amount: &str,
+) -> Result<Response> {
+    let owner_address_raw = &env.message.signer;
+    let amount_raw = parse_u128(amount)?;
+
+    let mut balances_store = PrefixedStorage::new(PREFIX_BALANCES, &mut deps.storage);
+
+    let mut account_balance = read_u128(&balances_store, owner_address_raw.as_slice())?;
+    if account_balance < amount_raw {
+        return dyn_contract_err(format!(
+            "Insufficient funds: balance={}, required={}",
+            account_balance, amount_raw
+        ));
+    }
+    account_balance -= amount_raw;
+    balances_store.set(owner_address_raw.as_slice(), &account_balance.to_be_bytes());
+
+    let res = Response {
+        messages: vec![],
+        log: vec![
+            log("action", "burn"),
+            log(
+                "account",
+                deps.api.human_address(&env.message.signer)?.as_str(),
+            ),
+            log("amount", amount),
+        ],
+        data: None,
+    };
+
     Ok(res)
 }
 
