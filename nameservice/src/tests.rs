@@ -20,7 +20,7 @@ fn assert_name_owner(deps: &mut Extern<MockStorage, MockApi>, name: &str, owner:
     .unwrap();
 
     let value: ResolveRecordResponse = deserialize(&res).unwrap();
-    assert_eq!(HumanAddr::from(owner), value.address);
+    assert_eq!(Some(HumanAddr::from(owner)), value.address);
 }
 
 fn assert_config_state(deps: &mut Extern<MockStorage, MockApi>, expected: Config) {
@@ -150,6 +150,56 @@ fn fails_on_register_already_taken_name() {
         Ok(_) => panic!("Must return error"),
         Err(Error::ContractErr { msg, .. }) => assert_eq!(msg, "Name is already taken"),
         Err(e) => panic!("Unexpected error: {:?}", e),
+    }
+}
+
+#[test]
+fn register_available_name_fails_with_invalid_name() {
+    let mut deps = dependencies(20);
+    mock_init_no_fees(&mut deps);
+    let env = mock_env(&deps.api, "bob_key", &coin_vec("2", "token"), &[]);
+
+    // hi is too short
+    let msg = HandleMsg::Register {
+        name: "hi".to_string(),
+    };
+    match handle(&mut deps, env.clone(), msg) {
+        Ok(_) => panic!("Must return error"),
+        Err(Error::ContractErr { msg, .. }) => assert_eq!(msg, "Name too short"),
+        Err(_) => panic!("Unknown error"),
+    }
+
+    // 65 chars is too long
+    let msg = HandleMsg::Register {
+        name: "01234567890123456789012345678901234567890123456789012345678901234".to_string(),
+    };
+    match handle(&mut deps, env.clone(), msg) {
+        Ok(_) => panic!("Must return error"),
+        Err(Error::ContractErr { msg, .. }) => assert_eq!(msg, "Name too long"),
+        Err(_) => panic!("Unknown error"),
+    }
+
+    // no upper case...
+    let msg = HandleMsg::Register {
+        name: "LOUD".to_string(),
+    };
+    match handle(&mut deps, env.clone(), msg) {
+        Ok(_) => panic!("Must return error"),
+        Err(Error::DynContractErr { msg, .. }) => {
+            assert_eq!(msg.as_str(), "Invalid character: 'L'")
+        }
+        Err(_) => panic!("Unknown error"),
+    }
+    // ... or spaces
+    let msg = HandleMsg::Register {
+        name: "two words".to_string(),
+    };
+    match handle(&mut deps, env.clone(), msg) {
+        Ok(_) => panic!("Must return error"),
+        Err(Error::DynContractErr { msg, .. }) => {
+            assert_eq!(msg.as_str(), "Invalid character: ' '")
+        }
+        Err(_) => panic!("Unknown error"),
     }
 }
 
@@ -315,7 +365,7 @@ fn fails_on_transfer_insufficient_fees() {
 }
 
 #[test]
-fn fails_on_query_unregistered_name() {
+fn returns_empty_on_query_unregistered_name() {
     let mut deps = dependencies(20);
 
     mock_init_no_fees(&mut deps);
@@ -326,11 +376,8 @@ fn fails_on_query_unregistered_name() {
         QueryMsg::ResolveRecord {
             name: "alice".to_string(),
         },
-    );
-
-    match res {
-        Ok(_) => panic!("Must return error"),
-        Err(Error::NotFound { kind, .. }) => assert_eq!(kind, "cw_nameservice::state::NameRecord"),
-        Err(e) => panic!("Unexpected error: {:?}", e),
-    }
+    )
+    .unwrap();
+    let value: ResolveRecordResponse = deserialize(&res).unwrap();
+    assert_eq!(None, value.address);
 }

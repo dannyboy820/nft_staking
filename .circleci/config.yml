@@ -36,7 +36,7 @@ jobs:
           command: cargo unit-test --locked
       - run:
           name: Integration Tests
-          command: cargo integration-test --locked
+          command: cargo integration-test --locked  -- --test-threads=2
       - run:
           name: Format source code
           command: cargo fmt
@@ -85,7 +85,7 @@ jobs:
           command: cargo unit-test --locked
       - run:
           name: Integration Tests
-          command: cargo integration-test --locked
+          command: cargo integration-test --locked -- --test-threads=2
       - run:
           name: Format source code
           command: cargo fmt
@@ -134,7 +134,7 @@ jobs:
           command: cargo unit-test --locked
       - run:
           name: Integration Tests
-          command: cargo integration-test --locked
+          command: cargo integration-test --locked -- --test-threads=2
       - run:
           name: Format source code
           command: cargo fmt

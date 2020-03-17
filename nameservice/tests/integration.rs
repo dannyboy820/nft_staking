@@ -1,5 +1,5 @@
 use cosmwasm::mock::{mock_env, MockApi, MockStorage};
-use cosmwasm::types::{Coin, ContractResult, HumanAddr, QueryResult};
+use cosmwasm::types::{Coin, ContractResult, HumanAddr};
 
 use cosmwasm_vm::testing::{handle, init, mock_instance, query};
 use cosmwasm_vm::Instance;
@@ -43,8 +43,6 @@ To
         _ => panic!("Expected error"),
      }
 
-
-
 **/
 
 // This line will test the output of cargo wasm
@@ -62,7 +60,7 @@ fn assert_name_owner(mut deps: &mut Instance<MockStorage, MockApi>, name: &str, 
     .unwrap();
 
     let value: ResolveRecordResponse = deserialize(res.as_slice()).unwrap();
-    assert_eq!(HumanAddr::from(owner), value.address);
+    assert_eq!(Some(HumanAddr::from(owner)), value.address);
 }
 
 fn mock_init_with_fees(
@@ -336,7 +334,7 @@ fn fails_on_transfer_insufficient_fees() {
 }
 
 #[test]
-fn fails_on_query_unregistered_name() {
+fn returns_empty_on_query_unregistered_name() {
     let mut deps = mock_instance(WASM);
 
     mock_init_no_fees(&mut deps);
@@ -347,10 +345,8 @@ fn fails_on_query_unregistered_name() {
         QueryMsg::ResolveRecord {
             name: "alice".to_string(),
         },
-    );
-
-    match res {
-        QueryResult::Ok(_) => panic!("Must return error"),
-        QueryResult::Err(e) => assert_eq!(e, "cw_nameservice::state::NameRecord not found"),
-    }
+    )
+    .unwrap();
+    let value: ResolveRecordResponse = deserialize(res.as_slice()).unwrap();
+    assert_eq!(None, value.address);
 }
