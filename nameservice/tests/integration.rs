@@ -1,5 +1,5 @@
 use cosmwasm::mock::{mock_env, MockApi, MockStorage};
-use cosmwasm::types::{Coin, ContractResult, HumanAddr, QueryResult};
+use cosmwasm::types::{Coin, ContractResult, HumanAddr};
 
 use cosmwasm_vm::testing::{handle, init, mock_instance, query};
 use cosmwasm_vm::Instance;
@@ -345,10 +345,8 @@ fn fails_on_query_unregistered_name() {
         QueryMsg::ResolveRecord {
             name: "alice".to_string(),
         },
-    );
-
-    match res {
-        QueryResult::Ok(_) => panic!("Must return error"),
-        QueryResult::Err(e) => assert_eq!(e, "cw_nameservice::state::NameRecord not found"),
-    }
+    )
+    .unwrap();
+    let value: ResolveRecordResponse = deserialize(res.as_slice()).unwrap();
+    assert_eq!(value.address.as_str(), "");
 }
