@@ -212,13 +212,11 @@ fn try_approve<S: Storage, A: Api>(
     Ok(res)
 }
 
-/**
-* Destroy tokens
-*
-* Remove `amount` tokens from the system irreversibly
-*
-* @param amount the amount of money to burn
-*/
+/// Burn tokens
+///
+/// Remove `amount` tokens from the system irreversibly, from signer account
+///
+/// @param amount the amount of money to burn
 fn try_burn<S: Storage, A: Api>(
     deps: &mut Extern<S, A>,
     env: Env,
