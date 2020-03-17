@@ -1,20 +1,19 @@
 use snafu::ResultExt;
 
-use cosmwasm::errors::{Result, SerializeErr, Unauthorized};
+use cosmwasm::errors::{Result, SerializeErr, unauthorized};
 use cosmwasm::serde::to_vec;
 use cosmwasm::traits::{Api, Extern, Storage};
-use cosmwasm::types::{Env, Response};
+use cosmwasm::types::{CosmosMsg, Env, HumanAddr, log, Response};
 
-use crate::msg::{CountResponse, HandleMsg, InitMsg, QueryMsg};
+use crate::msg::{HandleMsg, InitMsg, QueryMsg, OwnerResponse};
 use crate::state::{config, config_read, State};
 
 pub fn init<S: Storage, A: Api>(
     deps: &mut Extern<S, A>,
     env: Env,
-    msg: InitMsg,
+    _msg: InitMsg,
 ) -> Result<Response> {
     let state = State {
-        count: msg.count,
         owner: env.message.signer,
     };
 
@@ -29,48 +28,64 @@ pub fn handle<S: Storage, A: Api>(
     msg: HandleMsg,
 ) -> Result<Response> {
     match msg {
-        HandleMsg::Increment {} => try_increment(deps, env),
-        HandleMsg::Reset { count } => try_reset(deps, env, count),
+        HandleMsg::ReflectMsg { msg} => try_reflect(deps, env, msg),
+        HandleMsg::ChangeOwner { owner } => try_change_owner(deps, env, owner),
     }
 }
 
-pub fn try_increment<S: Storage, A: Api>(deps: &mut Extern<S, A>, _env: Env) -> Result<Response> {
-    config(&mut deps.storage).update(&|mut state| {
-        state.count += 1;
-        Ok(state)
-    })?;
-
-    Ok(Response::default())
-}
-
-pub fn try_reset<S: Storage, A: Api>(
+pub fn try_reflect<S: Storage, A: Api>(
     deps: &mut Extern<S, A>,
     env: Env,
-    count: i32,
+    msg: CosmosMsg,
 ) -> Result<Response> {
+    let state = config(&mut deps.storage).load()?;
+    if env.message.signer != state.owner {
+        return unauthorized();
+    }
+    let res = Response {
+        messages: vec![msg],
+        log: vec![log("action", "reflect")],
+        data: None,
+    };
+    Ok(res)
+}
+
+pub fn try_change_owner<S: Storage, A: Api>(
+    deps: &mut Extern<S, A>,
+    env: Env,
+    owner: HumanAddr,
+) -> Result<Response> {
+    let api = deps.api;
     config(&mut deps.storage).update(&|mut state| {
         if env.message.signer != state.owner {
-            Unauthorized {}.fail()?;
+            return unauthorized();
         }
-
-        state.count = count;
+        state.owner = api.canonical_address(&owner)?;
         Ok(state)
     })?;
-    Ok(Response::default())
+    Ok(Response{
+        log: vec![
+            log("action", "change_owner"),
+            log("owner", owner.as_str()),
+        ],
+        ..Response::default()
+    })
 }
 
 pub fn query<S: Storage, A: Api>(deps: &Extern<S, A>, msg: QueryMsg) -> Result<Vec<u8>> {
     match msg {
-        QueryMsg::GetCount {} => query_count(deps),
+        QueryMsg::GetOwner {} => query_owner(deps),
     }
 }
 
-fn query_count<S: Storage, A: Api>(deps: &Extern<S, A>) -> Result<Vec<u8>> {
+fn query_owner<S: Storage, A: Api>(deps: &Extern<S, A>) -> Result<Vec<u8>> {
     let state = config_read(&deps.storage).load()?;
 
-    let resp = CountResponse { count: state.count };
+    let resp = OwnerResponse {
+        owner: deps.api.human_address(&state.owner)?,
+    };
     to_vec(&resp).context(SerializeErr {
-        kind: "CountResponse",
+        kind: "OwnerResponse",
     })
 }
 

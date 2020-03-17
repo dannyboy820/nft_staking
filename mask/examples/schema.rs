@@ -4,7 +4,7 @@ use std::path::PathBuf;
 
 use schemars::{schema::RootSchema, schema_for};
 
-use cw_mask::msg::{CountResponse, HandleMsg, InitMsg, QueryMsg};
+use cw_mask::msg::{HandleMsg, InitMsg, OwnerResponse, QueryMsg};
 use cw_mask::state::State;
 
 fn main() {
@@ -24,8 +24,8 @@ fn main() {
     let schema = schema_for!(State);
     export_schema(&schema, &pwd, "state.json");
 
-    let schema = schema_for!(CountResponse);
-    export_schema(&schema, &pwd, "count_response.json");
+    let schema = schema_for!(OwnerResponse);
+    export_schema(&schema, &pwd, "owner_response.json");
 }
 
 // panics if any error writing out the schema
