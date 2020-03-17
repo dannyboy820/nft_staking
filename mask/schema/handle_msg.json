@@ -5,33 +5,154 @@
     {
       "type": "object",
       "required": [
-        "increment"
+        "reflectmsg"
       ],
       "properties": {
-        "increment": {
-          "type": "object"
+        "reflectmsg": {
+          "type": "object",
+          "required": [
+            "msg"
+          ],
+          "properties": {
+            "msg": {
+              "$ref": "#/definitions/CosmosMsg"
+            }
+          }
         }
       }
     },
     {
       "type": "object",
       "required": [
-        "reset"
+        "changeowner"
       ],
       "properties": {
-        "reset": {
+        "changeowner": {
           "type": "object",
           "required": [
-            "count"
+            "owner"
           ],
           "properties": {
-            "count": {
-              "type": "integer",
-              "format": "int32"
+            "owner": {
+              "$ref": "#/definitions/HumanAddr"
             }
           }
         }
       }
     }
-  ]
+  ],
+  "definitions": {
+    "Binary": {
+      "type": "array",
+      "items": {
+        "type": "integer",
+        "format": "uint8",
+        "minimum": 0.0
+      }
+    },
+    "Coin": {
+      "type": "object",
+      "required": [
+        "amount",
+        "denom"
+      ],
+      "properties": {
+        "amount": {
+          "type": "string"
+        },
+        "denom": {
+          "type": "string"
+        }
+      }
+    },
+    "CosmosMsg": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": [
+            "send"
+          ],
+          "properties": {
+            "send": {
+              "type": "object",
+              "required": [
+                "amount",
+                "from_address",
+                "to_address"
+              ],
+              "properties": {
+                "amount": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/definitions/Coin"
+                  }
+                },
+                "from_address": {
+                  "$ref": "#/definitions/HumanAddr"
+                },
+                "to_address": {
+                  "$ref": "#/definitions/HumanAddr"
+                }
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "contract"
+          ],
+          "properties": {
+            "contract": {
+              "type": "object",
+              "required": [
+                "contract_addr",
+                "msg",
+                "send"
+              ],
+              "properties": {
+                "contract_addr": {
+                  "$ref": "#/definitions/HumanAddr"
+                },
+                "msg": {
+                  "$ref": "#/definitions/Binary"
+                },
+                "send": {
+                  "type": [
+                    "array",
+                    "null"
+                  ],
+                  "items": {
+                    "$ref": "#/definitions/Coin"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "opaque"
+          ],
+          "properties": {
+            "opaque": {
+              "type": "object",
+              "required": [
+                "data"
+              ],
+              "properties": {
+                "data": {
+                  "$ref": "#/definitions/Binary"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "HumanAddr": {
+      "type": "string"
+    }
+  }
 }
