@@ -26,5 +26,5 @@ pub enum QueryMsg {
 // We define a custom struct for each query response
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct ResolveRecordResponse {
-    pub address: HumanAddr,
+    pub address: Option<HumanAddr>,
 }

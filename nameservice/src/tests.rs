@@ -20,7 +20,7 @@ fn assert_name_owner(deps: &mut Extern<MockStorage, MockApi>, name: &str, owner:
     .unwrap();
 
     let value: ResolveRecordResponse = deserialize(&res).unwrap();
-    assert_eq!(HumanAddr::from(owner), value.address);
+    assert_eq!(Some(HumanAddr::from(owner)), value.address);
 }
 
 fn assert_config_state(deps: &mut Extern<MockStorage, MockApi>, expected: Config) {
@@ -379,5 +379,5 @@ fn returns_empty_on_query_unregistered_name() {
     )
     .unwrap();
     let value: ResolveRecordResponse = deserialize(&res).unwrap();
-    assert_eq!(value.address.as_str(), "");
+    assert_eq!(None, value.address);
 }

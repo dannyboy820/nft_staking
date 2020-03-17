@@ -101,10 +101,9 @@ fn query_resolver<S: Storage, A: Api>(deps: &Extern<S, A>, name: String) -> Resu
     let key = name.as_bytes();
 
     let address = match resolver_read(&deps.storage).may_load(key)? {
-        Some(record) => deps.api.human_address(&record.owner)?,
-        None => HumanAddr::from(""),
+        Some(record) => Some(deps.api.human_address(&record.owner)?),
+        None => None,
     };
-
     let resp = ResolveRecordResponse { address };
 
     serialize(&resp)
