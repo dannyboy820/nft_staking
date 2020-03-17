@@ -102,7 +102,6 @@ fn register_available_name_and_query_works() {
     assert_name_owner(&mut deps, "alice", "alice_key");
 }
 
-
 #[test]
 fn register_available_name_and_query_works_with_fees() {
     let mut deps = dependencies(20);
@@ -155,7 +154,7 @@ fn fails_on_register_already_taken_name() {
 }
 
 #[test]
-fn register_available_name_and_query_fails_with_invalid_name() {
+fn register_available_name_fails_with_invalid_name() {
     let mut deps = dependencies(20);
     mock_init_no_fees(&mut deps);
     let env = mock_env(&deps.api, "bob_key", &coin_vec("2", "token"), &[]);
@@ -186,7 +185,9 @@ fn register_available_name_and_query_fails_with_invalid_name() {
     };
     match handle(&mut deps, env.clone(), msg) {
         Ok(_) => panic!("Must return error"),
-        Err(Error::DynContractErr { msg, .. }) => assert_eq!(msg.as_str(), "Invalid character: 'L'"),
+        Err(Error::DynContractErr { msg, .. }) => {
+            assert_eq!(msg.as_str(), "Invalid character: 'L'")
+        }
         Err(_) => panic!("Unknown error"),
     }
     // ... or spaces
@@ -195,12 +196,12 @@ fn register_available_name_and_query_fails_with_invalid_name() {
     };
     match handle(&mut deps, env.clone(), msg) {
         Ok(_) => panic!("Must return error"),
-        Err(Error::DynContractErr { msg, .. }) => assert_eq!(msg.as_str(), "Invalid character: ' '"),
+        Err(Error::DynContractErr { msg, .. }) => {
+            assert_eq!(msg.as_str(), "Invalid character: ' '")
+        }
         Err(_) => panic!("Unknown error"),
     }
-
 }
-
 
 #[test]
 fn fails_on_register_insufficient_fees() {
@@ -375,11 +376,8 @@ fn fails_on_query_unregistered_name() {
         QueryMsg::ResolveRecord {
             name: "alice".to_string(),
         },
-    );
-
-    match res {
-        Ok(_) => panic!("Must return error"),
-        Err(Error::NotFound { kind, .. }) => assert_eq!(kind, "cw_nameservice::state::NameRecord"),
-        Err(e) => panic!("Unexpected error: {:?}", e),
-    }
+    )
+    .unwrap();
+    let value: ResolveRecordResponse = deserialize(&res).unwrap();
+    assert_eq!(value.address.as_str(), "");
 }

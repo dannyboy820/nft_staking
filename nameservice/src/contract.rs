@@ -42,7 +42,6 @@ pub fn try_register<S: Storage, A: Api>(
     env: Env,
     name: String,
 ) -> Result<Response> {
-
     // we only need to check here - at point of registration
     validate_name(&name)?;
     let config_state = config(&mut deps.storage).load()?;
@@ -101,8 +100,10 @@ pub fn query<S: Storage, A: Api>(deps: &Extern<S, A>, msg: QueryMsg) -> Result<V
 fn query_resolver<S: Storage, A: Api>(deps: &Extern<S, A>, name: String) -> Result<Vec<u8>> {
     let key = name.as_bytes();
 
-    let record = resolver_read(&deps.storage).load(key)?;
-    let address = deps.api.human_address(&record.owner)?;
+    let address = match resolver_read(&deps.storage).may_load(key)? {
+        Some(record) => deps.api.human_address(&record.owner)?,
+        None => HumanAddr::from(""),
+    };
 
     let resp = ResolveRecordResponse { address };
 
@@ -134,5 +135,5 @@ fn validate_name(name: &str) -> Result<()> {
             None => Ok(()),
             Some(c) => dyn_contract_err(format!("Invalid character: '{}'", c)),
         }
-     }
+    }
 }
