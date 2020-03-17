@@ -102,6 +102,7 @@ fn register_available_name_and_query_works() {
     assert_name_owner(&mut deps, "alice", "alice_key");
 }
 
+
 #[test]
 fn register_available_name_and_query_works_with_fees() {
     let mut deps = dependencies(20);
@@ -152,6 +153,54 @@ fn fails_on_register_already_taken_name() {
         Err(e) => panic!("Unexpected error: {:?}", e),
     }
 }
+
+#[test]
+fn register_available_name_and_query_fails_with_invalid_name() {
+    let mut deps = dependencies(20);
+    mock_init_no_fees(&mut deps);
+    let env = mock_env(&deps.api, "bob_key", &coin_vec("2", "token"), &[]);
+
+    // hi is too short
+    let msg = HandleMsg::Register {
+        name: "hi".to_string(),
+    };
+    match handle(&mut deps, env.clone(), msg) {
+        Ok(_) => panic!("Must return error"),
+        Err(Error::ContractErr { msg, .. }) => assert_eq!(msg, "Name too short"),
+        Err(_) => panic!("Unknown error"),
+    }
+
+    // 65 chars is too long
+    let msg = HandleMsg::Register {
+        name: "01234567890123456789012345678901234567890123456789012345678901234".to_string(),
+    };
+    match handle(&mut deps, env.clone(), msg) {
+        Ok(_) => panic!("Must return error"),
+        Err(Error::ContractErr { msg, .. }) => assert_eq!(msg, "Name too long"),
+        Err(_) => panic!("Unknown error"),
+    }
+
+    // no upper case...
+    let msg = HandleMsg::Register {
+        name: "LOUD".to_string(),
+    };
+    match handle(&mut deps, env.clone(), msg) {
+        Ok(_) => panic!("Must return error"),
+        Err(Error::DynContractErr { msg, .. }) => assert_eq!(msg.as_str(), "Invalid character: 'L'"),
+        Err(_) => panic!("Unknown error"),
+    }
+    // ... or spaces
+    let msg = HandleMsg::Register {
+        name: "two words".to_string(),
+    };
+    match handle(&mut deps, env.clone(), msg) {
+        Ok(_) => panic!("Must return error"),
+        Err(Error::DynContractErr { msg, .. }) => assert_eq!(msg.as_str(), "Invalid character: ' '"),
+        Err(_) => panic!("Unknown error"),
+    }
+
+}
+
 
 #[test]
 fn fails_on_register_insufficient_fees() {

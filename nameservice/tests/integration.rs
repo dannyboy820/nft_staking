@@ -43,8 +43,6 @@ To
         _ => panic!("Expected error"),
      }
 
-
-
 **/
 
 // This line will test the output of cargo wasm

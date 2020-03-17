@@ -43,6 +43,7 @@ pub fn try_register<S: Storage, A: Api>(
     name: String,
 ) -> Result<Response> {
 
+    // we only need to check here - at point of registration
     validate_name(&name)?;
     let config_state = config(&mut deps.storage).load()?;
     assert_sent_sufficient_coin(&env.message.sent_funds, config_state.purchase_price)?;
@@ -69,8 +70,6 @@ pub fn try_transfer<S: Storage, A: Api>(
     name: String,
     to: HumanAddr,
 ) -> Result<Response> {
-
-    validate_name(&name)?;
     let config_state = config(&mut deps.storage).load()?;
     assert_sent_sufficient_coin(&env.message.sent_funds, config_state.transfer_price)?;
 
@@ -110,6 +109,7 @@ fn query_resolver<S: Storage, A: Api>(deps: &Extern<S, A>, name: String) -> Resu
     serialize(&resp)
 }
 
+// let's not import a regexp library and just do these checks by hand
 fn invalid_char(c: &char) -> bool {
     if c >= &'0' && c <= &'9' {
         false
@@ -132,7 +132,7 @@ fn validate_name(name: &str) -> Result<()> {
     } else {
         match name.chars().find(invalid_char) {
             None => Ok(()),
-            Some(c) => dyn_contract_err(format!("Invalid character: {}", c)),
+            Some(c) => dyn_contract_err(format!("Invalid character: '{}'", c)),
         }
      }
 }
