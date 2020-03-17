@@ -1050,10 +1050,6 @@ mod burn {
                     address: HumanAddr("addr1111".to_string()),
                     amount: "22".to_string(),
                 },
-                InitialBalance {
-                    address: HumanAddr("addrbbbb".to_string()),
-                    amount: "33".to_string(),
-                },
             ],
         }
     }
@@ -1075,11 +1071,7 @@ mod burn {
             get_balance(&deps.api, &deps.storage, &HumanAddr("addr1111".to_string())),
             22
         );
-        assert_eq!(
-            get_balance(&deps.api, &deps.storage, &HumanAddr("addrbbbb".to_string())),
-            33
-        );
-        assert_eq!(get_total_supply(&deps.storage), 66);
+        assert_eq!(get_total_supply(&deps.storage), 33);
 
         // Burn
         let burn_msg = HandleMsg::Burn {
@@ -1105,12 +1097,8 @@ mod burn {
         assert_eq!(
             get_balance(&deps.api, &deps.storage, &HumanAddr("addr1111".to_string())),
             22
-        ); 
-        assert_eq!(
-            get_balance(&deps.api, &deps.storage, &HumanAddr("addrbbbb".to_string())),
-            33
         );
-        assert_eq!(get_total_supply(&deps.storage), 65);
+        assert_eq!(get_total_supply(&deps.storage), 32);
     }
 
     #[test]
@@ -1130,11 +1118,7 @@ mod burn {
             get_balance(&deps.api, &deps.storage, &HumanAddr("addr1111".to_string())),
             22
         );
-        assert_eq!(
-            get_balance(&deps.api, &deps.storage, &HumanAddr("addrbbbb".to_string())),
-            33
-        );
-        assert_eq!(get_total_supply(&deps.storage), 66);
+        assert_eq!(get_total_supply(&deps.storage), 33);
 
         // Burn
         let burn_msg = HandleMsg::Burn {
@@ -1161,11 +1145,7 @@ mod burn {
             get_balance(&deps.api, &deps.storage, &HumanAddr("addr1111".to_string())),
             22
         );
-        assert_eq!(
-            get_balance(&deps.api, &deps.storage, &HumanAddr("addrbbbb".to_string())),
-            33
-        );
-        assert_eq!(get_total_supply(&deps.storage), 66);
+        assert_eq!(get_total_supply(&deps.storage), 33);
     }
 
     #[test]
@@ -1185,11 +1165,7 @@ mod burn {
             get_balance(&deps.api, &deps.storage, &HumanAddr("addr1111".to_string())),
             22
         );
-        assert_eq!(
-            get_balance(&deps.api, &deps.storage, &HumanAddr("addrbbbb".to_string())),
-            33
-        );
-        assert_eq!(get_total_supply(&deps.storage), 66);
+        assert_eq!(get_total_supply(&deps.storage), 33);
 
         // Burn
         let burn_msg = HandleMsg::Burn {
@@ -1214,11 +1190,7 @@ mod burn {
             get_balance(&deps.api, &deps.storage, &HumanAddr("addr1111".to_string())),
             22
         );
-        assert_eq!(
-            get_balance(&deps.api, &deps.storage, &HumanAddr("addrbbbb".to_string())),
-            33
-        );
-        assert_eq!(get_total_supply(&deps.storage), 66);
+        assert_eq!(get_total_supply(&deps.storage), 33);
     }
 }
 

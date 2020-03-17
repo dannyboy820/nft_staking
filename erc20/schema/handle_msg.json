@@ -74,6 +74,25 @@
           }
         }
       }
+    },
+    {
+      "type": "object",
+      "required": [
+        "burn"
+      ],
+      "properties": {
+        "transfer": {
+          "type": "object",
+          "required": [
+            "amount"
+          ],
+          "properties": {
+            "amount": {
+              "type": "string"
+            }
+          }
+        }
+      }
     }
   ],
   "definitions": {
