@@ -1,11 +1,11 @@
 use snafu::ResultExt;
 
-use cosmwasm::errors::{Result, SerializeErr, unauthorized};
+use cosmwasm::errors::{unauthorized, Result, SerializeErr};
 use cosmwasm::serde::to_vec;
 use cosmwasm::traits::{Api, Extern, Storage};
-use cosmwasm::types::{CosmosMsg, Env, HumanAddr, log, Response};
+use cosmwasm::types::{log, CosmosMsg, Env, HumanAddr, Response};
 
-use crate::msg::{HandleMsg, InitMsg, QueryMsg, OwnerResponse};
+use crate::msg::{HandleMsg, InitMsg, OwnerResponse, QueryMsg};
 use crate::state::{config, config_read, State};
 
 pub fn init<S: Storage, A: Api>(
@@ -28,7 +28,7 @@ pub fn handle<S: Storage, A: Api>(
     msg: HandleMsg,
 ) -> Result<Response> {
     match msg {
-        HandleMsg::ReflectMsg { msg} => try_reflect(deps, env, msg),
+        HandleMsg::ReflectMsg { msg } => try_reflect(deps, env, msg),
         HandleMsg::ChangeOwner { owner } => try_change_owner(deps, env, owner),
     }
 }
@@ -63,11 +63,8 @@ pub fn try_change_owner<S: Storage, A: Api>(
         state.owner = api.canonical_address(&owner)?;
         Ok(state)
     })?;
-    Ok(Response{
-        log: vec![
-            log("action", "change_owner"),
-            log("owner", owner.as_str()),
-        ],
+    Ok(Response {
+        log: vec![log("action", "change_owner"), log("owner", owner.as_str())],
         ..Response::default()
     })
 }
@@ -101,7 +98,7 @@ mod tests {
     fn proper_initialization() {
         let mut deps = dependencies(20);
 
-        let msg = InitMsg { count: 17 };
+        let msg = InitMsg {};
         let env = mock_env(&deps.api, "creator", &coin("1000", "earth"), &[]);
 
         // we can just call .unwrap() to assert this was a success
@@ -109,16 +106,16 @@ mod tests {
         assert_eq!(0, res.messages.len());
 
         // it worked, let's query the state
-        let res = query(&deps, QueryMsg::GetCount {}).unwrap();
-        let value: CountResponse = from_slice(&res).unwrap();
-        assert_eq!(17, value.count);
+        let res = query(&deps, QueryMsg::GetOwner {}).unwrap();
+        let value: OwnerResponse = from_slice(&res).unwrap();
+        assert_eq!("creator", value.owner.as_str());
     }
 
     #[test]
-    fn increment() {
+    fn reflect() {
         let mut deps = dependencies(20);
 
-        let msg = InitMsg { count: 17 };
+        let msg = InitMsg {};
         let env = mock_env(
             &deps.api,
             "creator",
@@ -127,22 +124,27 @@ mod tests {
         );
         let _res = init(&mut deps, env, msg).unwrap();
 
-        // beneficiary can release it
-        let env = mock_env(&deps.api, "anyone", &coin("2", "token"), &[]);
-        let msg = HandleMsg::Increment {};
-        let _res = handle(&mut deps, env, msg).unwrap();
+        let env = mock_env(&deps.api, "creator", &[], &coin("2", "token"));
+        let payload = CosmosMsg::Send {
+            from_address: deps.api.human_address(&env.contract.address).unwrap(),
+            to_address: HumanAddr::from("friend"),
+            amount: coin("1", "token"),
+        };
+        let msg = HandleMsg::ReflectMsg {
+            msg: payload.clone(),
+        };
+        let res = handle(&mut deps, env, msg).unwrap();
 
-        // should increase counter by 1
-        let res = query(&deps, QueryMsg::GetCount {}).unwrap();
-        let value: CountResponse = from_slice(&res).unwrap();
-        assert_eq!(18, value.count);
+        // should return payload
+        assert_eq!(1, res.messages.len());
+        assert_eq!(payload, res.messages[0]);
     }
 
     #[test]
-    fn reset() {
+    fn reflect_requires_owner() {
         let mut deps = dependencies(20);
 
-        let msg = InitMsg { count: 17 };
+        let msg = InitMsg {};
         let env = mock_env(
             &deps.api,
             "creator",
@@ -151,23 +153,74 @@ mod tests {
         );
         let _res = init(&mut deps, env, msg).unwrap();
 
-        // beneficiary can release it
-        let unauth_env = mock_env(&deps.api, "anyone", &coin("2", "token"), &[]);
-        let msg = HandleMsg::Reset { count: 5 };
-        let res = handle(&mut deps, unauth_env, msg);
+        // signer is not owner
+        let env = mock_env(&deps.api, "someone", &[], &coin("2", "token"));
+        let payload = CosmosMsg::Send {
+            from_address: deps.api.human_address(&env.contract.address).unwrap(),
+            to_address: HumanAddr::from("friend"),
+            amount: coin("1", "token"),
+        };
+        let msg = HandleMsg::ReflectMsg {
+            msg: payload.clone(),
+        };
+
+        let res = handle(&mut deps, env, msg);
         match res {
             Err(Error::Unauthorized { .. }) => {}
             _ => panic!("Must return unauthorized error"),
         }
+    }
 
-        // only the original creator can reset the counter
-        let auth_env = mock_env(&deps.api, "creator", &coin("2", "token"), &[]);
-        let msg = HandleMsg::Reset { count: 5 };
-        let _res = handle(&mut deps, auth_env, msg).unwrap();
+    #[test]
+    fn transfer() {
+        let mut deps = dependencies(20);
 
-        // should now be 5
-        let res = query(&deps, QueryMsg::GetCount {}).unwrap();
-        let value: CountResponse = from_slice(&res).unwrap();
-        assert_eq!(5, value.count);
+        let msg = InitMsg {};
+        let env = mock_env(
+            &deps.api,
+            "creator",
+            &coin("2", "token"),
+            &coin("2", "token"),
+        );
+        let _res = init(&mut deps, env, msg).unwrap();
+
+        let env = mock_env(&deps.api, "creator", &[], &coin("2", "token"));
+        let new_owner = HumanAddr::from("friend");
+        let msg = HandleMsg::ChangeOwner {
+            owner: new_owner.clone(),
+        };
+        let res = handle(&mut deps, env, msg).unwrap();
+
+        // should change state
+        assert_eq!(0, res.messages.len());
+        let res = query(&deps, QueryMsg::GetOwner {}).unwrap();
+        let value: OwnerResponse = from_slice(&res).unwrap();
+        assert_eq!("friend", value.owner.as_str());
+    }
+
+    #[test]
+    fn transfer_requires_owner() {
+        let mut deps = dependencies(20);
+
+        let msg = InitMsg {};
+        let env = mock_env(
+            &deps.api,
+            "creator",
+            &coin("2", "token"),
+            &coin("2", "token"),
+        );
+        let _res = init(&mut deps, env, msg).unwrap();
+
+        let env = mock_env(&deps.api, "random", &[], &coin("2", "token"));
+        let new_owner = HumanAddr::from("friend");
+        let msg = HandleMsg::ChangeOwner {
+            owner: new_owner.clone(),
+        };
+
+        let res = handle(&mut deps, env, msg);
+        match res {
+            Err(Error::Unauthorized { .. }) => {}
+            _ => panic!("Must return unauthorized error"),
+        }
     }
 }

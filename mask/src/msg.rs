@@ -1,7 +1,7 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use cosmwasm::types::{HumanAddr, CosmosMsg};
+use cosmwasm::types::{CosmosMsg, HumanAddr};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct InitMsg {}
@@ -9,7 +9,7 @@ pub struct InitMsg {}
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum HandleMsg {
-    ReflectMsg { msg: CosmosMsg},
+    ReflectMsg { msg: CosmosMsg },
     ChangeOwner { owner: HumanAddr },
 }
 
