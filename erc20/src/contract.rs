@@ -228,7 +228,6 @@ fn try_burn<S: Storage, A: Api>(
     let amount_raw = parse_u128(amount)?;
 
     let mut balances_store = PrefixedStorage::new(PREFIX_BALANCES, &mut deps.storage);
-
     let mut account_balance = read_u128(&balances_store, owner_address_raw.as_slice())?;
 
     if account_balance < amount_raw {
@@ -239,6 +238,14 @@ fn try_burn<S: Storage, A: Api>(
     }
     account_balance -= amount_raw;
     balances_store.set(owner_address_raw.as_slice(), &account_balance.to_be_bytes());
+
+    let mut config_store = PrefixedStorage::new(PREFIX_CONFIG, &mut deps.storage);
+    let data = config_store.get(KEY_TOTAL_SUPPLY).expect("no decimals data stored");
+    let mut total_supply = bytes_to_u128(&data).unwrap();
+
+    total_supply -= amount_raw;
+
+    config_store.set(KEY_TOTAL_SUPPLY, &total_supply.to_be_bytes());
 
     let res = Response {
         messages: vec![],

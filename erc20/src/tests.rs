@@ -1033,6 +1033,195 @@ mod transfer_from {
     }
 }
 
+mod burn {
+    use super::*;
+
+    fn make_init_msg() -> InitMsg {
+        InitMsg {
+            name: "Cash Token".to_string(),
+            symbol: "CASH".to_string(),
+            decimals: 9,
+            initial_balances: vec![
+                InitialBalance {
+                    address: HumanAddr("addr0000".to_string()),
+                    amount: "11".to_string(),
+                },
+                InitialBalance {
+                    address: HumanAddr("addr1111".to_string()),
+                    amount: "22".to_string(),
+                },
+                InitialBalance {
+                    address: HumanAddr("addrbbbb".to_string()),
+                    amount: "33".to_string(),
+                },
+            ],
+        }
+    }
+
+    #[test]
+    fn can_burn_from_existing_account() {
+        let mut deps = dependencies(CANONICAL_LENGTH);
+        let init_msg = make_init_msg();
+        let env1 = mock_env_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
+        let res = init(&mut deps, env1, init_msg).unwrap();
+        assert_eq!(0, res.messages.len());
+
+        // Initial state
+        assert_eq!(
+            get_balance(&deps.api, &deps.storage, &HumanAddr("addr0000".to_string())),
+            11
+        );
+        assert_eq!(
+            get_balance(&deps.api, &deps.storage, &HumanAddr("addr1111".to_string())),
+            22
+        );
+        assert_eq!(
+            get_balance(&deps.api, &deps.storage, &HumanAddr("addrbbbb".to_string())),
+            33
+        );
+        assert_eq!(get_total_supply(&deps.storage), 66);
+
+        // Burn
+        let burn_msg = HandleMsg::Burn {
+            amount: "1".to_string(),
+        };
+        let env2 = mock_env_height(&deps.api, &HumanAddr("addr0000".to_string()), 450, 550);
+        let burn_result = handle(&mut deps, env2, burn_msg).unwrap();
+        assert_eq!(burn_result.messages.len(), 0);
+        assert_eq!(
+            burn_result.log,
+            vec![
+                log("action", "burn"),
+                log("account", "addr0000"),
+                log("amount", "1")
+            ]
+        );
+
+        // New state
+        assert_eq!(
+            get_balance(&deps.api, &deps.storage, &HumanAddr("addr0000".to_string())),
+            10
+        ); // -1
+        assert_eq!(
+            get_balance(&deps.api, &deps.storage, &HumanAddr("addr1111".to_string())),
+            22
+        ); 
+        assert_eq!(
+            get_balance(&deps.api, &deps.storage, &HumanAddr("addrbbbb".to_string())),
+            33
+        );
+        assert_eq!(get_total_supply(&deps.storage), 65);
+    }
+
+    #[test]
+    fn can_burn_zero_amount() {
+        let mut deps = dependencies(CANONICAL_LENGTH);
+        let init_msg = make_init_msg();
+        let env1 = mock_env_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
+        let res = init(&mut deps, env1, init_msg).unwrap();
+        assert_eq!(0, res.messages.len());
+
+        // Initial state
+        assert_eq!(
+            get_balance(&deps.api, &deps.storage, &HumanAddr("addr0000".to_string())),
+            11
+        );
+        assert_eq!(
+            get_balance(&deps.api, &deps.storage, &HumanAddr("addr1111".to_string())),
+            22
+        );
+        assert_eq!(
+            get_balance(&deps.api, &deps.storage, &HumanAddr("addrbbbb".to_string())),
+            33
+        );
+        assert_eq!(get_total_supply(&deps.storage), 66);
+
+        // Burn
+        let burn_msg = HandleMsg::Burn {
+            amount: "0".to_string(),
+        };
+        let env2 = mock_env_height(&deps.api, &HumanAddr("addr0000".to_string()), 450, 550);
+        let burn_result = handle(&mut deps, env2, burn_msg).unwrap();
+        assert_eq!(burn_result.messages.len(), 0);
+        assert_eq!(
+            burn_result.log,
+            vec![
+                log("action", "burn"),
+                log("account", "addr0000"),
+                log("amount", "0"),
+            ]
+        );
+
+        // New state (unchanged)
+        assert_eq!(
+            get_balance(&deps.api, &deps.storage, &HumanAddr("addr0000".to_string())),
+            11
+        );
+        assert_eq!(
+            get_balance(&deps.api, &deps.storage, &HumanAddr("addr1111".to_string())),
+            22
+        );
+        assert_eq!(
+            get_balance(&deps.api, &deps.storage, &HumanAddr("addrbbbb".to_string())),
+            33
+        );
+        assert_eq!(get_total_supply(&deps.storage), 66);
+    }
+
+    #[test]
+    fn fails_on_insufficient_balance() {
+        let mut deps = dependencies(CANONICAL_LENGTH);
+        let init_msg = make_init_msg();
+        let env1 = mock_env_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
+        let res = init(&mut deps, env1, init_msg).unwrap();
+        assert_eq!(0, res.messages.len());
+
+        // Initial state
+        assert_eq!(
+            get_balance(&deps.api, &deps.storage, &HumanAddr("addr0000".to_string())),
+            11
+        );
+        assert_eq!(
+            get_balance(&deps.api, &deps.storage, &HumanAddr("addr1111".to_string())),
+            22
+        );
+        assert_eq!(
+            get_balance(&deps.api, &deps.storage, &HumanAddr("addrbbbb".to_string())),
+            33
+        );
+        assert_eq!(get_total_supply(&deps.storage), 66);
+
+        // Burn
+        let burn_msg = HandleMsg::Burn {
+            amount: "12".to_string(),
+        };
+        let env2 = mock_env_height(&deps.api, &HumanAddr("addr0000".to_string()), 450, 550);
+        let burn_result = handle(&mut deps, env2, burn_msg);
+        match burn_result {
+            Ok(_) => panic!("expected error"),
+            Err(Error::DynContractErr { msg, .. }) => {
+                assert_eq!(msg, "insufficient funds to burn: balance=11, required=12")
+            }
+            Err(e) => panic!("unexpected error: {:?}", e),
+        }
+
+        // New state (unchanged)
+        assert_eq!(
+            get_balance(&deps.api, &deps.storage, &HumanAddr("addr0000".to_string())),
+            11
+        );
+        assert_eq!(
+            get_balance(&deps.api, &deps.storage, &HumanAddr("addr1111".to_string())),
+            22
+        );
+        assert_eq!(
+            get_balance(&deps.api, &deps.storage, &HumanAddr("addrbbbb".to_string())),
+            33
+        );
+        assert_eq!(get_total_supply(&deps.storage), 66);
+    }
+}
+
 mod query {
     use super::*;
 

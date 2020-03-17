@@ -271,31 +271,32 @@ fn burn_works() {
     let res = init(&mut deps, env1, init_msg).unwrap();
     assert_eq!(0, res.messages.len());
 
-    let sender = address(1);
+    let owner = address(1);
 
     // Before
     deps.with_storage(|storage| {
-        assert_eq!(get_balance(&deps.api, storage, &sender), 100);
+        assert_eq!(get_balance(&deps.api, storage, &owner), 11);
     });
 
     // Burn
     let burn_msg = HandleMsg::Burn {
-        amount: "10".to_string(),
+        amount: "1".to_string(),
     };
-    let env2 = mock_env_height(&deps.api, &sender, 877, 0);
+    let env2 = mock_env_height(&deps.api, &owner, 877, 0);
     let burn_result = handle(&mut deps, env2, burn_msg).unwrap();
     assert_eq!(burn_result.messages.len(), 0);
     assert_eq!(
         burn_result.log,
         vec![
             log("action", "burn"),
-            log("sender", sender.as_str())
+            log("account", owner.as_str()),
+            log("amount", "1")
         ]
     );
 
     // After
     deps.with_storage(|storage| {
-        assert_eq!(get_balance(&deps.api, storage, &sender), 90);
+        assert_eq!(get_balance(&deps.api, storage, &owner), 10);
     });
 }
 
