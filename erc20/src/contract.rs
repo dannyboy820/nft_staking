@@ -238,7 +238,9 @@ fn try_burn<S: Storage, A: Api>(
     balances_store.set(owner_address_raw.as_slice(), &account_balance.to_be_bytes());
 
     let mut config_store = PrefixedStorage::new(PREFIX_CONFIG, &mut deps.storage);
-    let data = config_store.get(KEY_TOTAL_SUPPLY).expect("no decimals data stored");
+    let data = config_store
+        .get(KEY_TOTAL_SUPPLY)
+        .expect("no decimals data stored");
     let mut total_supply = bytes_to_u128(&data).unwrap();
 
     total_supply -= amount_raw;

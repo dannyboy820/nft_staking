@@ -81,7 +81,7 @@
         "burn"
       ],
       "properties": {
-        "transfer": {
+        "burn": {
           "type": "object",
           "required": [
             "amount"
