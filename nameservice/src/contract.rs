@@ -111,12 +111,13 @@ fn query_resolver<S: Storage, A: Api>(deps: &Extern<S, A>, name: String) -> Resu
 }
 
 // let's not import a regexp library and just do these checks by hand
-fn invalid_char(c: &char) -> bool {
-    if c >= &'0' && c <= &'9' {
+fn invalid_char(ch: &char) -> bool {
+    let c = *ch;
+    if c >= '0' && c <= '9' {
         false
-    } else if c >= &'a' && c <= &'z' {
+    } else if c >= 'a' && c <= 'z' {
         false
-    } else if c == &'.' || c == &'-' || c == &'_' {
+    } else if c == '.' || c == '-' || c == '_' {
         false
     } else {
         true
@@ -124,7 +125,7 @@ fn invalid_char(c: &char) -> bool {
 }
 
 /// validate_name returns an error if the name is invalid
-/// (we require 4-64 lowercase ascii letters, numbers, or . - _)
+/// (we require 3-64 lowercase ascii letters, numbers, or . - _)
 fn validate_name(name: &str) -> Result<()> {
     if name.len() < MIN_NAME_LENGTH {
         contract_err("Name too short")

@@ -365,7 +365,7 @@ fn fails_on_transfer_insufficient_fees() {
 }
 
 #[test]
-fn fails_on_query_unregistered_name() {
+fn returns_empty_on_query_unregistered_name() {
     let mut deps = dependencies(20);
 
     mock_init_no_fees(&mut deps);

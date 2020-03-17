@@ -334,7 +334,7 @@ fn fails_on_transfer_insufficient_fees() {
 }
 
 #[test]
-fn fails_on_query_unregistered_name() {
+fn returns_empty_on_query_unregistered_name() {
     let mut deps = mock_instance(WASM);
 
     mock_init_no_fees(&mut deps);
