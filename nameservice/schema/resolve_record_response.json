@@ -7,7 +7,14 @@
   ],
   "properties": {
     "address": {
-      "$ref": "#/definitions/HumanAddr"
+      "anyOf": [
+        {
+          "$ref": "#/definitions/HumanAddr"
+        },
+        {
+          "type": "null"
+        }
+      ]
     }
   },
   "definitions": {
