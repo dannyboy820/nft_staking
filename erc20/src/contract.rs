@@ -212,6 +212,13 @@ fn try_approve<S: Storage, A: Api>(
     Ok(res)
 }
 
+/**
+* Destroy tokens
+*
+* Remove `amount` tokens from the system irreversibly
+*
+* @param amount the amount of money to burn
+*/
 fn try_burn<S: Storage, A: Api>(
     deps: &mut Extern<S, A>,
     env: Env,
@@ -220,15 +227,13 @@ fn try_burn<S: Storage, A: Api>(
     let owner_address_raw = &env.message.signer;
     let amount_raw = parse_u128(amount)?;
 
-    let store = &mut deps.storage;
-
-    let mut balances_store = PrefixedStorage::new(PREFIX_BALANCES, store);
+    let mut balances_store = PrefixedStorage::new(PREFIX_BALANCES, &mut deps.storage);
 
     let mut account_balance = read_u128(&balances_store, owner_address_raw.as_slice())?;
 
     if account_balance < amount_raw {
         return dyn_contract_err(format!(
-            "Insufficient funds to burn: balance={}, required={}",
+            "insufficient funds to burn: balance={}, required={}",
             account_balance, amount_raw
         ));
     }
