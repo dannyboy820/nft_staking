@@ -75,6 +75,7 @@ pub fn handle<S: Storage, A: Api>(
             recipient,
             amount,
         } => try_transfer_from(deps, env, &owner, &recipient, &amount),
+        HandleMsg::Burn { amount } => try_burn(deps, env, &amount),
     }
 }
 
@@ -208,6 +209,58 @@ fn try_approve<S: Storage, A: Api>(
         ],
         data: None,
     };
+    Ok(res)
+}
+
+/// Burn tokens
+///
+/// Remove `amount` tokens from the system irreversibly, from signer account
+///
+/// @param amount the amount of money to burn
+fn try_burn<S: Storage, A: Api>(
+    deps: &mut Extern<S, A>,
+    env: Env,
+    amount: &str,
+) -> Result<Response> {
+    let owner_address_raw = &env.message.signer;
+    let amount_raw = parse_u128(amount)?;
+
+    let mut account_balance = read_balance(&mut deps.storage, owner_address_raw)?;
+
+    if account_balance < amount_raw {
+        return dyn_contract_err(format!(
+            "insufficient funds to burn: balance={}, required={}",
+            account_balance, amount_raw
+        ));
+    }
+    account_balance -= amount_raw;
+
+    let mut balances_store = PrefixedStorage::new(PREFIX_BALANCES, &mut deps.storage);
+    balances_store.set(owner_address_raw.as_slice(), &account_balance.to_be_bytes());
+
+    let mut config_store = PrefixedStorage::new(PREFIX_CONFIG, &mut deps.storage);
+    let data = config_store
+        .get(KEY_TOTAL_SUPPLY)
+        .expect("no decimals data stored");
+    let mut total_supply = bytes_to_u128(&data).unwrap();
+
+    total_supply -= amount_raw;
+
+    config_store.set(KEY_TOTAL_SUPPLY, &total_supply.to_be_bytes());
+
+    let res = Response {
+        messages: vec![],
+        log: vec![
+            log("action", "burn"),
+            log(
+                "account",
+                deps.api.human_address(&env.message.signer)?.as_str(),
+            ),
+            log("amount", amount),
+        ],
+        data: None,
+    };
+
     Ok(res)
 }
 
