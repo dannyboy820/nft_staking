@@ -225,7 +225,7 @@ fn try_burn<S: Storage, A: Api>(
     let owner_address_raw = &env.message.signer;
     let amount_raw = parse_u128(amount)?;
 
-    let mut account_balance = read_balance(&mut deps.storage, owner_address_raw).unwrap();
+    let mut account_balance = read_balance(&mut deps.storage, owner_address_raw)?;
 
     if account_balance < amount_raw {
         return dyn_contract_err(format!(
