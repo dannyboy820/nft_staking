@@ -299,7 +299,7 @@ dependencies = [
 
 [[package]]
 name = "cw-nameservice"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "cosmwasm 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "cosmwasm-vm 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
