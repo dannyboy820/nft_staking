@@ -225,8 +225,7 @@ fn try_burn<S: Storage, A: Api>(
     let owner_address_raw = &env.message.signer;
     let amount_raw = parse_u128(amount)?;
 
-    let mut balances_store = PrefixedStorage::new(PREFIX_BALANCES, &mut deps.storage);
-    let mut account_balance = read_u128(&balances_store, owner_address_raw.as_slice())?;
+    let mut account_balance = read_balance(&mut deps.storage, owner_address_raw).unwrap();
 
     if account_balance < amount_raw {
         return dyn_contract_err(format!(
@@ -235,6 +234,8 @@ fn try_burn<S: Storage, A: Api>(
         ));
     }
     account_balance -= amount_raw;
+
+    let mut balances_store = PrefixedStorage::new(PREFIX_BALANCES, &mut deps.storage);
     balances_store.set(owner_address_raw.as_slice(), &account_balance.to_be_bytes());
 
     let mut config_store = PrefixedStorage::new(PREFIX_CONFIG, &mut deps.storage);
