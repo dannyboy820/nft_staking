@@ -71,7 +71,7 @@ pub fn try_change_owner<S: Storage, A: Api>(
 
 pub fn query<S: Storage, A: Api>(deps: &Extern<S, A>, msg: QueryMsg) -> Result<Vec<u8>> {
     match msg {
-        QueryMsg::GetOwner {} => query_owner(deps),
+        QueryMsg::Owner {} => query_owner(deps),
     }
 }
 
@@ -106,7 +106,7 @@ mod tests {
         assert_eq!(0, res.messages.len());
 
         // it worked, let's query the state
-        let res = query(&deps, QueryMsg::GetOwner {}).unwrap();
+        let res = query(&deps, QueryMsg::Owner {}).unwrap();
         let value: OwnerResponse = from_slice(&res).unwrap();
         assert_eq!("creator", value.owner.as_str());
     }
@@ -193,7 +193,7 @@ mod tests {
 
         // should change state
         assert_eq!(0, res.messages.len());
-        let res = query(&deps, QueryMsg::GetOwner {}).unwrap();
+        let res = query(&deps, QueryMsg::Owner {}).unwrap();
         let value: OwnerResponse = from_slice(&res).unwrap();
         assert_eq!("friend", value.owner.as_str());
     }

@@ -16,7 +16,7 @@ pub enum HandleMsg {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum QueryMsg {
-    GetOwner {},
+    Owner {},
 }
 
 // We define a custom struct for each query response

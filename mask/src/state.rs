@@ -5,7 +5,7 @@ use cosmwasm::traits::Storage;
 use cosmwasm::types::CanonicalAddr;
 use cw_storage::{singleton, singleton_read, ReadonlySingleton, Singleton};
 
-pub static CONFIG_KEY: &[u8] = b"config";
+static CONFIG_KEY: &[u8] = b"config";
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct State {

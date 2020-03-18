@@ -61,7 +61,7 @@ fn proper_initialization() {
     assert_eq!(0, res.messages.len());
 
     // it worked, let's query the state
-    let res = query(&mut deps, QueryMsg::GetOwner {}).unwrap();
+    let res = query(&mut deps, QueryMsg::Owner {}).unwrap();
     let value: OwnerResponse = from_slice(res.as_slice()).unwrap();
     assert_eq!("creator", value.owner.as_str());
 }
@@ -148,7 +148,7 @@ fn transfer() {
 
     // should change state
     assert_eq!(0, res.messages.len());
-    let res = query(&mut deps, QueryMsg::GetOwner {}).unwrap();
+    let res = query(&mut deps, QueryMsg::Owner {}).unwrap();
     let value: OwnerResponse = from_slice(res.as_slice()).unwrap();
     assert_eq!("friend", value.owner.as_str());
 }
