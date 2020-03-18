@@ -11,11 +11,14 @@
         "reflectmsg": {
           "type": "object",
           "required": [
-            "msg"
+            "msgs"
           ],
           "properties": {
-            "msg": {
-              "$ref": "#/definitions/CosmosMsg"
+            "msgs": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/CosmosMsg"
+              }
             }
           }
         }

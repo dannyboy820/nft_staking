@@ -1,6 +1,6 @@
 use snafu::ResultExt;
 
-use cosmwasm::errors::{unauthorized, Result, SerializeErr};
+use cosmwasm::errors::{contract_err, unauthorized, Result, SerializeErr};
 use cosmwasm::serde::to_vec;
 use cosmwasm::traits::{Api, Extern, Storage};
 use cosmwasm::types::{log, CosmosMsg, Env, HumanAddr, Response};
@@ -28,7 +28,7 @@ pub fn handle<S: Storage, A: Api>(
     msg: HandleMsg,
 ) -> Result<Response> {
     match msg {
-        HandleMsg::ReflectMsg { msg } => try_reflect(deps, env, msg),
+        HandleMsg::ReflectMsg { msgs } => try_reflect(deps, env, msgs),
         HandleMsg::ChangeOwner { owner } => try_change_owner(deps, env, owner),
     }
 }
@@ -36,14 +36,17 @@ pub fn handle<S: Storage, A: Api>(
 pub fn try_reflect<S: Storage, A: Api>(
     deps: &mut Extern<S, A>,
     env: Env,
-    msg: CosmosMsg,
+    msgs: Vec<CosmosMsg>,
 ) -> Result<Response> {
     let state = config(&mut deps.storage).load()?;
     if env.message.signer != state.owner {
         return unauthorized();
     }
+    if msgs.is_empty() {
+        return contract_err("Must reflect at least one message");
+    }
     let res = Response {
-        messages: vec![msg],
+        messages: msgs,
         log: vec![log("action", "reflect")],
         data: None,
     };
@@ -125,19 +128,17 @@ mod tests {
         let _res = init(&mut deps, env, msg).unwrap();
 
         let env = mock_env(&deps.api, "creator", &[], &coin("2", "token"));
-        let payload = CosmosMsg::Send {
+        let payload = vec![CosmosMsg::Send {
             from_address: deps.api.human_address(&env.contract.address).unwrap(),
             to_address: HumanAddr::from("friend"),
             amount: coin("1", "token"),
-        };
+        }];
+
         let msg = HandleMsg::ReflectMsg {
-            msg: payload.clone(),
+            msgs: payload.clone(),
         };
         let res = handle(&mut deps, env, msg).unwrap();
-
-        // should return payload
-        assert_eq!(1, res.messages.len());
-        assert_eq!(payload, res.messages[0]);
+        assert_eq!(payload, res.messages);
     }
 
     #[test]
@@ -155,13 +156,13 @@ mod tests {
 
         // signer is not owner
         let env = mock_env(&deps.api, "someone", &[], &coin("2", "token"));
-        let payload = CosmosMsg::Send {
+        let payload = vec![CosmosMsg::Send {
             from_address: deps.api.human_address(&env.contract.address).unwrap(),
             to_address: HumanAddr::from("friend"),
             amount: coin("1", "token"),
-        };
+        }];
         let msg = HandleMsg::ReflectMsg {
-            msg: payload.clone(),
+            msgs: payload.clone(),
         };
 
         let res = handle(&mut deps, env, msg);

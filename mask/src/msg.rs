@@ -9,7 +9,7 @@ pub struct InitMsg {}
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum HandleMsg {
-    ReflectMsg { msg: CosmosMsg },
+    ReflectMsg { msgs: Vec<CosmosMsg> },
     ChangeOwner { owner: HumanAddr },
 }
 

@@ -80,19 +80,18 @@ fn reflect() {
     let _res = init(&mut deps, env, msg).unwrap();
 
     let env = mock_env(&deps.api, "creator", &[], &coin("2", "token"));
-    let payload = CosmosMsg::Send {
+    let payload = vec![CosmosMsg::Send {
         from_address: deps.api.human_address(&env.contract.address).unwrap(),
         to_address: HumanAddr::from("friend"),
         amount: coin("1", "token"),
-    };
+    }];
     let msg = HandleMsg::ReflectMsg {
-        msg: payload.clone(),
+        msgs: payload.clone(),
     };
     let res = handle(&mut deps, env, msg).unwrap();
 
     // should return payload
-    assert_eq!(1, res.messages.len());
-    assert_eq!(payload, res.messages[0]);
+    assert_eq!(payload, res.messages);
 }
 
 #[test]
@@ -110,13 +109,13 @@ fn reflect_requires_owner() {
 
     // signer is not owner
     let env = mock_env(&deps.api, "someone", &[], &coin("2", "token"));
-    let payload = CosmosMsg::Send {
+    let payload = vec![CosmosMsg::Send {
         from_address: deps.api.human_address(&env.contract.address).unwrap(),
         to_address: HumanAddr::from("friend"),
         amount: coin("1", "token"),
-    };
+    }];
     let msg = HandleMsg::ReflectMsg {
-        msg: payload.clone(),
+        msgs: payload.clone(),
     };
 
     let res = handle(&mut deps, env, msg);
