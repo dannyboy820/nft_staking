@@ -1,6 +1,5 @@
 use snafu::ResultExt;
 
-use cosmwasm::encoding::Binary;
 use cosmwasm::errors::{contract_err, unauthorized, Result, SerializeErr};
 use cosmwasm::serde::to_vec;
 use cosmwasm::traits::{Api, Extern, Storage};
@@ -93,6 +92,7 @@ fn query_owner<S: Storage, A: Api>(deps: &Extern<S, A>) -> Result<Vec<u8>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use cosmwasm::encoding::Binary;
     use cosmwasm::errors::Error;
     use cosmwasm::mock::{dependencies, mock_env};
     use cosmwasm::serde::from_slice;
