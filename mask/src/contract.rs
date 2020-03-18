@@ -194,7 +194,9 @@ mod tests {
         };
         let res = handle(&mut deps, env, msg);
         match res {
-            Err(Error::ContractErr { msg, .. }) => assert_eq!(msg, "Must reflect at least one message"),
+            Err(Error::ContractErr { msg, .. }) => {
+                assert_eq!(msg, "Must reflect at least one message")
+            }
             _ => panic!("Must return contract error"),
         }
     }
@@ -219,7 +221,7 @@ mod tests {
                 to_address: HumanAddr::from("friend"),
                 amount: coin("1", "token"),
             },
-            CosmosMsg::Opaque{
+            CosmosMsg::Opaque {
                 data: Binary(b"{\"foo\":123}".to_vec()),
             },
         ];
