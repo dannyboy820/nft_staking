@@ -1,5 +1,6 @@
 use snafu::ResultExt;
 
+use cosmwasm::encoding::Binary;
 use cosmwasm::errors::{contract_err, unauthorized, Result, SerializeErr};
 use cosmwasm::serde::to_vec;
 use cosmwasm::traits::{Api, Extern, Storage};
@@ -170,6 +171,64 @@ mod tests {
             Err(Error::Unauthorized { .. }) => {}
             _ => panic!("Must return unauthorized error"),
         }
+    }
+
+    #[test]
+    fn reflect_reject_empty_msgs() {
+        let mut deps = dependencies(20);
+
+        let msg = InitMsg {};
+        let env = mock_env(
+            &deps.api,
+            "creator",
+            &coin("2", "token"),
+            &coin("2", "token"),
+        );
+        let _res = init(&mut deps, env, msg).unwrap();
+
+        let env = mock_env(&deps.api, "creator", &[], &coin("2", "token"));
+        let payload = vec![];
+
+        let msg = HandleMsg::ReflectMsg {
+            msgs: payload.clone(),
+        };
+        let res = handle(&mut deps, env, msg);
+        match res {
+            Err(Error::ContractErr { msg, .. }) => assert_eq!(msg, "Must reflect at least one message"),
+            _ => panic!("Must return contract error"),
+        }
+    }
+
+    #[test]
+    fn reflect_multiple_messages() {
+        let mut deps = dependencies(20);
+
+        let msg = InitMsg {};
+        let env = mock_env(
+            &deps.api,
+            "creator",
+            &coin("2", "token"),
+            &coin("2", "token"),
+        );
+        let _res = init(&mut deps, env, msg).unwrap();
+
+        let env = mock_env(&deps.api, "creator", &[], &coin("2", "token"));
+        let payload = vec![
+            CosmosMsg::Send {
+                from_address: deps.api.human_address(&env.contract.address).unwrap(),
+                to_address: HumanAddr::from("friend"),
+                amount: coin("1", "token"),
+            },
+            CosmosMsg::Opaque{
+                data: Binary(b"{\"foo\":123}".to_vec()),
+            },
+        ];
+
+        let msg = HandleMsg::ReflectMsg {
+            msgs: payload.clone(),
+        };
+        let res = handle(&mut deps, env, msg).unwrap();
+        assert_eq!(payload, res.messages);
     }
 
     #[test]
