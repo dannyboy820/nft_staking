@@ -14,12 +14,19 @@ for example in ./*; do
 
     (
         cd "$example"
-
-        # Build wasm binaries
+        cargo fmt
+        cargo build --locked
+        cargo unit-test --locked
         cargo wasm --locked
+        cargo integration-test --locked
+        cargo schema --locked
 
-        # Run all tests (rust unit tests, vm integration tests)
-        cargo test --features backtraces --locked
+        if [[ -n "$REGEN_OPT" ]]; then
+          docker run --rm -v "$(pwd)":/code \
+            --mount type=volume,source="$(basename "$(pwd)")_cache",target=/code/target \
+            --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
+            confio/cosmwasm-opt:0.7.3
+        fi
     )
   fi
 done
