@@ -334,7 +334,7 @@ dependencies = [
 
 [[package]]
 name = "cw-mask"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "cosmwasm",
  "cosmwasm-vm",
