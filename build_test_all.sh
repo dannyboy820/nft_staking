@@ -14,12 +14,12 @@ for example in ./*; do
 
     (
         cd "$example"
-
-        # Build wasm binaries
+        cargo fmt
+        cargo build --locked
+        cargo unit-test --locked
         cargo wasm --locked
-
-        # Run all tests (rust unit tests, vm integration tests)
-        cargo test --features backtraces --locked
+        cargo integration-test --locked
+        cargo schema --locked
     )
   fi
 done
