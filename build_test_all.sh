@@ -23,7 +23,7 @@ for example in ./*; do
 
         if [[ -n "$REGEN_OPT" ]]; then
           docker run --rm -v "$(pwd)":/code \
-            --mount type=volume,source="$(basename "$(pwd)")"_cache,target=/code/target \
+            --mount type=volume,source="$(basename "$(pwd)")_cache",target=/code/target \
             --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
             confio/cosmwasm-opt:0.7.3
         fi
