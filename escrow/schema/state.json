@@ -14,11 +14,17 @@
       "$ref": "#/definitions/CanonicalAddr"
     },
     "end_height": {
-      "type": "integer",
+      "type": [
+        "integer",
+        "null"
+      ],
       "format": "int64"
     },
     "end_time": {
-      "type": "integer",
+      "type": [
+        "integer",
+        "null"
+      ],
       "format": "int64"
     },
     "recipient": {
