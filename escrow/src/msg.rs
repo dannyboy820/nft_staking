@@ -7,11 +7,13 @@ use cosmwasm::types::{Coin, HumanAddr};
 pub struct InitMsg {
     pub arbiter: HumanAddr,
     pub recipient: HumanAddr,
-    // you can set a last time or block height the contract is valid at
-    // if *either* is non-zero and below current state, the contract is considered expired
-    // and will be returned to the original funder
-    pub end_height: i64,
-    pub end_time: i64,
+    /// When set, this is the last height at which the escrow is valid. After that height,
+    /// the escrow is expired and can be returned to the original funder (via "refund").
+    pub end_height: Option<i64>,
+    /// When set, this is the last time (in seconds since epoch 00:00:00 UTC on 1 January 1970)
+    /// at which the escrow is valid. After that time, the escrow is expired and can be
+    /// returned to the original funder (via "refund").
+    pub end_time: Option<i64>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
