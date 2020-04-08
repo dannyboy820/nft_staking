@@ -19,13 +19,13 @@ pub struct State {
 impl State {
     fn is_expired(&self, env: &Env) -> bool {
         if let Some(end_height) = self.end_height {
-            if env.block.height >= end_height {
+            if env.block.height > end_height {
                 return true;
             }
         }
 
         if let Some(end_time) = self.end_time {
-            if env.block.time >= end_time {
+            if env.block.time > end_time {
                 return true;
             }
         }
@@ -314,7 +314,7 @@ mod tests {
         let init_res = init(&mut deps, env, msg).unwrap();
         assert_eq!(0, init_res.messages.len());
 
-        // cannot release when unexpired
+        // cannot release when unexpired (height < end_height)
         let msg = HandleMsg::Refund {};
         let env = mock_env_height(
             &deps.api,
@@ -322,6 +322,25 @@ mod tests {
             &coin("0", "earth"),
             &coin("1000", "earth"),
             800,
+            0,
+        );
+        let handle_res = handle(&mut deps, env, msg.clone());
+        match handle_res {
+            Ok(_) => panic!("expected error"),
+            Err(Error::ContractErr { msg, .. }) => {
+                assert_eq!(msg, "escrow not yet expired".to_string())
+            }
+            Err(e) => panic!("unexpected error: {:?}", e),
+        }
+
+        // cannot release when unexpired (height == end_height)
+        let msg = HandleMsg::Refund {};
+        let env = mock_env_height(
+            &deps.api,
+            "anybody",
+            &coin("0", "earth"),
+            &coin("1000", "earth"),
+            1000,
             0,
         );
         let handle_res = handle(&mut deps, env, msg.clone());
