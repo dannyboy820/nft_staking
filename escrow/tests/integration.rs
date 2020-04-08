@@ -41,12 +41,12 @@ static WASM: &[u8] = include_bytes!("../target/wasm32-unknown-unknown/release/cw
 // You can uncomment this line instead to test productionified build from cosmwasm-opt
 // static WASM: &[u8] = include_bytes!("../contract.wasm");
 
-fn init_msg(height: i64, time: i64) -> InitMsg {
+fn init_msg_expire_by_height(height: i64) -> InitMsg {
     InitMsg {
         arbiter: HumanAddr::from("verifies"),
         recipient: HumanAddr::from("benefits"),
-        end_height: height,
-        end_time: time,
+        end_height: Some(height),
+        end_time: None,
     }
 }
 
@@ -68,7 +68,7 @@ fn mock_env_height<A: Api>(
 fn proper_initialization() {
     let mut deps = mock_instance(WASM);
 
-    let msg = init_msg(1000, 0);
+    let msg = init_msg_expire_by_height(1000);
     let env = mock_env_height(&deps.api, "creator", &coin("1000", "earth"), &[], 876, 0);
     let res = init(&mut deps, env, msg).unwrap();
     assert_eq!(0, res.messages.len());
@@ -91,8 +91,8 @@ fn proper_initialization() {
                     .api
                     .canonical_address(&HumanAddr::from("creator"))
                     .unwrap(),
-                end_height: 1000,
-                end_time: 0,
+                end_height: Some(1000),
+                end_time: None,
             }
         );
     });
@@ -102,7 +102,7 @@ fn proper_initialization() {
 fn cannot_initialize_expired() {
     let mut deps = mock_instance(WASM);
 
-    let msg = init_msg(1000, 0);
+    let msg = init_msg_expire_by_height(1000);
     let env = mock_env_height(&deps.api, "creator", &coin("1000", "earth"), &[], 1001, 0);
     let res = init(&mut deps, env, msg);
     if let ContractResult::Err(msg) = res {
@@ -117,7 +117,7 @@ fn handle_approve() {
     let mut deps = mock_instance(WASM);
 
     // initialize the store
-    let msg = init_msg(1000, 0);
+    let msg = init_msg_expire_by_height(1000);
     let env = mock_env_height(&deps.api, "creator", &coin("1000", "earth"), &[], 876, 0);
     let init_res = init(&mut deps, env, msg).unwrap();
     assert_eq!(0, init_res.messages.len());
@@ -204,7 +204,7 @@ fn handle_refund() {
     let mut deps = mock_instance(WASM);
 
     // initialize the store
-    let msg = init_msg(1000, 0);
+    let msg = init_msg_expire_by_height(1000);
     let env = mock_env_height(&deps.api, "creator", &coin("1000", "earth"), &[], 876, 0);
     let init_res = init(&mut deps, env, msg).unwrap();
     assert_eq!(0, init_res.messages.len());

@@ -12,14 +12,25 @@ pub struct State {
     pub arbiter: CanonicalAddr,
     pub recipient: CanonicalAddr,
     pub source: CanonicalAddr,
-    pub end_height: i64,
-    pub end_time: i64,
+    pub end_height: Option<i64>,
+    pub end_time: Option<i64>,
 }
 
 impl State {
     fn is_expired(&self, env: &Env) -> bool {
-        (self.end_height != 0 && env.block.height >= self.end_height)
-            || (self.end_time != 0 && env.block.time >= self.end_time)
+        if let Some(end_height) = self.end_height {
+            if env.block.height > end_height {
+                return true;
+            }
+        }
+
+        if let Some(end_time) = self.end_time {
+            if env.block.time > end_time {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
 
@@ -134,12 +145,12 @@ mod tests {
     use cosmwasm::traits::Api;
     use cosmwasm::types::{coin, HumanAddr};
 
-    fn init_msg(height: i64, time: i64) -> InitMsg {
+    fn init_msg_expire_by_height(height: i64) -> InitMsg {
         InitMsg {
             arbiter: HumanAddr::from("verifies"),
             recipient: HumanAddr::from("benefits"),
-            end_height: height,
-            end_time: time,
+            end_height: Some(height),
+            end_time: None,
         }
     }
 
@@ -161,7 +172,7 @@ mod tests {
     fn proper_initialization() {
         let mut deps = dependencies(20);
 
-        let msg = init_msg(1000, 0);
+        let msg = init_msg_expire_by_height(1000);
         let env = mock_env_height(&deps.api, "creator", &coin("1000", "earth"), &[], 876, 0);
         let res = init(&mut deps, env, msg).unwrap();
         assert_eq!(0, res.messages.len());
@@ -183,8 +194,8 @@ mod tests {
                     .api
                     .canonical_address(&HumanAddr::from("creator"))
                     .unwrap(),
-                end_height: 1000,
-                end_time: 0,
+                end_height: Some(1000),
+                end_time: None,
             }
         );
     }
@@ -193,7 +204,7 @@ mod tests {
     fn cannot_initialize_expired() {
         let mut deps = dependencies(20);
 
-        let msg = init_msg(1000, 0);
+        let msg = init_msg_expire_by_height(1000);
         let env = mock_env_height(&deps.api, "creator", &coin("1000", "earth"), &[], 1001, 0);
         let res = init(&mut deps, env, msg);
         assert!(res.is_err());
@@ -209,7 +220,7 @@ mod tests {
         let mut deps = dependencies(20);
 
         // initialize the store
-        let msg = init_msg(1000, 0);
+        let msg = init_msg_expire_by_height(1000);
         let env = mock_env_height(&deps.api, "creator", &coin("1000", "earth"), &[], 876, 0);
         let init_res = init(&mut deps, env, msg).unwrap();
         assert_eq!(0, init_res.messages.len());
@@ -298,12 +309,12 @@ mod tests {
         let mut deps = dependencies(20);
 
         // initialize the store
-        let msg = init_msg(1000, 0);
+        let msg = init_msg_expire_by_height(1000);
         let env = mock_env_height(&deps.api, "creator", &coin("1000", "earth"), &[], 876, 0);
         let init_res = init(&mut deps, env, msg).unwrap();
         assert_eq!(0, init_res.messages.len());
 
-        // cannot release when unexpired
+        // cannot release when unexpired (height < end_height)
         let msg = HandleMsg::Refund {};
         let env = mock_env_height(
             &deps.api,
@@ -311,6 +322,25 @@ mod tests {
             &coin("0", "earth"),
             &coin("1000", "earth"),
             800,
+            0,
+        );
+        let handle_res = handle(&mut deps, env, msg.clone());
+        match handle_res {
+            Ok(_) => panic!("expected error"),
+            Err(Error::ContractErr { msg, .. }) => {
+                assert_eq!(msg, "escrow not yet expired".to_string())
+            }
+            Err(e) => panic!("unexpected error: {:?}", e),
+        }
+
+        // cannot release when unexpired (height == end_height)
+        let msg = HandleMsg::Refund {};
+        let env = mock_env_height(
+            &deps.api,
+            "anybody",
+            &coin("0", "earth"),
+            &coin("1000", "earth"),
+            1000,
             0,
         );
         let handle_res = handle(&mut deps, env, msg.clone());
