@@ -17,7 +17,7 @@ pub struct InitMsg {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-#[serde(rename_all = "lowercase")]
+#[serde(rename_all = "snake_case")]
 pub enum HandleMsg {
     Approve {
         // release some coins - if quantity is None, release all coins in balance
@@ -27,5 +27,5 @@ pub enum HandleMsg {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-#[serde(rename_all = "lowercase")]
+#[serde(rename_all = "snake_case")]
 pub enum QueryMsg {}

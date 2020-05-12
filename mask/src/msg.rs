@@ -7,14 +7,14 @@ use cosmwasm::types::{CosmosMsg, HumanAddr};
 pub struct InitMsg {}
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-#[serde(rename_all = "lowercase")]
+#[serde(rename_all = "snake_case")]
 pub enum HandleMsg {
     ReflectMsg { msgs: Vec<CosmosMsg> },
     ChangeOwner { owner: HumanAddr },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-#[serde(rename_all = "lowercase")]
+#[serde(rename_all = "snake_case")]
 pub enum QueryMsg {
     Owner {},
 }

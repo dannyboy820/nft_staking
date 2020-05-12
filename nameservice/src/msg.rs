@@ -9,14 +9,14 @@ pub struct InitMsg {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-#[serde(rename_all = "lowercase")]
+#[serde(rename_all = "snake_case")]
 pub enum HandleMsg {
     Register { name: String },
     Transfer { name: String, to: HumanAddr },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-#[serde(rename_all = "lowercase")]
+#[serde(rename_all = "snake_case")]
 pub enum QueryMsg {
     // ResolveAddress returns the current address that the name resolves to
     ResolveRecord { name: String },
