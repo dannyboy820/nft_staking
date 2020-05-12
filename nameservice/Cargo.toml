@@ -1,11 +1,11 @@
 [package]
 name = "cw-nameservice"
 description = "A name service"
-version = "0.3.1"
+version = "0.4.0-dev"
 authors = ["Cory Levinson <cjlevinson@gmail.com>"]
 edition = "2018"
 license = "Apache-2.0"
-repository = "https://github.com/confio/cosmwasm-examples"
+repository = "https://github.com/CosmWasm/cosmwasm-examples"
 
 exclude = [
   # Those files are cosmwasm-opt artifacts. You might want to commit them for convenience but they should not be part of the source code publication.

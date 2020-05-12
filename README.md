@@ -16,8 +16,8 @@ This allows us to compile all contracts with one command.
 The following contracts are available for use. You can view the source code under `src`
 and a precompiled wasm ready for deployment under `contract.wasm`. Take a look here:
 
-* [escrow](https://github.com/confio/cosmwasm-examples/tree/master/escrow) - A basic escrow with timeout and partial release
-* [erc20](https://github.com/confio/cosmwasm-examples/tree/master/erc20) - Basic implementation the erc20 interface for CosmWasm, as a base for token designers
+* [escrow](https://github.com/CosmWasm/cosmwasm-examples/tree/master/escrow) - A basic escrow with timeout and partial release
+* [erc20](https://github.com/CosmWasm/cosmwasm-examples/tree/master/erc20) - Basic implementation the erc20 interface for CosmWasm, as a base for token designers
 
 ## Development
 
@@ -60,4 +60,4 @@ cat hash.txt
 If the sha256 hash changes without any code changes, even when compiling on different machines,
 or removing those cache volumes, then please submit an issue on [cosmwasm-opt](https://github.com/confio/cosmwasm-opt).
 
-Once you pass these checks, please open a [PR on this repo](https://github.com/confio/cosmwasm-examples/pulls).
+Once you pass these checks, please open a [PR on this repo](https://github.com/CosmWasm/cosmwasm-examples/pulls).

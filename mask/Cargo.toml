@@ -1,6 +1,6 @@
 [package]
 name = "cw-mask"
-version = "0.1.1"
+version = "0.2.0-dev"
 authors = ["Ethan Frey <ethanfrey@users.noreply.github.com>"]
 edition = "2018"
 description = "A Mask for CosmWasm - allows you to reflect arbitrary messages with the contract's address"
