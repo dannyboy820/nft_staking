@@ -21,7 +21,7 @@ for example in ./*; do
         cargo integration-test --locked
         cargo schema --locked
 
-        if [[ -n "$REGEN_OPT" ]]; then
+        if [[ -n "${REGEN_OPT:-}" ]]; then
           docker run --rm -v "$(pwd)":/code \
             --mount type=volume,source="$(basename "$(pwd)")_cache",target=/code/target \
             --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
