@@ -1,9 +1,6 @@
-use cosmwasm::errors::Error;
-use cosmwasm::mock::{dependencies, mock_env};
-use cosmwasm::serde::from_slice;
-use cosmwasm::traits::{Api, ReadonlyStorage, Storage};
-use cosmwasm::types::{log, Env, HumanAddr};
-use cw_storage::ReadonlyPrefixedStorage;
+use cosmwasm_std::testing::{mock_dependencies, mock_env};
+use cosmwasm_std::{from_slice, log, Api, Env, HumanAddr, ReadonlyStorage, StdError, Storage};
+use cosmwasm_storage::ReadonlyPrefixedStorage;
 
 use crate::contract::{
     bytes_to_u128, handle, init, query, read_u128, Constants, KEY_CONSTANTS, KEY_TOTAL_SUPPLY,
@@ -13,8 +10,8 @@ use crate::msg::{HandleMsg, InitMsg, InitialBalance, QueryMsg};
 
 static CANONICAL_LENGTH: usize = 20;
 
-fn mock_env_height<A: Api>(api: &A, signer: &HumanAddr, height: i64, time: i64) -> Env {
-    let mut env = mock_env(api, signer, &[], &[]);
+fn mock_env_height<A: Api>(api: &A, signer: &HumanAddr, height: u64, time: u64) -> Env {
+    let mut env = mock_env(api, signer, &[]);
     env.block.height = height;
     env.block.time = time;
     env
@@ -24,6 +21,7 @@ fn get_constants<S: Storage>(storage: &S) -> Constants {
     let config_storage = ReadonlyPrefixedStorage::new(PREFIX_CONFIG, storage);
     let data = config_storage
         .get(KEY_CONSTANTS)
+        .expect("error reading data")
         .expect("no config data stored");
     from_slice(&data).expect("invalid data")
 }
@@ -32,6 +30,7 @@ fn get_total_supply<S: Storage>(storage: &S) -> u128 {
     let config_storage = ReadonlyPrefixedStorage::new(PREFIX_CONFIG, storage);
     let data = config_storage
         .get(KEY_TOTAL_SUPPLY)
+        .expect("error reading data")
         .expect("no decimals data stored");
     return bytes_to_u128(&data).unwrap();
 }
@@ -63,8 +62,8 @@ fn get_allowance<S: ReadonlyStorage, A: Api>(
 }
 
 mod helpers {
+    use super::*;
     use crate::contract::parse_u128;
-    use cosmwasm::errors::Error;
 
     #[test]
     fn works_for_simple_inputs() {
@@ -88,7 +87,7 @@ mod helpers {
     fn errors_for_empty_input() {
         match parse_u128("") {
             Ok(_) => panic!("must not pass"),
-            Err(Error::ContractErr { msg, .. }) => {
+            Err(StdError::GenericErr { msg, .. }) => {
                 assert_eq!(msg, "Error while parsing string to u128")
             }
             Err(e) => panic!("unexpected error: {:?}", e),
@@ -99,7 +98,7 @@ mod helpers {
     fn errors_for_values_out_of_range() {
         match parse_u128("-1") {
             Ok(_) => panic!("must not pass"),
-            Err(Error::ContractErr { msg, .. }) => {
+            Err(StdError::GenericErr { msg, .. }) => {
                 assert_eq!(msg, "Error while parsing string to u128")
             }
             Err(e) => panic!("unexpected error: {:?}", e),
@@ -107,7 +106,7 @@ mod helpers {
 
         match parse_u128("340282366920938463463374607431768211456") {
             Ok(_) => panic!("must not pass"),
-            Err(Error::ContractErr { msg, .. }) => {
+            Err(StdError::GenericErr { msg, .. }) => {
                 assert_eq!(msg, "Error while parsing string to u128")
             }
             Err(e) => panic!("unexpected error: {:?}", e),
@@ -118,7 +117,7 @@ mod helpers {
     fn fails_for_non_decadic_strings() {
         match parse_u128("0xAB") {
             Ok(_) => panic!("must not pass"),
-            Err(Error::ContractErr { msg, .. }) => {
+            Err(StdError::GenericErr { msg, .. }) => {
                 assert_eq!(msg, "Error while parsing string to u128")
             }
             Err(e) => panic!("unexpected error: {:?}", e),
@@ -126,7 +125,7 @@ mod helpers {
 
         match parse_u128("0xab") {
             Ok(_) => panic!("must not pass"),
-            Err(Error::ContractErr { msg, .. }) => {
+            Err(StdError::GenericErr { msg, .. }) => {
                 assert_eq!(msg, "Error while parsing string to u128")
             }
             Err(e) => panic!("unexpected error: {:?}", e),
@@ -134,7 +133,7 @@ mod helpers {
 
         match parse_u128("0b1100") {
             Ok(_) => panic!("must not pass"),
-            Err(Error::ContractErr { msg, .. }) => {
+            Err(StdError::GenericErr { msg, .. }) => {
                 assert_eq!(msg, "Error while parsing string to u128")
             }
             Err(e) => panic!("unexpected error: {:?}", e),
@@ -147,7 +146,7 @@ mod init {
 
     #[test]
     fn works() {
-        let mut deps = dependencies(CANONICAL_LENGTH);
+        let mut deps = mock_dependencies(CANONICAL_LENGTH, &[]);
         let init_msg = InitMsg {
             name: "Cash Token".to_string(),
             symbol: "CASH".to_string(),
@@ -179,7 +178,7 @@ mod init {
 
     #[test]
     fn works_with_empty_balance() {
-        let mut deps = dependencies(CANONICAL_LENGTH);
+        let mut deps = mock_dependencies(CANONICAL_LENGTH, &[]);
         let init_msg = InitMsg {
             name: "Cash Token".to_string(),
             symbol: "CASH".to_string(),
@@ -195,7 +194,7 @@ mod init {
 
     #[test]
     fn works_with_multiple_balances() {
-        let mut deps = dependencies(CANONICAL_LENGTH);
+        let mut deps = mock_dependencies(CANONICAL_LENGTH, &[]);
         let init_msg = InitMsg {
             name: "Cash Token".to_string(),
             symbol: "CASH".to_string(),
@@ -237,7 +236,7 @@ mod init {
 
     #[test]
     fn works_with_balance_larger_than_53_bit() {
-        let mut deps = dependencies(CANONICAL_LENGTH);
+        let mut deps = mock_dependencies(CANONICAL_LENGTH, &[]);
 
         // This value cannot be represented precisely in JavaScript and jq. Both
         //   node -e "console.log(9007199254740993)"
@@ -267,7 +266,7 @@ mod init {
     #[test]
     // Typical supply like 100 million tokens with 18 decimals exceeds the 64 bit range
     fn works_with_balance_larger_than_64_bit() {
-        let mut deps = dependencies(CANONICAL_LENGTH);
+        let mut deps = mock_dependencies(CANONICAL_LENGTH, &[]);
 
         let init_msg = InitMsg {
             name: "Cash Token".to_string(),
@@ -292,7 +291,7 @@ mod init {
 
     #[test]
     fn fails_for_balance_larger_than_max_u128() {
-        let mut deps = dependencies(CANONICAL_LENGTH);
+        let mut deps = mock_dependencies(CANONICAL_LENGTH, &[]);
         let init_msg = InitMsg {
             name: "Cash Token".to_string(),
             symbol: "CASH".to_string(),
@@ -308,7 +307,7 @@ mod init {
         let result = init(&mut deps, env, init_msg);
         match result {
             Ok(_) => panic!("expected error"),
-            Err(Error::ContractErr { msg, .. }) => {
+            Err(StdError::GenericErr { msg, .. }) => {
                 assert_eq!(msg, "Error while parsing string to u128")
             }
             Err(e) => panic!("unexpected error: {:?}", e),
@@ -317,7 +316,7 @@ mod init {
 
     #[test]
     fn fails_for_large_decimals() {
-        let mut deps = dependencies(CANONICAL_LENGTH);
+        let mut deps = mock_dependencies(CANONICAL_LENGTH, &[]);
         let init_msg = InitMsg {
             name: "Cash Token".to_string(),
             symbol: "CASH".to_string(),
@@ -328,14 +327,14 @@ mod init {
         let result = init(&mut deps, env, init_msg);
         match result {
             Ok(_) => panic!("expected error"),
-            Err(Error::ContractErr { msg, .. }) => assert_eq!(msg, "Decimals must not exceed 18"),
+            Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "Decimals must not exceed 18"),
             Err(e) => panic!("unexpected error: {:?}", e),
         }
     }
 
     #[test]
     fn fails_for_name_too_short() {
-        let mut deps = dependencies(CANONICAL_LENGTH);
+        let mut deps = mock_dependencies(CANONICAL_LENGTH, &[]);
         let init_msg = InitMsg {
             name: "CC".to_string(),
             symbol: "CASH".to_string(),
@@ -346,7 +345,7 @@ mod init {
         let result = init(&mut deps, env, init_msg);
         match result {
             Ok(_) => panic!("expected error"),
-            Err(Error::ContractErr { msg, .. }) => {
+            Err(StdError::GenericErr { msg, .. }) => {
                 assert_eq!(msg, "Name is not in the expected format (3-30 UTF-8 bytes)")
             }
             Err(e) => panic!("unexpected error: {:?}", e),
@@ -355,7 +354,7 @@ mod init {
 
     #[test]
     fn fails_for_name_too_long() {
-        let mut deps = dependencies(CANONICAL_LENGTH);
+        let mut deps = mock_dependencies(CANONICAL_LENGTH, &[]);
         let init_msg = InitMsg {
             name: "Cash coin. Cash coin. Cash coin. Cash coin.".to_string(),
             symbol: "CASH".to_string(),
@@ -366,7 +365,7 @@ mod init {
         let result = init(&mut deps, env, init_msg);
         match result {
             Ok(_) => panic!("expected error"),
-            Err(Error::ContractErr { msg, .. }) => {
+            Err(StdError::GenericErr { msg, .. }) => {
                 assert_eq!(msg, "Name is not in the expected format (3-30 UTF-8 bytes)")
             }
             Err(e) => panic!("unexpected error: {:?}", e),
@@ -375,7 +374,7 @@ mod init {
 
     #[test]
     fn fails_for_symbol_too_short() {
-        let mut deps = dependencies(CANONICAL_LENGTH);
+        let mut deps = mock_dependencies(CANONICAL_LENGTH, &[]);
         let init_msg = InitMsg {
             name: "De De".to_string(),
             symbol: "DD".to_string(),
@@ -386,7 +385,7 @@ mod init {
         let result = init(&mut deps, env, init_msg);
         match result {
             Ok(_) => panic!("expected error"),
-            Err(Error::ContractErr { msg, .. }) => {
+            Err(StdError::GenericErr { msg, .. }) => {
                 assert_eq!(msg, "Ticker symbol is not in expected format [A-Z]{3,6}")
             }
             Err(e) => panic!("unexpected error: {:?}", e),
@@ -395,7 +394,7 @@ mod init {
 
     #[test]
     fn fails_for_symbol_too_long() {
-        let mut deps = dependencies(CANONICAL_LENGTH);
+        let mut deps = mock_dependencies(CANONICAL_LENGTH, &[]);
         let init_msg = InitMsg {
             name: "Super Coin".to_string(),
             symbol: "SUPERCOIN".to_string(),
@@ -406,7 +405,7 @@ mod init {
         let result = init(&mut deps, env, init_msg);
         match result {
             Ok(_) => panic!("expected error"),
-            Err(Error::ContractErr { msg, .. }) => {
+            Err(StdError::GenericErr { msg, .. }) => {
                 assert_eq!(msg, "Ticker symbol is not in expected format [A-Z]{3,6}")
             }
             Err(e) => panic!("unexpected error: {:?}", e),
@@ -415,7 +414,7 @@ mod init {
 
     #[test]
     fn fails_for_symbol_lowercase() {
-        let mut deps = dependencies(CANONICAL_LENGTH);
+        let mut deps = mock_dependencies(CANONICAL_LENGTH, &[]);
         let init_msg = InitMsg {
             name: "Cash Token".to_string(),
             symbol: "CaSH".to_string(),
@@ -426,7 +425,7 @@ mod init {
         let result = init(&mut deps, env, init_msg);
         match result {
             Ok(_) => panic!("expected error"),
-            Err(Error::ContractErr { msg, .. }) => {
+            Err(StdError::GenericErr { msg, .. }) => {
                 assert_eq!(msg, "Ticker symbol is not in expected format [A-Z]{3,6}")
             }
             Err(e) => panic!("unexpected error: {:?}", e),
@@ -461,7 +460,7 @@ mod transfer {
 
     #[test]
     fn can_send_to_existing_recipient() {
-        let mut deps = dependencies(CANONICAL_LENGTH);
+        let mut deps = mock_dependencies(CANONICAL_LENGTH, &[]);
         let init_msg = make_init_msg();
         let env1 = mock_env_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
         let res = init(&mut deps, env1, init_msg).unwrap();
@@ -517,7 +516,7 @@ mod transfer {
 
     #[test]
     fn can_send_to_non_existent_recipient() {
-        let mut deps = dependencies(CANONICAL_LENGTH);
+        let mut deps = mock_dependencies(CANONICAL_LENGTH, &[]);
         let init_msg = make_init_msg();
         let env1 = mock_env_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
         let res = init(&mut deps, env1, init_msg).unwrap();
@@ -577,7 +576,7 @@ mod transfer {
 
     #[test]
     fn can_send_zero_amount() {
-        let mut deps = dependencies(CANONICAL_LENGTH);
+        let mut deps = mock_dependencies(CANONICAL_LENGTH, &[]);
         let init_msg = make_init_msg();
         let env1 = mock_env_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
         let res = init(&mut deps, env1, init_msg).unwrap();
@@ -633,7 +632,7 @@ mod transfer {
 
     #[test]
     fn can_send_to_sender() {
-        let mut deps = dependencies(CANONICAL_LENGTH);
+        let mut deps = mock_dependencies(CANONICAL_LENGTH, &[]);
         let init_msg = make_init_msg();
         let env1 = mock_env_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
         let res = init(&mut deps, env1, init_msg).unwrap();
@@ -667,7 +666,7 @@ mod transfer {
 
     #[test]
     fn fails_on_insufficient_balance() {
-        let mut deps = dependencies(CANONICAL_LENGTH);
+        let mut deps = mock_dependencies(CANONICAL_LENGTH, &[]);
         let init_msg = make_init_msg();
         let env1 = mock_env_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
         let res = init(&mut deps, env1, init_msg).unwrap();
@@ -697,7 +696,7 @@ mod transfer {
         let transfer_result = handle(&mut deps, env2, transfer_msg);
         match transfer_result {
             Ok(_) => panic!("expected error"),
-            Err(Error::DynContractErr { msg, .. }) => {
+            Err(StdError::GenericErr { msg, .. }) => {
                 assert_eq!(msg, "Insufficient funds: balance=11, required=12")
             }
             Err(e) => panic!("unexpected error: {:?}", e),
@@ -751,7 +750,7 @@ mod approve {
 
     #[test]
     fn has_zero_allowance_by_default() {
-        let mut deps = dependencies(CANONICAL_LENGTH);
+        let mut deps = mock_dependencies(CANONICAL_LENGTH, &[]);
         let init_msg = make_init_msg();
         let env1 = mock_env_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
         let res = init(&mut deps, env1, init_msg).unwrap();
@@ -782,7 +781,7 @@ mod approve {
 
     #[test]
     fn can_set_allowance() {
-        let mut deps = dependencies(CANONICAL_LENGTH);
+        let mut deps = mock_dependencies(CANONICAL_LENGTH, &[]);
         let init_msg = make_init_msg();
         let env1 = mock_env_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
         let res = init(&mut deps, env1, init_msg).unwrap();
@@ -877,7 +876,7 @@ mod transfer_from {
 
     #[test]
     fn works() {
-        let mut deps = dependencies(CANONICAL_LENGTH);
+        let mut deps = mock_dependencies(CANONICAL_LENGTH, &[]);
         let init_msg = make_init_msg();
         let env1 = mock_env_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
         let res = init(&mut deps, env1, init_msg).unwrap();
@@ -933,7 +932,7 @@ mod transfer_from {
 
     #[test]
     fn fails_when_allowance_too_low() {
-        let mut deps = dependencies(CANONICAL_LENGTH);
+        let mut deps = mock_dependencies(CANONICAL_LENGTH, &[]);
         let init_msg = make_init_msg();
         let env1 = mock_env_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
         let res = init(&mut deps, env1, init_msg).unwrap();
@@ -973,7 +972,7 @@ mod transfer_from {
         let transfer_result = handle(&mut deps, env3, fransfer_from_msg);
         match transfer_result {
             Ok(_) => panic!("expected error"),
-            Err(Error::DynContractErr { msg, .. }) => {
+            Err(StdError::GenericErr { msg, .. }) => {
                 assert_eq!(msg, "Insufficient allowance: allowance=2, required=3")
             }
             Err(e) => panic!("unexpected error: {:?}", e),
@@ -982,7 +981,7 @@ mod transfer_from {
 
     #[test]
     fn fails_when_allowance_is_set_but_balance_too_low() {
-        let mut deps = dependencies(CANONICAL_LENGTH);
+        let mut deps = mock_dependencies(CANONICAL_LENGTH, &[]);
         let init_msg = make_init_msg();
         let env1 = mock_env_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
         let res = init(&mut deps, env1, init_msg).unwrap();
@@ -1025,7 +1024,7 @@ mod transfer_from {
         let transfer_result = handle(&mut deps, env3, fransfer_from_msg);
         match transfer_result {
             Ok(_) => panic!("expected error"),
-            Err(Error::DynContractErr { msg, .. }) => {
+            Err(StdError::GenericErr { msg, .. }) => {
                 assert_eq!(msg, "Insufficient funds: balance=11, required=15")
             }
             Err(e) => panic!("unexpected error: {:?}", e),
@@ -1056,7 +1055,7 @@ mod burn {
 
     #[test]
     fn can_burn_from_existing_account() {
-        let mut deps = dependencies(CANONICAL_LENGTH);
+        let mut deps = mock_dependencies(CANONICAL_LENGTH, &[]);
         let init_msg = make_init_msg();
         let env1 = mock_env_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
         let res = init(&mut deps, env1, init_msg).unwrap();
@@ -1103,7 +1102,7 @@ mod burn {
 
     #[test]
     fn can_burn_zero_amount() {
-        let mut deps = dependencies(CANONICAL_LENGTH);
+        let mut deps = mock_dependencies(CANONICAL_LENGTH, &[]);
         let init_msg = make_init_msg();
         let env1 = mock_env_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
         let res = init(&mut deps, env1, init_msg).unwrap();
@@ -1150,7 +1149,7 @@ mod burn {
 
     #[test]
     fn fails_on_insufficient_balance() {
-        let mut deps = dependencies(CANONICAL_LENGTH);
+        let mut deps = mock_dependencies(CANONICAL_LENGTH, &[]);
         let init_msg = make_init_msg();
         let env1 = mock_env_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
         let res = init(&mut deps, env1, init_msg).unwrap();
@@ -1175,7 +1174,7 @@ mod burn {
         let burn_result = handle(&mut deps, env2, burn_msg);
         match burn_result {
             Ok(_) => panic!("expected error"),
-            Err(Error::DynContractErr { msg, .. }) => {
+            Err(StdError::GenericErr { msg, .. }) => {
                 assert_eq!(msg, "insufficient funds to burn: balance=11, required=12")
             }
             Err(e) => panic!("unexpected error: {:?}", e),
@@ -1232,7 +1231,7 @@ mod query {
 
     #[test]
     fn can_query_balance_of_existing_address() {
-        let mut deps = dependencies(CANONICAL_LENGTH);
+        let mut deps = mock_dependencies(CANONICAL_LENGTH, &[]);
         let init_msg = make_init_msg();
         let env1 = mock_env_height(&deps.api, &address(0), 450, 550);
         let res = init(&mut deps, env1, init_msg).unwrap();
@@ -1242,12 +1241,12 @@ mod query {
             address: address(1),
         };
         let query_result = query(&deps, query_msg).unwrap();
-        assert_eq!(query_result, b"{\"balance\":\"11\"}");
+        assert_eq!(query_result.as_slice(), b"{\"balance\":\"11\"}");
     }
 
     #[test]
     fn can_query_balance_of_nonexisting_address() {
-        let mut deps = dependencies(CANONICAL_LENGTH);
+        let mut deps = mock_dependencies(CANONICAL_LENGTH, &[]);
         let init_msg = make_init_msg();
         let env1 = mock_env_height(&deps.api, &address(0), 450, 550);
         let res = init(&mut deps, env1, init_msg).unwrap();
@@ -1257,12 +1256,12 @@ mod query {
             address: address(4), // only indices 1, 2, 3 are initialized
         };
         let query_result = query(&deps, query_msg).unwrap();
-        assert_eq!(query_result, b"{\"balance\":\"0\"}");
+        assert_eq!(query_result.as_slice(), b"{\"balance\":\"0\"}");
     }
 
     #[test]
     fn can_query_allowance_of_existing_addresses() {
-        let mut deps = dependencies(CANONICAL_LENGTH);
+        let mut deps = mock_dependencies(CANONICAL_LENGTH, &[]);
         let init_msg = make_init_msg();
         let env1 = mock_env_height(&deps.api, &address(0), 450, 550);
         let res = init(&mut deps, env1, init_msg).unwrap();
@@ -1292,12 +1291,12 @@ mod query {
             spender: spender.clone(),
         };
         let query_result = query(&deps, query_msg).unwrap();
-        assert_eq!(query_result, b"{\"allowance\":\"42\"}");
+        assert_eq!(query_result.as_slice(), b"{\"allowance\":\"42\"}");
     }
 
     #[test]
     fn can_query_allowance_of_nonexisting_owner() {
-        let mut deps = dependencies(CANONICAL_LENGTH);
+        let mut deps = mock_dependencies(CANONICAL_LENGTH, &[]);
         let init_msg = make_init_msg();
         let env1 = mock_env_height(&deps.api, &address(0), 450, 550);
         let res = init(&mut deps, env1, init_msg).unwrap();
@@ -1329,7 +1328,7 @@ mod query {
             spender: bob.clone(),
         };
         let query_result = query(&deps, query_msg).unwrap();
-        assert_eq!(query_result, b"{\"allowance\":\"0\"}");
+        assert_eq!(query_result.as_slice(), b"{\"allowance\":\"0\"}");
 
         // differnet owner
         let query_msg = QueryMsg::Allowance {
@@ -1337,6 +1336,6 @@ mod query {
             spender: spender.clone(),
         };
         let query_result = query(&deps, query_msg).unwrap();
-        assert_eq!(query_result, b"{\"allowance\":\"0\"}");
+        assert_eq!(query_result.as_slice(), b"{\"allowance\":\"0\"}");
     }
 }
