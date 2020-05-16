@@ -173,6 +173,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "245097e9a4535ee1e3e3931fcfcd55a796a44c643e8596ff6566d68f09b87bbc"
 
 [[package]]
+name = "cosmwasm-schema"
+version = "0.8.0-alpha2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bb3bb9a710324419d6d9857373068ec1f0b4441b68c1ab23ab111579d8c33309"
+dependencies = [
+ "schemars",
+ "serde_json",
+]
+
+[[package]]
 name = "cosmwasm-std"
 version = "0.8.0-alpha2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -338,12 +348,12 @@ dependencies = [
 name = "cw-nameservice"
 version = "0.4.0-dev"
 dependencies = [
+ "cosmwasm-schema",
  "cosmwasm-std",
  "cosmwasm-storage",
  "cosmwasm-vm",
  "schemars",
  "serde",
- "serde_json",
 ]
 
 [[package]]

@@ -2,10 +2,6 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "InitMsg",
   "type": "object",
-  "required": [
-    "purchase_price",
-    "transfer_price"
-  ],
   "properties": {
     "purchase_price": {
       "anyOf": [
@@ -37,12 +33,15 @@
       ],
       "properties": {
         "amount": {
-          "type": "string"
+          "$ref": "#/definitions/Uint128"
         },
         "denom": {
           "type": "string"
         }
       }
+    },
+    "Uint128": {
+      "type": "string"
     }
   }
 }
