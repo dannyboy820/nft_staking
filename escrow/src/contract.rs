@@ -237,56 +237,36 @@ mod tests {
     fn handle_approve() {
         let mut deps = mock_dependencies(20, &[]);
 
-        // TODO: how to test chaning contract balance?
-
         // initialize the store
+        let init_amount = coins(1000, "earth");
+        let init_env = mock_env_height(&deps.api, "creator", &init_amount, 876, 0);
         let msg = init_msg_expire_by_height(1000);
-        let env = mock_env_height(&deps.api, "creator", &coins(1000, "earth"), 876, 0);
-        let init_res = init(&mut deps, env, msg).unwrap();
+        let init_res = init(&mut deps, init_env, msg).unwrap();
         assert_eq!(0, init_res.messages.len());
+
+        // balance changed in init
+        let Extern { querier, .. } = mock_dependencies(20, &init_amount);
+        deps.querier = querier;
 
         // beneficiary cannot release it
         let msg = HandleMsg::Approve { quantity: None };
-        let env = mock_env_height(
-            &deps.api,
-            "beneficiary",
-            &coins(0, "earth"),
-            // &coins(1000, "earth"),
-            900,
-            0,
-        );
+        let env = mock_env_height(&deps.api, "beneficiary", &[], 900, 0);
         let handle_res = handle(&mut deps, env, msg.clone());
-        match handle_res {
-            Ok(_) => panic!("expected error"),
-            Err(StdError::Unauthorized { .. }) => {}
-            Err(e) => panic!("unexpected error: {:?}", e),
+        match handle_res.unwrap_err() {
+            StdError::Unauthorized { .. } => {}
+            e => panic!("unexpected error: {:?}", e),
         }
 
         // verifier cannot release it when expired
-        let env = mock_env_height(
-            &deps.api,
-            "verifies",
-            &coins(0, "earth"),
-            // &coins(1000, "earth"),
-            1100,
-            0,
-        );
+        let env = mock_env_height(&deps.api, "verifies", &[], 1100, 0);
         let handle_res = handle(&mut deps, env, msg.clone());
-        match handle_res {
-            Ok(_) => panic!("expected error"),
-            Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "escrow expired"),
-            Err(e) => panic!("unexpected error: {:?}", e),
+        match handle_res.unwrap_err() {
+            StdError::GenericErr { msg, .. } => assert_eq!(msg, "escrow expired"),
+            e => panic!("unexpected error: {:?}", e),
         }
 
         // complete release by verfier, before expiration
-        let env = mock_env_height(
-            &deps.api,
-            "verifies",
-            &coins(0, "earth"),
-            // &coins(1000, "earth"),
-            999,
-            0,
-        );
+        let env = mock_env_height(&deps.api, "verifies", &[], 999, 0);
         let handle_res = handle(&mut deps, env, msg.clone()).unwrap();
         assert_eq!(1, handle_res.messages.len());
         let msg = handle_res.messages.get(0).expect("no message");
@@ -303,14 +283,7 @@ mod tests {
         let partial_msg = HandleMsg::Approve {
             quantity: Some(coins(500, "earth")),
         };
-        let env = mock_env_height(
-            &deps.api,
-            "verifies",
-            &coins(0, "earth"),
-            // &coins(1000, "earth"),
-            999,
-            0,
-        );
+        let env = mock_env_height(&deps.api, "verifies", &[], 999, 0);
         let handle_res = handle(&mut deps, env, partial_msg).unwrap();
         assert_eq!(1, handle_res.messages.len());
         let msg = handle_res.messages.get(0).expect("no message");
@@ -327,57 +300,38 @@ mod tests {
     #[test]
     fn handle_refund() {
         let mut deps = mock_dependencies(20, &[]);
-        // TODO: how to mock changing contract balance?
 
         // initialize the store
+        let init_amount = coins(1000, "earth");
+        let init_env = mock_env_height(&deps.api, "creator", &init_amount, 876, 0);
         let msg = init_msg_expire_by_height(1000);
-        let env = mock_env_height(&deps.api, "creator", &coins(1000, "earth"), 876, 0);
-        let init_res = init(&mut deps, env, msg).unwrap();
+        let init_res = init(&mut deps, init_env, msg).unwrap();
         assert_eq!(0, init_res.messages.len());
+
+        // balance changed in init
+        let Extern { querier, .. } = mock_dependencies(20, &init_amount);
+        deps.querier = querier;
 
         // cannot release when unexpired (height < end_height)
         let msg = HandleMsg::Refund {};
-        let env = mock_env_height(
-            &deps.api,
-            "anybody",
-            &coins(0, "earth"),
-            // &coins(1000, "earth"),
-            800,
-            0,
-        );
+        let env = mock_env_height(&deps.api, "anybody", &[], 800, 0);
         let handle_res = handle(&mut deps, env, msg.clone());
-        match handle_res {
-            Ok(_) => panic!("expected error"),
-            Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "escrow not yet expired"),
-            Err(e) => panic!("unexpected error: {:?}", e),
+        match handle_res.unwrap_err() {
+            StdError::GenericErr { msg, .. } => assert_eq!(msg, "escrow not yet expired"),
+            e => panic!("unexpected error: {:?}", e),
         }
 
         // cannot release when unexpired (height == end_height)
         let msg = HandleMsg::Refund {};
-        let env = mock_env_height(
-            &deps.api,
-            "anybody",
-            &coins(0, "earth"),
-            // &coins(1000, "earth"),
-            1000,
-            0,
-        );
+        let env = mock_env_height(&deps.api, "anybody", &[], 1000, 0);
         let handle_res = handle(&mut deps, env, msg.clone());
-        match handle_res {
-            Ok(_) => panic!("expected error"),
-            Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "escrow not yet expired"),
-            Err(e) => panic!("unexpected error: {:?}", e),
+        match handle_res.unwrap_err() {
+            StdError::GenericErr { msg, .. } => assert_eq!(msg, "escrow not yet expired"),
+            e => panic!("unexpected error: {:?}", e),
         }
 
         // anyone can release after expiration
-        let env = mock_env_height(
-            &deps.api,
-            "anybody",
-            &coins(0, "earth"),
-            // &coins(1000, "earth"),
-            1001,
-            0,
-        );
+        let env = mock_env_height(&deps.api, "anybody", &[], 1001, 0);
         let handle_res = handle(&mut deps, env, msg.clone()).unwrap();
         assert_eq!(1, handle_res.messages.len());
         let msg = handle_res.messages.get(0).expect("no message");
