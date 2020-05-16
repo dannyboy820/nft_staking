@@ -29,12 +29,12 @@ jobs:
           name: Add components to Rust toolchain
           command: rustup component add rustfmt clippy
       - run:
-          name: Build
-          command: cargo wasm --locked
-      - run:
           name: Unit Tests
           env: RUST_BACKTRACE=1
           command: cargo unit-test --locked
+      - run:
+          name: Build Wasm
+          command: cargo wasm --locked
       - run:
           name: Integration Tests
           command: cargo integration-test --locked  -- --test-threads=2
@@ -81,12 +81,12 @@ jobs:
           name: Add components to Rust toolchain
           command: rustup component add rustfmt clippy
       - run:
-          name: Build
-          command: cargo wasm --locked
-      - run:
           name: Unit Tests
           env: RUST_BACKTRACE=1
           command: cargo unit-test --locked
+      - run:
+          name: Build Wasm
+          command: cargo wasm --locked
       - run:
           name: Integration Tests
           command: cargo integration-test --locked -- --test-threads=2
@@ -133,12 +133,12 @@ jobs:
           name: Add components to Rust toolchain
           command: rustup component add rustfmt clippy
       - run:
-          name: Build
-          command: cargo wasm --locked
-      - run:
           name: Unit Tests
           env: RUST_BACKTRACE=1
           command: cargo unit-test --locked
+      - run:
+          name: Build Wasm
+          command: cargo wasm --locked
       - run:
           name: Integration Tests
           command: cargo integration-test --locked -- --test-threads=2
@@ -185,12 +185,12 @@ jobs:
           name: Add components to Rust toolchain
           command: rustup component add rustfmt clippy
       - run:
-          name: Build
-          command: cargo wasm --locked
-      - run:
           name: Unit Tests
           env: RUST_BACKTRACE=1
           command: cargo unit-test --locked
+      - run:
+          name: Build Wasm
+          command: cargo wasm --locked
       - run:
           name: Integration Tests
           command: cargo integration-test --locked  -- --test-threads=2
