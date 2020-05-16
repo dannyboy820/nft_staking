@@ -42,6 +42,9 @@ jobs:
           name: Check formatting
           command: cargo fmt -- --check
       - run:
+          name: Lint
+          command: cargo clippy -- -D warnings
+      - run:
           name: Build and run schema generator
           command: cargo schema --locked
       - run:
@@ -90,6 +93,9 @@ jobs:
       - run:
           name: Check formatting
           command: cargo fmt -- --check
+      - run:
+          name: Lint
+          command: cargo clippy -- -D warnings
       - run:
           name: Build and run schema generator
           command: cargo schema --locked
@@ -140,6 +146,9 @@ jobs:
           name: Check formatting
           command: cargo fmt -- --check
       - run:
+          name: Lint
+          command: cargo clippy -- -D warnings
+      - run:
           name: Build and run schema generator
           command: cargo schema --locked
       - run:
@@ -188,6 +197,9 @@ jobs:
       - run:
           name: Check formatting
           command: cargo fmt -- --check
+      - run:
+          name: Lint
+          command: cargo clippy -- -D warnings
       - run:
           name: Build and run schema generator
           command: cargo schema --locked
