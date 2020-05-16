@@ -225,7 +225,7 @@ fn try_burn<S: Storage, A: Api>(
     let owner_address_raw = &env.message.signer;
     let amount_raw = parse_u128(amount)?;
 
-    let mut account_balance = read_balance(&mut deps.storage, owner_address_raw)?;
+    let mut account_balance = read_balance(&deps.storage, owner_address_raw)?;
 
     if account_balance < amount_raw {
         return dyn_contract_err(format!(
@@ -301,10 +301,10 @@ pub fn bytes_to_u128(data: &[u8]) -> Result<u128> {
 // Reads 16 byte storage value into u128
 // Returns zero if key does not exist. Errors if data found that is not 16 bytes
 pub fn read_u128<S: ReadonlyStorage>(store: &S, key: &[u8]) -> Result<u128> {
-    return match store.get(key) {
+    match store.get(key) {
         Some(data) => bytes_to_u128(&data),
         None => Ok(0u128),
-    };
+    }
 }
 
 // Source must be a decadic integer >= 0
@@ -317,7 +317,7 @@ pub fn parse_u128(source: &str) -> Result<u128> {
 
 fn read_balance<S: Storage>(store: &S, owner: &CanonicalAddr) -> Result<u128> {
     let balance_store = ReadonlyPrefixedStorage::new(PREFIX_BALANCES, store);
-    return read_u128(&balance_store, owner.as_slice());
+    read_u128(&balance_store, owner.as_slice())
 }
 
 fn read_allowance<S: Storage>(
@@ -327,7 +327,7 @@ fn read_allowance<S: Storage>(
 ) -> Result<u128> {
     let allowances_store = ReadonlyPrefixedStorage::new(PREFIX_ALLOWANCES, store);
     let owner_store = ReadonlyPrefixedStorage::new(owner.as_slice(), &allowances_store);
-    return read_u128(&owner_store, spender.as_slice());
+    read_u128(&owner_store, spender.as_slice())
 }
 
 fn write_allowance<S: Storage>(
@@ -335,7 +335,7 @@ fn write_allowance<S: Storage>(
     owner: &CanonicalAddr,
     spender: &CanonicalAddr,
     amount: u128,
-) -> () {
+) {
     let mut allowances_store = PrefixedStorage::new(PREFIX_ALLOWANCES, store);
     let mut owner_store = PrefixedStorage::new(owner.as_slice(), &mut allowances_store);
     owner_store.set(spender.as_slice(), &amount.to_be_bytes());
@@ -346,7 +346,7 @@ fn is_valid_name(name: &str) -> bool {
     if bytes.len() < 3 || bytes.len() > 30 {
         return false;
     }
-    return true;
+    true
 }
 
 fn is_valid_symbol(symbol: &str) -> bool {
@@ -354,12 +354,10 @@ fn is_valid_symbol(symbol: &str) -> bool {
     if bytes.len() < 3 || bytes.len() > 6 {
         return false;
     }
-
     for byte in bytes.iter() {
         if *byte < 65 || *byte > 90 {
             return false;
         }
     }
-
-    return true;
+    true
 }
