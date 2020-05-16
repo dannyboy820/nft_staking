@@ -2,42 +2,9 @@ use cosmwasm_std::{
     generic_err, log, unauthorized, Api, BankMsg, Binary, CanonicalAddr, Coin, CosmosMsg, Env,
     Extern, HandleResponse, HandleResult, InitResponse, InitResult, Querier, StdResult, Storage,
 };
-use cosmwasm_storage::{singleton, Singleton};
-use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
 
 use crate::msg::{HandleMsg, InitMsg, QueryMsg};
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct State {
-    pub arbiter: CanonicalAddr,
-    pub recipient: CanonicalAddr,
-    pub source: CanonicalAddr,
-    pub end_height: Option<u64>,
-    pub end_time: Option<u64>,
-}
-
-impl State {
-    fn is_expired(&self, env: &Env) -> bool {
-        if let Some(end_height) = self.end_height {
-            if env.block.height > end_height {
-                return true;
-            }
-        }
-
-        if let Some(end_time) = self.end_time {
-            if env.block.time > end_time {
-                return true;
-            }
-        }
-
-        false
-    }
-}
-
-pub fn config<S: Storage>(storage: &mut S) -> Singleton<S, State> {
-    singleton(storage, b"config")
-}
+use crate::state::{config, config_read, State};
 
 pub fn init<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
@@ -64,7 +31,7 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
     env: Env,
     msg: HandleMsg,
 ) -> HandleResult {
-    let state = config(&mut deps.storage).load()?;
+    let state = config_read(&deps.storage).load()?;
     match msg {
         HandleMsg::Approve { quantity } => try_approve(deps, env, state, quantity),
         HandleMsg::Refund {} => try_refund(deps, env, state),
@@ -196,7 +163,7 @@ mod tests {
         assert_eq!(0, res.messages.len());
 
         // it worked, let's query the state
-        let state = config(&mut deps.storage).load().unwrap();
+        let state = config_read(&mut deps.storage).load().unwrap();
         assert_eq!(
             state,
             State {

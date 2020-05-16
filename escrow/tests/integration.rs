@@ -35,8 +35,8 @@ use cosmwasm_std::{
 
 use cosmwasm_vm::testing::{handle, init, mock_instance};
 
-use cw_escrow::contract::{config, State};
 use cw_escrow::msg::{HandleMsg, InitMsg};
+use cw_escrow::state::{config_read, State};
 
 // This line will test the output of cargo wasm
 static WASM: &[u8] = include_bytes!("../target/wasm32-unknown-unknown/release/cw_escrow.wasm");
@@ -71,7 +71,7 @@ fn proper_initialization() {
     // it worked, let's query the state
     let api = deps.api;
     deps.with_storage(|store| {
-        let state = config(store).load().unwrap();
+        let state = config_read(store).load().unwrap();
         assert_eq!(
             state,
             State {
