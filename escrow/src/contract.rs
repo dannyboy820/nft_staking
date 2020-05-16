@@ -30,7 +30,7 @@ impl State {
             }
         }
 
-        return false;
+        false
     }
 }
 
@@ -126,7 +126,7 @@ fn send_tokens<A: Api>(
             to_address: to_human,
             amount,
         }],
-        log: log,
+        log,
         data: None,
     };
     Ok(r)
