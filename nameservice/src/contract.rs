@@ -52,7 +52,7 @@ pub fn try_register<S: Storage, A: Api>(
         owner: env.message.signer,
     };
 
-    if let None = resolver(&mut deps.storage).may_load(key)? {
+    if (resolver(&mut deps.storage).may_load(key)?).is_none() {
         // name is available
         resolver(&mut deps.storage).save(key, &record)?;
     } else {
@@ -110,17 +110,10 @@ fn query_resolver<S: Storage, A: Api>(deps: &Extern<S, A>, name: String) -> Resu
 }
 
 // let's not import a regexp library and just do these checks by hand
-fn invalid_char(ch: &char) -> bool {
-    let c = *ch;
-    if c >= '0' && c <= '9' {
-        false
-    } else if c >= 'a' && c <= 'z' {
-        false
-    } else if c == '.' || c == '-' || c == '_' {
-        false
-    } else {
-        true
-    }
+fn invalid_char(c: char) -> bool {
+    let is_valid =
+        (c >= '0' && c <= '9') || (c >= 'a' && c <= 'z') || (c == '.' || c == '-' || c == '_');
+    !is_valid
 }
 
 /// validate_name returns an error if the name is invalid
@@ -131,9 +124,12 @@ fn validate_name(name: &str) -> Result<()> {
     } else if name.len() > MAX_NAME_LENGTH {
         contract_err("Name too long")
     } else {
-        match name.chars().find(invalid_char) {
+        match name.find(invalid_char) {
             None => Ok(()),
-            Some(c) => dyn_contract_err(format!("Invalid character: '{}'", c)),
+            Some(bytepos_invalid_char_start) => {
+                let c = name[bytepos_invalid_char_start..].chars().next().unwrap();
+                dyn_contract_err(format!("Invalid character: '{}'", c))
+            }
         }
     }
 }
