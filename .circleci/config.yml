@@ -26,8 +26,8 @@ jobs:
           name: Add wasm32 target
           command: rustup target add wasm32-unknown-unknown
       - run:
-          name: Add rustfmt component
-          command: rustup component add rustfmt
+          name: Add components to Rust toolchain
+          command: rustup component add rustfmt clippy
       - run:
           name: Build
           command: cargo wasm --locked
@@ -75,8 +75,8 @@ jobs:
           name: Add wasm32 target
           command: rustup target add wasm32-unknown-unknown
       - run:
-          name: Add rustfmt component
-          command: rustup component add rustfmt
+          name: Add components to Rust toolchain
+          command: rustup component add rustfmt clippy
       - run:
           name: Build
           command: cargo wasm --locked
@@ -124,8 +124,8 @@ jobs:
           name: Add wasm32 target
           command: rustup target add wasm32-unknown-unknown
       - run:
-          name: Add rustfmt component
-          command: rustup component add rustfmt
+          name: Add components to Rust toolchain
+          command: rustup component add rustfmt clippy
       - run:
           name: Build
           command: cargo wasm --locked
@@ -173,8 +173,8 @@ jobs:
           name: Add wasm32 target
           command: rustup target add wasm32-unknown-unknown
       - run:
-          name: Add rustfmt component
-          command: rustup component add rustfmt
+          name: Add components to Rust toolchain
+          command: rustup component add rustfmt clippy
       - run:
           name: Build
           command: cargo wasm --locked
