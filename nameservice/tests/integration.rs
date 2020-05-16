@@ -27,15 +27,13 @@
 //!         _ => panic!("Expected error"),
 //!      }
 
-use cosmwasm::mock::{mock_env, MockApi, MockStorage};
-use cosmwasm::types::{Coin, ContractResult, HumanAddr};
-
+use cosmwasm_std::testing::{mock_env, MockApi, MockQuerier, MockStorage};
+use cosmwasm_std::{
+    coin, coins, from_binary, Coin, HandleResponse, HandleResult, HumanAddr, InitResponse, StdError,
+};
 use cosmwasm_vm::testing::{handle, init, mock_instance, query};
 use cosmwasm_vm::Instance;
 
-use cw_storage::deserialize;
-
-use cw_nameservice::coin_helpers::{coin, coin_vec};
 use cw_nameservice::msg::{HandleMsg, InitMsg, QueryMsg, ResolveRecordResponse};
 use cw_nameservice::state::{config, Config};
 
@@ -44,7 +42,11 @@ static WASM: &[u8] = include_bytes!("../target/wasm32-unknown-unknown/release/cw
 // You can uncomment this line instead to test productionified build from cosmwasm-opt
 // static WASM: &[u8] = include_bytes!("../contract.wasm");
 
-fn assert_name_owner(mut deps: &mut Instance<MockStorage, MockApi>, name: &str, owner: &str) {
+fn assert_name_owner(
+    mut deps: &mut Instance<MockStorage, MockApi, MockQuerier>,
+    name: &str,
+    owner: &str,
+) {
     let res = query(
         &mut deps,
         QueryMsg::ResolveRecord {
@@ -53,12 +55,12 @@ fn assert_name_owner(mut deps: &mut Instance<MockStorage, MockApi>, name: &str, 
     )
     .unwrap();
 
-    let value: ResolveRecordResponse = deserialize(res.as_slice()).unwrap();
+    let value: ResolveRecordResponse = from_binary(&res).unwrap();
     assert_eq!(Some(HumanAddr::from(owner)), value.address);
 }
 
 fn mock_init_with_fees(
-    mut deps: &mut Instance<MockStorage, MockApi>,
+    mut deps: &mut Instance<MockStorage, MockApi, MockQuerier>,
     purchase_price: Coin,
     transfer_price: Coin,
 ) {
@@ -67,35 +69,38 @@ fn mock_init_with_fees(
         transfer_price: Some(transfer_price),
     };
 
-    let params = mock_env(&deps.api, "creator", &coin_vec("2", "token"), &[]);
+    let params = mock_env(&deps.api, "creator", &coins(2, "token"));
     // unwrap: contract successfully handles InitMsg
-    let _res = init(&mut deps, params, msg).unwrap();
+    let _res: InitResponse = init(&mut deps, params, msg).unwrap();
 }
 
-fn mock_init_no_fees(mut deps: &mut Instance<MockStorage, MockApi>) {
+fn mock_init_no_fees(mut deps: &mut Instance<MockStorage, MockApi, MockQuerier>) {
     let msg = InitMsg {
         purchase_price: None,
         transfer_price: None,
     };
 
-    let params = mock_env(&deps.api, "creator", &coin_vec("2", "token"), &[]);
+    let params = mock_env(&deps.api, "creator", &coins(2, "token"));
     // unwrap: contract successfully handles InitMsg
-    let _res = init(&mut deps, params, msg).unwrap();
+    let _res: InitResponse = init(&mut deps, params, msg).unwrap();
 }
 
-fn mock_alice_registers_name(mut deps: &mut Instance<MockStorage, MockApi>, sent: &[Coin]) {
+fn mock_alice_registers_name(
+    mut deps: &mut Instance<MockStorage, MockApi, MockQuerier>,
+    sent: &[Coin],
+) {
     // alice can register an available name
-    let params = mock_env(&deps.api, "alice_key", sent, &[]);
+    let params = mock_env(&deps.api, "alice_key", sent);
     let msg = HandleMsg::Register {
         name: "alice".to_string(),
     };
     // unwrap: contract successfully handles Register message
-    let _res = handle(&mut deps, params, msg).unwrap();
+    let _res: HandleResponse = handle(&mut deps, params, msg).unwrap();
 }
 
 #[test]
 fn proper_init_no_fees() {
-    let mut deps = mock_instance(WASM);
+    let mut deps = mock_instance(WASM, &[]);
 
     mock_init_no_fees(&mut deps);
 
@@ -111,14 +116,16 @@ fn proper_init_no_fees() {
                 transfer_price: None
             }
         );
-    });
+        Ok(())
+    })
+    .unwrap();
 }
 
 #[test]
 fn proper_init_with_fees() {
-    let mut deps = mock_instance(WASM);
+    let mut deps = mock_instance(WASM, &[]);
 
-    mock_init_with_fees(&mut deps, coin("2", "token"), coin("2", "token"));
+    mock_init_with_fees(&mut deps, coin(2, "token"), coin(2, "token"));
 
     deps.with_storage(|storage| {
         let config_state = config(storage)
@@ -128,27 +135,30 @@ fn proper_init_with_fees() {
         assert_eq!(
             config_state,
             Config {
-                purchase_price: Some(coin("2", "token")),
-                transfer_price: Some(coin("2", "token")),
+                purchase_price: Some(coin(2, "token")),
+                transfer_price: Some(coin(2, "token")),
             }
         );
-    });
+
+        Ok(())
+    })
+    .unwrap();
 }
 
 #[test]
 fn register_available_name_and_query_works_with_fees() {
-    let mut deps = mock_instance(WASM);
-    mock_init_with_fees(&mut deps, coin("2", "token"), coin("2", "token"));
-    mock_alice_registers_name(&mut deps, &coin_vec("2", "token"));
+    let mut deps = mock_instance(WASM, &[]);
+    mock_init_with_fees(&mut deps, coin(2, "token"), coin(2, "token"));
+    mock_alice_registers_name(&mut deps, &coins(2, "token"));
 
     // anyone can register an available name with more fees than needed
-    let params = mock_env(&deps.api, "bob_key", &coin_vec("5", "token"), &[]);
+    let params = mock_env(&deps.api, "bob_key", &coins(5, "token"));
     let msg = HandleMsg::Register {
         name: "bob".to_string(),
     };
 
     // unwrap: contract successfully handles Register message
-    let _res = handle(&mut deps, params, msg).unwrap();
+    let _res: HandleResponse = handle(&mut deps, params, msg).unwrap();
 
     // querying for name resolves to correct address
     assert_name_owner(&mut deps, "alice", "alice_key");
@@ -157,7 +167,7 @@ fn register_available_name_and_query_works_with_fees() {
 
 #[test]
 fn register_available_name_and_query_works() {
-    let mut deps = mock_instance(WASM);
+    let mut deps = mock_instance(WASM, &[]);
     mock_init_no_fees(&mut deps);
     mock_alice_registers_name(&mut deps, &[]);
 
@@ -167,131 +177,126 @@ fn register_available_name_and_query_works() {
 
 #[test]
 fn fails_on_register_already_taken_name() {
-    let mut deps = mock_instance(WASM);
+    let mut deps = mock_instance(WASM, &[]);
     mock_init_no_fees(&mut deps);
     mock_alice_registers_name(&mut deps, &[]);
 
     // bob can't register the same name
-    let params = mock_env(&deps.api, "bob_key", &coin_vec("2", "token"), &[]);
+    let params = mock_env(&deps.api, "bob_key", &coins(2, "token"));
     let msg = HandleMsg::Register {
         name: "alice".to_string(),
     };
-    let res = handle(&mut deps, params, msg);
-
-    match res {
-        ContractResult::Ok(_) => panic!("Must return error"),
-        ContractResult::Err(e) => assert_eq!(e, "Contract error: Name is already taken"),
+    let res: HandleResult = handle(&mut deps, params, msg);
+    match res.unwrap_err() {
+        StdError::GenericErr { msg, .. } => assert_eq!(msg, "Name is already taken"),
+        _ => panic!("Unexpected error type"),
     }
+
     // alice can't register the same name again
-    let params = mock_env(&deps.api, "alice_key", &coin_vec("2", "token"), &[]);
+    let params = mock_env(&deps.api, "alice_key", &coins(2, "token"));
     let msg = HandleMsg::Register {
         name: "alice".to_string(),
     };
-    let res = handle(&mut deps, params, msg);
-
-    match res {
-        ContractResult::Ok(_) => panic!("Must return error"),
-        ContractResult::Err(e) => assert_eq!(e, "Contract error: Name is already taken"),
+    let res: HandleResult = handle(&mut deps, params, msg);
+    match res.unwrap_err() {
+        StdError::GenericErr { msg, .. } => assert_eq!(msg, "Name is already taken"),
+        _ => panic!("Unexpected error type"),
     }
 }
 
 #[test]
 fn fails_on_register_insufficient_fees() {
-    let mut deps = mock_instance(WASM);
-    mock_init_with_fees(&mut deps, coin("2", "token"), coin("2", "token"));
+    let mut deps = mock_instance(WASM, &[]);
+    mock_init_with_fees(&mut deps, coin(2, "token"), coin(2, "token"));
 
     // anyone can register an available name with sufficient fees
-    let params = mock_env(&deps.api, "alice_key", &[], &[]);
+    let params = mock_env(&deps.api, "alice_key", &[]);
     let msg = HandleMsg::Register {
         name: "alice".to_string(),
     };
 
-    let res = handle(&mut deps, params, msg);
-
-    match res {
-        ContractResult::Ok(_) => panic!("Must return error"),
-        ContractResult::Err(e) => assert_eq!(e, "Contract error: Insufficient funds sent"),
+    let res: HandleResult = handle(&mut deps, params, msg);
+    match res.unwrap_err() {
+        StdError::GenericErr { msg, .. } => assert_eq!(msg, "Insufficient funds sent"),
+        _ => panic!("Unexpected error type"),
     }
 }
 
 #[test]
 fn fails_on_register_wrong_fee_denom() {
-    let mut deps = mock_instance(WASM);
-    mock_init_with_fees(&mut deps, coin("2", "token"), coin("2", "token"));
+    let mut deps = mock_instance(WASM, &[]);
+    mock_init_with_fees(&mut deps, coin(2, "token"), coin(2, "token"));
 
     // anyone can register an available name with sufficient fees
-    let params = mock_env(&deps.api, "alice_key", &coin_vec("2", "earth"), &[]);
+    let params = mock_env(&deps.api, "alice_key", &coins(2, "earth"));
     let msg = HandleMsg::Register {
         name: "alice".to_string(),
     };
 
-    let res = handle(&mut deps, params, msg);
-
-    match res {
-        ContractResult::Ok(_) => panic!("Must return error"),
-        ContractResult::Err(e) => assert_eq!(e, "Contract error: Insufficient funds sent"),
+    let res: HandleResult = handle(&mut deps, params, msg);
+    match res.unwrap_err() {
+        StdError::GenericErr { msg, .. } => assert_eq!(msg, "Insufficient funds sent"),
+        _ => panic!("Unexpected error type"),
     }
 }
 
 #[test]
 fn transfer_works() {
-    let mut deps = mock_instance(WASM);
+    let mut deps = mock_instance(WASM, &[]);
     mock_init_no_fees(&mut deps);
     mock_alice_registers_name(&mut deps, &[]);
 
     // alice can transfer her name successfully to bob
-    let params = mock_env(&deps.api, "alice_key", &[], &[]);
+    let params = mock_env(&deps.api, "alice_key", &[]);
     let msg = HandleMsg::Transfer {
         name: "alice".to_string(),
         to: HumanAddr::from("bob_key"),
     };
 
-    let _res = handle(&mut deps, params, msg).unwrap();
+    let _res: HandleResponse = handle(&mut deps, params, msg).unwrap();
     // querying for name resolves to correct address (bob_key)
     assert_name_owner(&mut deps, "alice", "bob_key");
 }
 
 #[test]
 fn transfer_works_with_fees() {
-    let mut deps = mock_instance(WASM);
-    mock_init_with_fees(&mut deps, coin("2", "token"), coin("2", "token"));
-    mock_alice_registers_name(&mut deps, &coin_vec("2", "token"));
+    let mut deps = mock_instance(WASM, &[]);
+    mock_init_with_fees(&mut deps, coin(2, "token"), coin(2, "token"));
+    mock_alice_registers_name(&mut deps, &coins(2, "token"));
 
     // alice can transfer her name successfully to bob
     let params = mock_env(
         &deps.api,
         "alice_key",
-        &vec![coin("1", "earth"), coin("2", "token")],
-        &[],
+        &vec![coin(1, "earth"), coin(2, "token")],
     );
     let msg = HandleMsg::Transfer {
         name: "alice".to_string(),
         to: HumanAddr::from("bob_key"),
     };
 
-    let _res = handle(&mut deps, params, msg).unwrap();
+    let _res: HandleResponse = handle(&mut deps, params, msg).unwrap();
     // querying for name resolves to correct address (bob_key)
     assert_name_owner(&mut deps, "alice", "bob_key");
 }
 
 #[test]
 fn fails_on_transfer_from_nonowner() {
-    let mut deps = mock_instance(WASM);
+    let mut deps = mock_instance(WASM, &[]);
     mock_init_no_fees(&mut deps);
     mock_alice_registers_name(&mut deps, &[]);
 
     // alice can transfer her name successfully to bob
-    let params = mock_env(&deps.api, "frank_key", &coin_vec("2", "token"), &[]);
+    let params = mock_env(&deps.api, "frank_key", &coins(2, "token"));
     let msg = HandleMsg::Transfer {
         name: "alice".to_string(),
         to: HumanAddr::from("bob_key"),
     };
 
-    let res = handle(&mut deps, params, msg);
-
-    match res {
-        ContractResult::Ok(_) => panic!("Must return error"),
-        ContractResult::Err(e) => assert_eq!(e, "Unauthorized"),
+    let res: HandleResult = handle(&mut deps, params, msg);
+    match res.unwrap_err() {
+        StdError::Unauthorized { .. } => {}
+        _ => panic!("Unexpected error type"),
     }
 
     // querying for name resolves to correct address (alice_key)
@@ -300,27 +305,25 @@ fn fails_on_transfer_from_nonowner() {
 
 #[test]
 fn fails_on_transfer_insufficient_fees() {
-    let mut deps = mock_instance(WASM);
-    mock_init_with_fees(&mut deps, coin("2", "token"), coin("5", "token"));
-    mock_alice_registers_name(&mut deps, &coin_vec("2", "token"));
+    let mut deps = mock_instance(WASM, &[]);
+    mock_init_with_fees(&mut deps, coin(2, "token"), coin(5, "token"));
+    mock_alice_registers_name(&mut deps, &coins(2, "token"));
 
     // alice can transfer her name successfully to bob
     let params = mock_env(
         &deps.api,
         "alice_key",
-        &vec![coin("1", "earth"), coin("2", "token")],
-        &[],
+        &vec![coin(1, "earth"), coin(2, "token")],
     );
     let msg = HandleMsg::Transfer {
         name: "alice".to_string(),
         to: HumanAddr::from("bob_key"),
     };
 
-    let res = handle(&mut deps, params, msg);
-
-    match res {
-        ContractResult::Ok(_) => panic!("Must return error"),
-        ContractResult::Err(e) => assert_eq!(e, "Contract error: Insufficient funds sent"),
+    let res: HandleResult = handle(&mut deps, params, msg);
+    match res.unwrap_err() {
+        StdError::GenericErr { msg, .. } => assert_eq!(msg, "Insufficient funds sent"),
+        _ => panic!("Unexpected error type"),
     }
 
     // querying for name resolves to correct address (bob_key)
@@ -329,7 +332,7 @@ fn fails_on_transfer_insufficient_fees() {
 
 #[test]
 fn returns_empty_on_query_unregistered_name() {
-    let mut deps = mock_instance(WASM);
+    let mut deps = mock_instance(WASM, &[]);
 
     mock_init_no_fees(&mut deps);
 
@@ -341,6 +344,6 @@ fn returns_empty_on_query_unregistered_name() {
         },
     )
     .unwrap();
-    let value: ResolveRecordResponse = deserialize(res.as_slice()).unwrap();
+    let value: ResolveRecordResponse = from_binary(&res).unwrap();
     assert_eq!(None, value.address);
 }
