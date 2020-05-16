@@ -27,10 +27,11 @@
 //!         _ => panic!("Expected error"),
 //!      }
 
-use cosmwasm::mock::mock_env;
-use cosmwasm::serde::from_slice;
-use cosmwasm::traits::Api;
-use cosmwasm::types::{coin, ContractResult, CosmosMsg, HumanAddr};
+use cosmwasm_std::testing::mock_env;
+use cosmwasm_std::{
+    coins, from_slice, Api, BankMsg, CosmosMsg, HandleResponse, HandleResult, HumanAddr,
+    InitResponse, StdError,
+};
 
 use cosmwasm_vm::testing::{handle, init, mock_instance, query};
 
@@ -43,13 +44,13 @@ static WASM: &[u8] = include_bytes!("../target/wasm32-unknown-unknown/release/cw
 
 #[test]
 fn proper_initialization() {
-    let mut deps = mock_instance(WASM);
+    let mut deps = mock_instance(WASM, &[]);
 
     let msg = InitMsg {};
-    let env = mock_env(&deps.api, "creator", &coin("1000", "earth"), &[]);
+    let env = mock_env(&deps.api, "creator", &coins(1000, "earth"));
 
     // we can just call .unwrap() to assert this was a success
-    let res = init(&mut deps, env, msg).unwrap();
+    let res: InitResponse = init(&mut deps, env, msg).unwrap();
     assert_eq!(0, res.messages.len());
 
     // it worked, let's query the state
@@ -60,23 +61,18 @@ fn proper_initialization() {
 
 #[test]
 fn reflect() {
-    let mut deps = mock_instance(WASM);
+    let mut deps = mock_instance(WASM, &[]);
 
     let msg = InitMsg {};
-    let env = mock_env(
-        &deps.api,
-        "creator",
-        &coin("2", "token"),
-        &coin("2", "token"),
-    );
-    let _res = init(&mut deps, env, msg).unwrap();
+    let env = mock_env(&deps.api, "creator", &coins(2, "token"));
+    let _res: InitResponse = init(&mut deps, env, msg).unwrap();
 
-    let env = mock_env(&deps.api, "creator", &[], &coin("2", "token"));
-    let payload = vec![CosmosMsg::Send {
+    let env = mock_env(&deps.api, "creator", &[]);
+    let payload = vec![CosmosMsg::Bank(BankMsg::Send {
         from_address: deps.api.human_address(&env.contract.address).unwrap(),
         to_address: HumanAddr::from("friend"),
-        amount: coin("1", "token"),
-    }];
+        amount: coins(1, "token"),
+    })];
     let msg = HandleMsg::ReflectMsg {
         msgs: payload.clone(),
     };
@@ -88,54 +84,44 @@ fn reflect() {
 
 #[test]
 fn reflect_requires_owner() {
-    let mut deps = mock_instance(WASM);
+    let mut deps = mock_instance(WASM, &[]);
 
     let msg = InitMsg {};
-    let env = mock_env(
-        &deps.api,
-        "creator",
-        &coin("2", "token"),
-        &coin("2", "token"),
-    );
-    let _res = init(&mut deps, env, msg).unwrap();
+    let env = mock_env(&deps.api, "creator", &coins(2, "token"));
+    let _res: InitResponse = init(&mut deps, env, msg).unwrap();
 
     // signer is not owner
-    let env = mock_env(&deps.api, "someone", &[], &coin("2", "token"));
-    let payload = vec![CosmosMsg::Send {
+    let env = mock_env(&deps.api, "someone", &[]);
+    let payload = vec![CosmosMsg::Bank(BankMsg::Send {
         from_address: deps.api.human_address(&env.contract.address).unwrap(),
         to_address: HumanAddr::from("friend"),
-        amount: coin("1", "token"),
-    }];
+        amount: coins(1, "token"),
+    })];
     let msg = HandleMsg::ReflectMsg {
         msgs: payload.clone(),
     };
 
-    let res = handle(&mut deps, env, msg);
-    match res {
-        ContractResult::Err(msg) => assert_eq!(msg, "Unauthorized"),
+    let res: HandleResult = handle(&mut deps, env, msg);
+    match res.unwrap_err() {
+        StdError::Unauthorized { .. } => {}
         _ => panic!("Must return unauthorized error"),
     }
 }
 
 #[test]
 fn transfer() {
-    let mut deps = mock_instance(WASM);
+    let mut deps = mock_instance(WASM, &[]);
 
     let msg = InitMsg {};
-    let env = mock_env(
-        &deps.api,
-        "creator",
-        &coin("2", "token"),
-        &coin("2", "token"),
-    );
-    let _res = init(&mut deps, env, msg).unwrap();
+    let env = mock_env(&deps.api, "creator", &coins(2, "token"));
+    let _res: InitResponse = init(&mut deps, env, msg).unwrap();
 
-    let env = mock_env(&deps.api, "creator", &[], &coin("2", "token"));
+    let env = mock_env(&deps.api, "creator", &[]);
     let new_owner = HumanAddr::from("friend");
     let msg = HandleMsg::ChangeOwner {
         owner: new_owner.clone(),
     };
-    let res = handle(&mut deps, env, msg).unwrap();
+    let res: HandleResponse = handle(&mut deps, env, msg).unwrap();
 
     // should change state
     assert_eq!(0, res.messages.len());
@@ -146,26 +132,21 @@ fn transfer() {
 
 #[test]
 fn transfer_requires_owner() {
-    let mut deps = mock_instance(WASM);
+    let mut deps = mock_instance(WASM, &[]);
 
     let msg = InitMsg {};
-    let env = mock_env(
-        &deps.api,
-        "creator",
-        &coin("2", "token"),
-        &coin("2", "token"),
-    );
-    let _res = init(&mut deps, env, msg).unwrap();
+    let env = mock_env(&deps.api, "creator", &coins(2, "token"));
+    let _res: InitResponse = init(&mut deps, env, msg).unwrap();
 
-    let env = mock_env(&deps.api, "random", &[], &coin("2", "token"));
+    let env = mock_env(&deps.api, "random", &[]);
     let new_owner = HumanAddr::from("friend");
     let msg = HandleMsg::ChangeOwner {
         owner: new_owner.clone(),
     };
 
-    let res = handle(&mut deps, env, msg);
-    match res {
-        ContractResult::Err(msg) => assert_eq!(msg, "Unauthorized"),
+    let res: HandleResult = handle(&mut deps, env, msg);
+    match res.unwrap_err() {
+        StdError::Unauthorized { .. } => {}
         _ => panic!("Must return unauthorized error"),
     }
 }
