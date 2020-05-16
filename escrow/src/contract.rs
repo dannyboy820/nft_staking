@@ -225,11 +225,9 @@ mod tests {
         let msg = init_msg_expire_by_height(1000);
         let env = mock_env_height(&deps.api, "creator", &coins(1000, "earth"), 1001, 0);
         let res = init(&mut deps, env, msg);
-        assert!(res.is_err());
-        if let Err(StdError::GenericErr { msg, .. }) = res {
-            assert_eq!(msg, "creating expired escrow".to_string());
-        } else {
-            assert!(false, "wrong error type");
+        match res.unwrap_err() {
+            StdError::GenericErr { msg, .. } => assert_eq!(msg, "creating expired escrow"),
+            e => panic!("unexpected error: {:?}", e),
         }
     }
 
