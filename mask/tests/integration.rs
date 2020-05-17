@@ -2,12 +2,12 @@
 //! It depends on a Wasm build being available, which you can create with `cargo wasm`.
 //! Then running `cargo integration-test` will validate we can properly call into that generated Wasm.
 //!
-//! You can easily convert unit tests to integration tests.
-//! 1. First copy them over verbatum,
+//! You can easily convert unit tests to integration tests as follows:
+//! 1. Copy them over verbatim
 //! 2. Then change
-//!      let mut deps = mock_dependencies(20);
+//!      let mut deps = mock_dependencies(20, &[]);
 //!    to
-//!      let mut deps = mock_instance(WASM);
+//!      let mut deps = mock_instance(WASM, &[]);
 //! 3. If you access raw storage, where ever you see something like:
 //!      deps.storage.get(CONFIG_KEY).expect("no data stored");
 //!    replace it with:
@@ -16,16 +16,6 @@
 //!          //...
 //!      });
 //! 4. Anywhere you see query(&deps, ...) you must replace it with query(&mut deps, ...)
-//! 5. When matching on error codes, you can not use Error types, but rather must use strings:
-//!      match res {
-//!          Err(Error::Unauthorized{..}) => {},
-//!          _ => panic!("Must return unauthorized error"),
-//!      }
-//!    becomes:
-//!      match res {
-//!         ContractResult::Err(msg) => assert_eq!(msg, "Unauthorized"),
-//!         _ => panic!("Expected error"),
-//!      }
 
 use cosmwasm_std::testing::mock_env;
 use cosmwasm_std::{
