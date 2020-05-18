@@ -11,7 +11,7 @@ workflows:
 jobs:
   erc20:
     docker:
-      - image: rust:1.40.0
+      - image: rust:1.41.1
     working_directory: ~/project/erc20
     steps:
       - checkout:
@@ -21,31 +21,34 @@ jobs:
           command: rustc --version; cargo --version; rustup --version
       - restore_cache:
           keys:
-            - cargocache-erc20-rust:1.40.0-{{ checksum "Cargo.lock" }}
+            - cargocache-erc20-rust:1.41.1-{{ checksum "Cargo.lock" }}
       - run:
           name: Add wasm32 target
           command: rustup target add wasm32-unknown-unknown
       - run:
-          name: Add rustfmt component
-          command: rustup component add rustfmt
-      - run:
-          name: Build
-          command: cargo wasm --locked
+          name: Add components to Rust toolchain
+          command: rustup component add rustfmt clippy
       - run:
           name: Unit Tests
           env: RUST_BACKTRACE=1
           command: cargo unit-test --locked
       - run:
+          name: Build Wasm
+          command: cargo wasm --locked
+      - run:
           name: Integration Tests
           command: cargo integration-test --locked  -- --test-threads=2
       - run:
-          name: Format source code
-          command: cargo fmt
+          name: Check formatting
+          command: cargo fmt -- --check
+      - run:
+          name: Lint
+          command: cargo clippy -- -D warnings
       - run:
           name: Build and run schema generator
           command: cargo schema --locked
       - run:
-          name: Ensure checked-in source code and schemas are up-to-date
+          name: Ensure checked-in schemas are up-to-date
           command: |
             CHANGES_IN_REPO=$(git status --porcelain)
             if [[ -n "$CHANGES_IN_REPO" ]]; then
@@ -57,10 +60,10 @@ jobs:
           paths:
             - /usr/local/cargo/registry
             - target
-          key: cargocache-erc20-rust:1.40.0-{{ checksum "Cargo.lock" }}
+          key: cargocache-erc20-rust:1.41.1-{{ checksum "Cargo.lock" }}
   escrow:
     docker:
-      - image: rust:1.40.0
+      - image: rust:1.41.1
     working_directory: ~/project/escrow
     steps:
       - checkout:
@@ -70,31 +73,34 @@ jobs:
           command: rustc --version; cargo --version; rustup --version
       - restore_cache:
           keys:
-            - cargocache-escrow-rust:1.40.0-{{ checksum "Cargo.lock" }}
+            - cargocache-escrow-rust:1.41.1-{{ checksum "Cargo.lock" }}
       - run:
           name: Add wasm32 target
           command: rustup target add wasm32-unknown-unknown
       - run:
-          name: Add rustfmt component
-          command: rustup component add rustfmt
-      - run:
-          name: Build
-          command: cargo wasm --locked
+          name: Add components to Rust toolchain
+          command: rustup component add rustfmt clippy
       - run:
           name: Unit Tests
           env: RUST_BACKTRACE=1
           command: cargo unit-test --locked
       - run:
+          name: Build Wasm
+          command: cargo wasm --locked
+      - run:
           name: Integration Tests
           command: cargo integration-test --locked -- --test-threads=2
       - run:
-          name: Format source code
-          command: cargo fmt
+          name: Check formatting
+          command: cargo fmt -- --check
+      - run:
+          name: Lint
+          command: cargo clippy -- -D warnings
       - run:
           name: Build and run schema generator
           command: cargo schema --locked
       - run:
-          name: Ensure checked-in source code and schemas are up-to-date
+          name: Ensure checked-in schemas are up-to-date
           command: |
             CHANGES_IN_REPO=$(git status --porcelain)
             if [[ -n "$CHANGES_IN_REPO" ]]; then
@@ -106,10 +112,10 @@ jobs:
           paths:
             - /usr/local/cargo/registry
             - target
-          key: cargocache-escrow-rust:1.40.0-{{ checksum "Cargo.lock" }}
+          key: cargocache-escrow-rust:1.41.1-{{ checksum "Cargo.lock" }}
   nameservice:
     docker:
-      - image: rust:1.40.0
+      - image: rust:1.41.1
     working_directory: ~/project/nameservice
     steps:
       - checkout:
@@ -119,31 +125,34 @@ jobs:
           command: rustc --version; cargo --version; rustup --version
       - restore_cache:
           keys:
-            - cargocache-nameservice-rust:1.40.0-{{ checksum "Cargo.lock" }}
+            - cargocache-nameservice-rust:1.41.1-{{ checksum "Cargo.lock" }}
       - run:
           name: Add wasm32 target
           command: rustup target add wasm32-unknown-unknown
       - run:
-          name: Add rustfmt component
-          command: rustup component add rustfmt
-      - run:
-          name: Build
-          command: cargo wasm --locked
+          name: Add components to Rust toolchain
+          command: rustup component add rustfmt clippy
       - run:
           name: Unit Tests
           env: RUST_BACKTRACE=1
           command: cargo unit-test --locked
       - run:
+          name: Build Wasm
+          command: cargo wasm --locked
+      - run:
           name: Integration Tests
           command: cargo integration-test --locked -- --test-threads=2
       - run:
-          name: Format source code
-          command: cargo fmt
+          name: Check formatting
+          command: cargo fmt -- --check
+      - run:
+          name: Lint
+          command: cargo clippy -- -D warnings
       - run:
           name: Build and run schema generator
           command: cargo schema --locked
       - run:
-          name: Ensure checked-in source code and schemas are up-to-date
+          name: Ensure checked-in schemas are up-to-date
           command: |
             CHANGES_IN_REPO=$(git status --porcelain)
             if [[ -n "$CHANGES_IN_REPO" ]]; then
@@ -155,10 +164,10 @@ jobs:
           paths:
             - /usr/local/cargo/registry
             - target
-          key: cargocache-nameservice-rust:1.40.0-{{ checksum "Cargo.lock" }}
+          key: cargocache-nameservice-rust:1.41.1-{{ checksum "Cargo.lock" }}
   mask:
     docker:
-      - image: rust:1.40.0
+      - image: rust:1.41.1
     working_directory: ~/project/mask
     steps:
       - checkout:
@@ -168,31 +177,34 @@ jobs:
           command: rustc --version; cargo --version; rustup --version
       - restore_cache:
           keys:
-            - cargocache-mask-rust:1.40.0-{{ checksum "Cargo.lock" }}
+            - cargocache-mask-rust:1.41.1-{{ checksum "Cargo.lock" }}
       - run:
           name: Add wasm32 target
           command: rustup target add wasm32-unknown-unknown
       - run:
-          name: Add rustfmt component
-          command: rustup component add rustfmt
-      - run:
-          name: Build
-          command: cargo wasm --locked
+          name: Add components to Rust toolchain
+          command: rustup component add rustfmt clippy
       - run:
           name: Unit Tests
           env: RUST_BACKTRACE=1
           command: cargo unit-test --locked
       - run:
+          name: Build Wasm
+          command: cargo wasm --locked
+      - run:
           name: Integration Tests
           command: cargo integration-test --locked  -- --test-threads=2
       - run:
-          name: Format source code
-          command: cargo fmt
+          name: Check formatting
+          command: cargo fmt -- --check
+      - run:
+          name: Lint
+          command: cargo clippy -- -D warnings
       - run:
           name: Build and run schema generator
           command: cargo schema --locked
       - run:
-          name: Ensure checked-in source code and schemas are up-to-date
+          name: Ensure checked-in schemas are up-to-date
           command: |
             CHANGES_IN_REPO=$(git status --porcelain)
             if [[ -n "$CHANGES_IN_REPO" ]]; then
@@ -204,4 +216,4 @@ jobs:
           paths:
             - /usr/local/cargo/registry
             - target
-          key: cargocache-mask-rust:1.40.0-{{ checksum "Cargo.lock" }}
+          key: cargocache-mask-rust:1.41.1-{{ checksum "Cargo.lock" }}

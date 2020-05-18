@@ -13,17 +13,18 @@ pub fn assert_sent_sufficient_coin(sent: &Option<Vec<Coin>>, required: Option<Co
     if let Some(required_coin) = required {
         let required_amount = parse_u128(&required_coin.amount)?;
         if required_amount > 0 {
-            if let Some(coins) = sent {
-                if coins.iter().any(|coin| {
-                    // check if a given sent coin matches denom
-                    // and has sufficient amount
-                    let amount = parse_u128(&coin.amount).unwrap_or(0);
-                    coin.denom == required_coin.denom && amount >= required_amount
-                }) {
-                    return Ok(());
-                }
+            let sent_sufficient_funds = sent.as_ref().unwrap_or(&vec![]).iter().any(|coin| {
+                // check if a given sent coin matches denom
+                // and has sufficient amount
+                let amount = parse_u128(&coin.amount).unwrap_or(0);
+                coin.denom == required_coin.denom && amount >= required_amount
+            });
+
+            if sent_sufficient_funds {
+                return Ok(());
+            } else {
+                return contract_err("Insufficient funds sent");
             }
-            return contract_err("Insufficient funds sent");
         }
     }
     Ok(())
