@@ -205,13 +205,13 @@ mod tests {
         // initialize the store
         let init_amount = coins(1000, "earth");
         let init_env = mock_env_height(&deps.api, "creator", &init_amount, 876, 0);
+        let contract_addr = deps.api.human_address(&init_env.contract.address).unwrap();
         let msg = init_msg_expire_by_height(1000);
         let init_res = init(&mut deps, init_env, msg).unwrap();
         assert_eq!(0, init_res.messages.len());
 
         // balance changed in init
-        let Extern { querier, .. } = mock_dependencies(20, &init_amount);
-        deps.querier = querier;
+        deps.querier.update_balance(&contract_addr, init_amount);
 
         // beneficiary cannot release it
         let msg = HandleMsg::Approve { quantity: None };
@@ -269,13 +269,13 @@ mod tests {
         // initialize the store
         let init_amount = coins(1000, "earth");
         let init_env = mock_env_height(&deps.api, "creator", &init_amount, 876, 0);
+        let contract_addr = deps.api.human_address(&init_env.contract.address).unwrap();
         let msg = init_msg_expire_by_height(1000);
         let init_res = init(&mut deps, init_env, msg).unwrap();
         assert_eq!(0, init_res.messages.len());
 
         // balance changed in init
-        let Extern { querier, .. } = mock_dependencies(20, &init_amount);
-        deps.querier = querier;
+        deps.querier.update_balance(&contract_addr, init_amount);
 
         // cannot release when unexpired (height < end_height)
         let msg = HandleMsg::Refund {};
