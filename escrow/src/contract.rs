@@ -54,10 +54,9 @@ fn try_approve<S: Storage, A: Api, Q: Querier>(
         } else {
             // release everything
 
-            // TODO: avoid the necessarity of this conversion
-            let human = deps.api.human_address(&env.contract.address)?;
-            // TODO: make sure querier guarantees to returns up-to-date data
-            deps.querier.query_all_balances(human)?
+            let contract_address_human = deps.api.human_address(&env.contract.address)?;
+            // TODO: Ensure querier guarantees to returns up-to-date data. What about funds sent in this handle message?
+            deps.querier.query_all_balances(contract_address_human)?
         };
 
         send_tokens(
@@ -79,10 +78,9 @@ fn try_refund<S: Storage, A: Api, Q: Querier>(
     if !state.is_expired(&env) {
         Err(generic_err("escrow not yet expired"))
     } else {
-        // TODO: avoid the necessarity of this conversion
-        let human = deps.api.human_address(&env.contract.address)?;
-        // TODO: make sure querier guarantees to returns up-to-date data
-        let balance = deps.querier.query_all_balances(human)?;
+        let contract_address_human = deps.api.human_address(&env.contract.address)?;
+        // TODO: Ensure querier guarantees to returns up-to-date data. What about funds sent in this handle message?
+        let balance = deps.querier.query_all_balances(contract_address_human)?;
         send_tokens(
             &deps.api,
             &env.contract.address,
