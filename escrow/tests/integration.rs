@@ -17,16 +17,16 @@
 //!      });
 //! 4. Anywhere you see query(&deps, ...) you must replace it with query(&mut deps, ...)
 
-use cosmwasm_std::testing::mock_env;
 use cosmwasm_std::{
-    coins, Api, BankMsg, Coin, CosmosMsg, Env, HandleResponse, HandleResult, HumanAddr,
-    InitResponse, InitResult, StdError,
+    coins, BankMsg, Coin, CosmosMsg, Env, HandleResponse, HandleResult, HumanAddr, InitResponse,
+    InitResult, StdError,
 };
 
-use cosmwasm_vm::testing::{handle, init, mock_instance};
+use cosmwasm_vm::testing::{handle, init, mock_env, mock_instance};
+use cosmwasm_vm::{from_slice, Api, ReadonlyStorage};
 
 use cw_escrow::msg::{HandleMsg, InitMsg};
-use cw_escrow::state::{config_read, State};
+use cw_escrow::state::State;
 
 // This line will test the output of cargo wasm
 static WASM: &[u8] = include_bytes!("../target/wasm32-unknown-unknown/release/cw_escrow.wasm");
@@ -61,7 +61,9 @@ fn proper_initialization() {
     // it worked, let's query the state
     let api = deps.api;
     deps.with_storage(|store| {
-        let state = config_read(store).load().unwrap();
+        // TODO: why is this single key length prefixed?
+        let config_key_raw = b"\0\x06config";
+        let state: State = from_slice(&store.get(config_key_raw).unwrap().unwrap()).unwrap();
         assert_eq!(
             state,
             State {
@@ -97,11 +99,17 @@ fn handle_approve() {
     // initialize the store
     let init_amount = coins(1000, "earth");
     let init_env = mock_env_height(&deps.api, "creator", &init_amount, 876, 0);
+    let contract_addr = deps.api.human_address(&init_env.contract.address).unwrap();
     let msg = init_msg_expire_by_height(1000);
     let init_res: InitResponse = init(&mut deps, init_env, msg).unwrap();
     assert_eq!(0, init_res.messages.len());
 
-    // TODO: update balance to init_amount here
+    // balance changed in init
+    deps.with_querier(|querier| {
+        querier.update_balance(&contract_addr, init_amount);
+        Ok(())
+    })
+    .unwrap();
 
     // beneficiary cannot release it
     let msg = HandleMsg::Approve { quantity: None };
@@ -159,11 +167,16 @@ fn handle_refund() {
     // initialize the store
     let init_amount = coins(1000, "earth");
     let init_env = mock_env_height(&deps.api, "creator", &init_amount, 876, 0);
+    let contract_addr = deps.api.human_address(&init_env.contract.address).unwrap();
     let msg = init_msg_expire_by_height(1000);
     let init_res: InitResponse = init(&mut deps, init_env, msg).unwrap();
     assert_eq!(0, init_res.messages.len());
 
-    // TODO: update balance to init_amount here
+    deps.with_querier(|querier| {
+        querier.update_balance(&contract_addr, init_amount);
+        Ok(())
+    })
+    .unwrap();
 
     // cannot release when unexpired
     let msg = HandleMsg::Refund {};
