@@ -21,7 +21,7 @@ use cosmwasm_std::{
     coins, BankMsg, Coin, CosmosMsg, Env, HandleResponse, HandleResult, HumanAddr, InitResponse,
     InitResult, StdError,
 };
-
+use cosmwasm_storage::to_length_prefixed;
 use cosmwasm_vm::testing::{handle, init, mock_env, mock_instance};
 use cosmwasm_vm::{from_slice, Api, ReadonlyStorage};
 
@@ -61,9 +61,8 @@ fn proper_initialization() {
     // it worked, let's query the state
     let api = deps.api;
     deps.with_storage(|store| {
-        // TODO: why is this single key length prefixed?
-        let config_key_raw = b"\0\x06config";
-        let state: State = from_slice(&store.get(config_key_raw).unwrap().unwrap()).unwrap();
+        let config_key_raw = to_length_prefixed(b"config");
+        let state: State = from_slice(&store.get(&config_key_raw).unwrap().unwrap()).unwrap();
         assert_eq!(
             state,
             State {
