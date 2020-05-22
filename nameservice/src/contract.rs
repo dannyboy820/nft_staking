@@ -74,7 +74,7 @@ pub fn try_transfer<S: Storage, A: Api, Q: Querier>(
     let key = name.as_bytes();
     let new_owner = deps.api.canonical_address(&to)?;
 
-    resolver(&mut deps.storage).update(key, &|record| {
+    resolver(&mut deps.storage).update(key, |record| {
         if let Some(mut record) = record {
             if env.message.sender != record.owner {
                 return Err(unauthorized());

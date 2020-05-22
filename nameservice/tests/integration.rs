@@ -17,15 +17,17 @@
 //!      });
 //! 4. Anywhere you see query(&deps, ...) you must replace it with query(&mut deps, ...)
 
-use cosmwasm_std::testing::{mock_env, MockApi, MockQuerier, MockStorage};
 use cosmwasm_std::{
     coin, coins, from_binary, Coin, HandleResponse, HandleResult, HumanAddr, InitResponse, StdError,
 };
-use cosmwasm_vm::testing::{handle, init, mock_instance, query};
-use cosmwasm_vm::Instance;
+use cosmwasm_storage::to_length_prefixed;
+use cosmwasm_vm::testing::{
+    handle, init, mock_env, mock_instance, query, MockApi, MockQuerier, MockStorage,
+};
+use cosmwasm_vm::{from_slice, Instance, ReadonlyStorage};
 
 use cw_nameservice::msg::{HandleMsg, InitMsg, QueryMsg, ResolveRecordResponse};
-use cw_nameservice::state::{config, Config};
+use cw_nameservice::state::{Config, CONFIG_KEY};
 
 // This line will test the output of cargo wasm
 static WASM: &[u8] = include_bytes!("../target/wasm32-unknown-unknown/release/cw_nameservice.wasm");
@@ -95,9 +97,9 @@ fn proper_init_no_fees() {
     mock_init_no_price(&mut deps);
 
     deps.with_storage(|storage| {
-        let config_state = config(storage)
-            .load()
-            .expect("can load config from storage");
+        let key = to_length_prefixed(CONFIG_KEY);
+        let data = storage.get(&key).unwrap().unwrap();
+        let config_state: Config = from_slice(&data).unwrap();
 
         assert_eq!(
             config_state,
@@ -118,9 +120,9 @@ fn proper_init_with_prices() {
     mock_init_with_price(&mut deps, coin(2, "token"), coin(2, "token"));
 
     deps.with_storage(|storage| {
-        let config_state = config(storage)
-            .load()
-            .expect("can load config from storage");
+        let key = to_length_prefixed(CONFIG_KEY);
+        let data = storage.get(&key).unwrap().unwrap();
+        let config_state: Config = from_slice(&data).unwrap();
 
         assert_eq!(
             config_state,
