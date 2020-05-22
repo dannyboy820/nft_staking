@@ -28,7 +28,7 @@ fn assert_config_state(deps: &mut Extern<MockStorage, MockApi, MockQuerier>, exp
     assert_eq!(value, expected);
 }
 
-fn mock_init_with_fees(
+fn mock_init_with_price(
     mut deps: &mut Extern<MockStorage, MockApi, MockQuerier>,
     purchase_price: Coin,
     transfer_price: Coin,
@@ -42,7 +42,7 @@ fn mock_init_with_fees(
     let _res = init(&mut deps, env, msg).expect("contract successfully handles InitMsg");
 }
 
-fn mock_init_no_fees(mut deps: &mut Extern<MockStorage, MockApi, MockQuerier>) {
+fn mock_init_no_price(mut deps: &mut Extern<MockStorage, MockApi, MockQuerier>) {
     let msg = InitMsg {
         purchase_price: None,
         transfer_price: None,
@@ -68,7 +68,7 @@ fn mock_alice_registers_name(
 fn proper_init_no_fees() {
     let mut deps = mock_dependencies(20, &[]);
 
-    mock_init_no_fees(&mut deps);
+    mock_init_no_price(&mut deps);
 
     assert_config_state(
         &mut deps,
@@ -83,7 +83,7 @@ fn proper_init_no_fees() {
 fn proper_init_with_fees() {
     let mut deps = mock_dependencies(20, &[]);
 
-    mock_init_with_fees(&mut deps, coin(2, "token"), coin(2, "token"));
+    mock_init_with_price(&mut deps, coin(2, "token"), coin(2, "token"));
 
     assert_config_state(
         &mut deps,
@@ -97,7 +97,7 @@ fn proper_init_with_fees() {
 #[test]
 fn register_available_name_and_query_works() {
     let mut deps = mock_dependencies(20, &[]);
-    mock_init_no_fees(&mut deps);
+    mock_init_no_price(&mut deps);
     mock_alice_registers_name(&mut deps, &[]);
 
     // querying for name resolves to correct address
@@ -107,7 +107,7 @@ fn register_available_name_and_query_works() {
 #[test]
 fn register_available_name_and_query_works_with_fees() {
     let mut deps = mock_dependencies(20, &[]);
-    mock_init_with_fees(&mut deps, coin(2, "token"), coin(2, "token"));
+    mock_init_with_price(&mut deps, coin(2, "token"), coin(2, "token"));
     mock_alice_registers_name(&mut deps, &coins(2, "token"));
 
     // anyone can register an available name with more fees than needed
@@ -126,7 +126,7 @@ fn register_available_name_and_query_works_with_fees() {
 #[test]
 fn fails_on_register_already_taken_name() {
     let mut deps = mock_dependencies(20, &[]);
-    mock_init_no_fees(&mut deps);
+    mock_init_no_price(&mut deps);
     mock_alice_registers_name(&mut deps, &[]);
 
     // bob can't register the same name
@@ -158,7 +158,7 @@ fn fails_on_register_already_taken_name() {
 #[test]
 fn register_available_name_fails_with_invalid_name() {
     let mut deps = mock_dependencies(20, &[]);
-    mock_init_no_fees(&mut deps);
+    mock_init_no_price(&mut deps);
     let env = mock_env(&deps.api, "bob_key", &coins(2, "token"));
 
     // hi is too short
@@ -204,7 +204,7 @@ fn register_available_name_fails_with_invalid_name() {
 #[test]
 fn fails_on_register_insufficient_fees() {
     let mut deps = mock_dependencies(20, &[]);
-    mock_init_with_fees(&mut deps, coin(2, "token"), coin(2, "token"));
+    mock_init_with_price(&mut deps, coin(2, "token"), coin(2, "token"));
 
     // anyone can register an available name with sufficient fees
     let env = mock_env(&deps.api, "alice_key", &[]);
@@ -224,7 +224,7 @@ fn fails_on_register_insufficient_fees() {
 #[test]
 fn fails_on_register_wrong_fee_denom() {
     let mut deps = mock_dependencies(20, &[]);
-    mock_init_with_fees(&mut deps, coin(2, "token"), coin(2, "token"));
+    mock_init_with_price(&mut deps, coin(2, "token"), coin(2, "token"));
 
     // anyone can register an available name with sufficient fees
     let env = mock_env(&deps.api, "alice_key", &coins(2, "earth"));
@@ -244,7 +244,7 @@ fn fails_on_register_wrong_fee_denom() {
 #[test]
 fn transfer_works() {
     let mut deps = mock_dependencies(20, &[]);
-    mock_init_no_fees(&mut deps);
+    mock_init_no_price(&mut deps);
     mock_alice_registers_name(&mut deps, &[]);
 
     // alice can transfer her name successfully to bob
@@ -262,7 +262,7 @@ fn transfer_works() {
 #[test]
 fn transfer_works_with_fees() {
     let mut deps = mock_dependencies(20, &[]);
-    mock_init_with_fees(&mut deps, coin(2, "token"), coin(2, "token"));
+    mock_init_with_price(&mut deps, coin(2, "token"), coin(2, "token"));
     mock_alice_registers_name(&mut deps, &coins(2, "token"));
 
     // alice can transfer her name successfully to bob
@@ -284,7 +284,7 @@ fn transfer_works_with_fees() {
 #[test]
 fn fails_on_transfer_non_existent() {
     let mut deps = mock_dependencies(20, &[]);
-    mock_init_no_fees(&mut deps);
+    mock_init_no_price(&mut deps);
     mock_alice_registers_name(&mut deps, &[]);
 
     // alice can transfer her name successfully to bob
@@ -309,7 +309,7 @@ fn fails_on_transfer_non_existent() {
 #[test]
 fn fails_on_transfer_from_nonowner() {
     let mut deps = mock_dependencies(20, &[]);
-    mock_init_no_fees(&mut deps);
+    mock_init_no_price(&mut deps);
     mock_alice_registers_name(&mut deps, &[]);
 
     // alice can transfer her name successfully to bob
@@ -334,7 +334,7 @@ fn fails_on_transfer_from_nonowner() {
 #[test]
 fn fails_on_transfer_insufficient_fees() {
     let mut deps = mock_dependencies(20, &[]);
-    mock_init_with_fees(&mut deps, coin(2, "token"), coin(5, "token"));
+    mock_init_with_price(&mut deps, coin(2, "token"), coin(5, "token"));
     mock_alice_registers_name(&mut deps, &coins(2, "token"));
 
     // alice can transfer her name successfully to bob
@@ -364,7 +364,7 @@ fn fails_on_transfer_insufficient_fees() {
 fn returns_empty_on_query_unregistered_name() {
     let mut deps = mock_dependencies(20, &[]);
 
-    mock_init_no_fees(&mut deps);
+    mock_init_no_price(&mut deps);
 
     // querying for unregistered name results in NotFound error
     let res = query(
