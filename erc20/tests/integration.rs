@@ -17,16 +17,14 @@
 //!      });
 //! 4. Anywhere you see query(&deps, ...) you must replace it with query(&mut deps, ...)
 
-use cosmwasm_std::testing::mock_env;
-use cosmwasm_std::{
-    from_slice, log, Api, Env, HandleResponse, HumanAddr, InitResponse, ReadonlyStorage, Storage,
-};
-use cosmwasm_storage::ReadonlyPrefixedStorage;
-use cosmwasm_vm::testing::{handle, init, mock_instance, query};
+use cosmwasm_std::{from_slice, log, Env, HandleResponse, HumanAddr, InitResponse};
+use cosmwasm_storage::{to_length_prefixed, to_length_prefixed_nested};
+use cosmwasm_vm::testing::{handle, init, mock_env, mock_instance, query};
+use cosmwasm_vm::{Api, ReadonlyStorage, Storage};
 
 use cw_erc20::contract::{
-    bytes_to_u128, read_u128, Constants, KEY_CONSTANTS, KEY_TOTAL_SUPPLY, PREFIX_ALLOWANCES,
-    PREFIX_BALANCES, PREFIX_CONFIG,
+    bytes_to_u128, Constants, KEY_CONSTANTS, KEY_TOTAL_SUPPLY, PREFIX_ALLOWANCES, PREFIX_BALANCES,
+    PREFIX_CONFIG,
 };
 use cw_erc20::msg::{HandleMsg, InitMsg, InitialBalance, QueryMsg};
 
@@ -40,29 +38,33 @@ fn mock_env_height<A: Api>(api: &A, signer: &HumanAddr, height: u64, time: u64) 
 }
 
 fn get_constants<S: Storage>(storage: &S) -> Constants {
-    let config_storage = ReadonlyPrefixedStorage::new(PREFIX_CONFIG, storage);
-    let data = config_storage
-        .get(KEY_CONSTANTS)
+    let key = [&to_length_prefixed(PREFIX_CONFIG), KEY_CONSTANTS].concat();
+    let data = storage
+        .get(&key)
         .expect("error getting data")
         .expect("no config data stored");
     from_slice(&data).expect("invalid data")
 }
 
 fn get_total_supply<S: Storage>(storage: &S) -> u128 {
-    let config_storage = ReadonlyPrefixedStorage::new(PREFIX_CONFIG, storage);
-    let data = config_storage
-        .get(KEY_TOTAL_SUPPLY)
+    let key = [&to_length_prefixed(PREFIX_CONFIG), KEY_TOTAL_SUPPLY].concat();
+    let data = storage
+        .get(&key)
         .expect("error getting data")
         .expect("no decimals data stored");
-    return bytes_to_u128(&data).unwrap();
+    bytes_to_u128(&data).unwrap()
 }
 
 fn get_balance<S: ReadonlyStorage, A: Api>(api: &A, storage: &S, address: &HumanAddr) -> u128 {
     let address_key = api
         .canonical_address(address)
         .expect("canonical_address failed");
-    let balances_storage = ReadonlyPrefixedStorage::new(PREFIX_BALANCES, storage);
-    return read_u128(&balances_storage, address_key.as_slice()).unwrap();
+    let key = [
+        &to_length_prefixed(&PREFIX_BALANCES),
+        address_key.as_slice(),
+    ]
+    .concat();
+    read_u128(storage, &key)
 }
 
 fn get_allowance<S: ReadonlyStorage, A: Api>(
@@ -77,10 +79,22 @@ fn get_allowance<S: ReadonlyStorage, A: Api>(
     let spender_raw_address = api
         .canonical_address(spender)
         .expect("canonical_address failed");
-    let allowances_storage = ReadonlyPrefixedStorage::new(PREFIX_ALLOWANCES, storage);
-    let owner_storage =
-        ReadonlyPrefixedStorage::new(owner_raw_address.as_slice(), &allowances_storage);
-    return read_u128(&owner_storage, spender_raw_address.as_slice()).unwrap();
+    let key = [
+        &to_length_prefixed_nested(&[PREFIX_ALLOWANCES, owner_raw_address.as_slice()]),
+        spender_raw_address.as_slice(),
+    ]
+    .concat();
+    return read_u128(storage, &key);
+}
+
+// Reads 16 byte storage value into u128
+// Returns zero if key does not exist. Errors if data found that is not 16 bytes
+fn read_u128<S: ReadonlyStorage>(store: &S, key: &[u8]) -> u128 {
+    let result = store.get(key).unwrap();
+    match result {
+        Some(data) => bytes_to_u128(&data).unwrap(),
+        None => 0u128,
+    }
 }
 
 fn address(index: u8) -> HumanAddr {
