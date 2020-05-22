@@ -83,13 +83,13 @@ fn proper_init_no_fees() {
 fn proper_init_with_fees() {
     let mut deps = mock_dependencies(20, &[]);
 
-    mock_init_with_price(&mut deps, coin(2, "token"), coin(2, "token"));
+    mock_init_with_price(&mut deps, coin(3, "token"), coin(4, "token"));
 
     assert_config_state(
         &mut deps,
         Config {
-            purchase_price: Some(coin(2, "token")),
-            transfer_price: Some(coin(2, "token")),
+            purchase_price: Some(coin(3, "token")),
+            transfer_price: Some(coin(4, "token")),
         },
     );
 }

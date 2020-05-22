@@ -117,7 +117,7 @@ fn proper_init_no_fees() {
 fn proper_init_with_prices() {
     let mut deps = mock_instance(WASM, &[]);
 
-    mock_init_with_price(&mut deps, coin(2, "token"), coin(2, "token"));
+    mock_init_with_price(&mut deps, coin(3, "token"), coin(4, "token"));
 
     deps.with_storage(|storage| {
         let key = to_length_prefixed(CONFIG_KEY);
@@ -127,8 +127,8 @@ fn proper_init_with_prices() {
         assert_eq!(
             config_state,
             Config {
-                purchase_price: Some(coin(2, "token")),
-                transfer_price: Some(coin(2, "token")),
+                purchase_price: Some(coin(3, "token")),
+                transfer_price: Some(coin(4, "token")),
             }
         );
 
