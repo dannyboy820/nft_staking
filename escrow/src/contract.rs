@@ -55,7 +55,8 @@ fn try_approve<S: Storage, A: Api, Q: Querier>(
             // release everything
 
             let contract_address_human = deps.api.human_address(&env.contract.address)?;
-            // TODO: Ensure querier guarantees to returns up-to-date data. What about funds sent in this handle message?
+            // Querier guarantees to returns up-to-date data, including funds sent in this handle message
+            // https://github.com/CosmWasm/wasmd/blob/master/x/wasm/internal/keeper/keeper.go#L185-L192
             deps.querier.query_all_balances(contract_address_human)?
         };
 
@@ -79,7 +80,8 @@ fn try_refund<S: Storage, A: Api, Q: Querier>(
         Err(generic_err("escrow not yet expired"))
     } else {
         let contract_address_human = deps.api.human_address(&env.contract.address)?;
-        // TODO: Ensure querier guarantees to returns up-to-date data. What about funds sent in this handle message?
+        // Querier guarantees to returns up-to-date data, including funds sent in this handle message
+        // https://github.com/CosmWasm/wasmd/blob/master/x/wasm/internal/keeper/keeper.go#L185-L192
         let balance = deps.querier.query_all_balances(contract_address_human)?;
         send_tokens(
             &deps.api,
