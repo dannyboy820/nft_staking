@@ -4,8 +4,6 @@
   "type": "object",
   "required": [
     "arbiter",
-    "end_height",
-    "end_time",
     "recipient",
     "source"
   ],
@@ -18,14 +16,16 @@
         "integer",
         "null"
       ],
-      "format": "int64"
+      "format": "uint64",
+      "minimum": 0.0
     },
     "end_time": {
       "type": [
         "integer",
         "null"
       ],
-      "format": "int64"
+      "format": "uint64",
+      "minimum": 0.0
     },
     "recipient": {
       "$ref": "#/definitions/CanonicalAddr"
@@ -36,6 +36,7 @@
   },
   "definitions": {
     "Binary": {
+      "description": "Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.\n\nThis is only needed as serde-json-{core,wasm} has a horrible encoding for Vec<u8>",
       "type": "string"
     },
     "CanonicalAddr": {

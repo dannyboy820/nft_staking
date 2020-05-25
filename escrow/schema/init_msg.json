@@ -4,8 +4,6 @@
   "type": "object",
   "required": [
     "arbiter",
-    "end_height",
-    "end_time",
     "recipient"
   ],
   "properties": {
@@ -13,18 +11,22 @@
       "$ref": "#/definitions/HumanAddr"
     },
     "end_height": {
+      "description": "When end height set and block height exceeds this value, the escrow is expired. Once an escrow is expired, it can be returned to the original funder (via \"refund\").",
       "type": [
         "integer",
         "null"
       ],
-      "format": "int64"
+      "format": "uint64",
+      "minimum": 0.0
     },
     "end_time": {
+      "description": "When end time (in seconds since epoch 00:00:00 UTC on 1 January 1970) is set and block time exceeds this value, the escrow is expired. Once an escrow is expired, it can be returned to the original funder (via \"refund\").",
       "type": [
         "integer",
         "null"
       ],
-      "format": "int64"
+      "format": "uint64",
+      "minimum": 0.0
     },
     "recipient": {
       "$ref": "#/definitions/HumanAddr"
