@@ -1,21 +1,20 @@
-use cosmwasm::errors::{contract_err, dyn_contract_err, unauthorized, Result};
-use cosmwasm::traits::{Api, Extern, Storage};
-use cosmwasm::types::{Env, HumanAddr, Response};
+use cosmwasm_std::{
+    generic_err, to_binary, unauthorized, Api, Binary, Env, Extern, HandleResponse, HandleResult,
+    HumanAddr, InitResponse, InitResult, Querier, StdResult, Storage,
+};
 
 use crate::coin_helpers::assert_sent_sufficient_coin;
 use crate::msg::{HandleMsg, InitMsg, QueryMsg, ResolveRecordResponse};
 use crate::state::{config, config_read, resolver, resolver_read, Config, NameRecord};
 
-use cw_storage::serialize;
-
 const MIN_NAME_LENGTH: usize = 3;
 const MAX_NAME_LENGTH: usize = 64;
 
-pub fn init<S: Storage, A: Api>(
-    deps: &mut Extern<S, A>,
+pub fn init<S: Storage, A: Api, Q: Querier>(
+    deps: &mut Extern<S, A, Q>,
     _env: Env,
     msg: InitMsg,
-) -> Result<Response> {
+) -> InitResult {
     let config_state = Config {
         purchase_price: msg.purchase_price,
         transfer_price: msg.transfer_price,
@@ -23,25 +22,25 @@ pub fn init<S: Storage, A: Api>(
 
     config(&mut deps.storage).save(&config_state)?;
 
-    Ok(Response::default())
+    Ok(InitResponse::default())
 }
 
-pub fn handle<S: Storage, A: Api>(
-    deps: &mut Extern<S, A>,
+pub fn handle<S: Storage, A: Api, Q: Querier>(
+    deps: &mut Extern<S, A, Q>,
     env: Env,
     msg: HandleMsg,
-) -> Result<Response> {
+) -> HandleResult {
     match msg {
         HandleMsg::Register { name } => try_register(deps, env, name),
         HandleMsg::Transfer { name, to } => try_transfer(deps, env, name, to),
     }
 }
 
-pub fn try_register<S: Storage, A: Api>(
-    deps: &mut Extern<S, A>,
+pub fn try_register<S: Storage, A: Api, Q: Querier>(
+    deps: &mut Extern<S, A, Q>,
     env: Env,
     name: String,
-) -> Result<Response> {
+) -> HandleResult {
     // we only need to check here - at point of registration
     validate_name(&name)?;
     let config_state = config(&mut deps.storage).load()?;
@@ -49,55 +48,61 @@ pub fn try_register<S: Storage, A: Api>(
 
     let key = name.as_bytes();
     let record = NameRecord {
-        owner: env.message.signer,
+        owner: env.message.sender,
     };
 
-    if (resolver(&mut deps.storage).may_load(key)?).is_none() {
-        // name is available
-        resolver(&mut deps.storage).save(key, &record)?;
-    } else {
+    if (resolver(&mut deps.storage).may_load(key)?).is_some() {
         // name is already taken
-        contract_err("Name is already taken")?;
+        return Err(generic_err("Name is already taken"));
     }
 
-    Ok(Response::default())
+    // name is available
+    resolver(&mut deps.storage).save(key, &record)?;
+
+    Ok(HandleResponse::default())
 }
 
-pub fn try_transfer<S: Storage, A: Api>(
-    deps: &mut Extern<S, A>,
+pub fn try_transfer<S: Storage, A: Api, Q: Querier>(
+    deps: &mut Extern<S, A, Q>,
     env: Env,
     name: String,
     to: HumanAddr,
-) -> Result<Response> {
+) -> HandleResult {
     let config_state = config(&mut deps.storage).load()?;
     assert_sent_sufficient_coin(&env.message.sent_funds, config_state.transfer_price)?;
 
     let key = name.as_bytes();
     let new_owner = deps.api.canonical_address(&to)?;
 
-    resolver(&mut deps.storage).update(key, &|record| {
+    resolver(&mut deps.storage).update(key, |record| {
         if let Some(mut record) = record {
-            if env.message.signer != record.owner {
-                unauthorized()?;
+            if env.message.sender != record.owner {
+                return Err(unauthorized());
             }
 
             record.owner = new_owner.clone();
             Ok(record)
         } else {
-            contract_err("Name does not exist")
+            Err(generic_err("Name does not exist"))
         }
     })?;
-    Ok(Response::default())
+    Ok(HandleResponse::default())
 }
 
-pub fn query<S: Storage, A: Api>(deps: &Extern<S, A>, msg: QueryMsg) -> Result<Vec<u8>> {
+pub fn query<S: Storage, A: Api, Q: Querier>(
+    deps: &Extern<S, A, Q>,
+    msg: QueryMsg,
+) -> StdResult<Binary> {
     match msg {
         QueryMsg::ResolveRecord { name } => query_resolver(deps, name),
-        QueryMsg::Config {} => serialize(&config_read(&deps.storage).load()?),
+        QueryMsg::Config {} => to_binary(&config_read(&deps.storage).load()?),
     }
 }
 
-fn query_resolver<S: Storage, A: Api>(deps: &Extern<S, A>, name: String) -> Result<Vec<u8>> {
+fn query_resolver<S: Storage, A: Api, Q: Querier>(
+    deps: &Extern<S, A, Q>,
+    name: String,
+) -> StdResult<Binary> {
     let key = name.as_bytes();
 
     let address = match resolver_read(&deps.storage).may_load(key)? {
@@ -106,7 +111,7 @@ fn query_resolver<S: Storage, A: Api>(deps: &Extern<S, A>, name: String) -> Resu
     };
     let resp = ResolveRecordResponse { address };
 
-    serialize(&resp)
+    to_binary(&resp)
 }
 
 // let's not import a regexp library and just do these checks by hand
@@ -118,17 +123,17 @@ fn invalid_char(c: char) -> bool {
 
 /// validate_name returns an error if the name is invalid
 /// (we require 3-64 lowercase ascii letters, numbers, or . - _)
-fn validate_name(name: &str) -> Result<()> {
+fn validate_name(name: &str) -> StdResult<()> {
     if name.len() < MIN_NAME_LENGTH {
-        contract_err("Name too short")
+        Err(generic_err("Name too short"))
     } else if name.len() > MAX_NAME_LENGTH {
-        contract_err("Name too long")
+        Err(generic_err("Name too long"))
     } else {
         match name.find(invalid_char) {
             None => Ok(()),
             Some(bytepos_invalid_char_start) => {
                 let c = name[bytepos_invalid_char_start..].chars().next().unwrap();
-                dyn_contract_err(format!("Invalid character: '{}'", c))
+                Err(generic_err(format!("Invalid character: '{}'", c)))
             }
         }
     }
