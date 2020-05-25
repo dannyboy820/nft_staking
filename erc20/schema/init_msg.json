@@ -42,9 +42,12 @@
           "$ref": "#/definitions/HumanAddr"
         },
         "amount": {
-          "type": "string"
+          "$ref": "#/definitions/Uint128"
         }
       }
+    },
+    "Uint128": {
+      "type": "string"
     }
   }
 }

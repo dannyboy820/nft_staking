@@ -1,12 +1,12 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use cosmwasm::types::HumanAddr;
+use cosmwasm_std::{HumanAddr, Uint128};
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema)]
 pub struct InitialBalance {
     pub address: HumanAddr,
-    pub amount: String,
+    pub amount: Uint128,
 }
 
 #[derive(Serialize, Deserialize, JsonSchema)]
@@ -22,19 +22,19 @@ pub struct InitMsg {
 pub enum HandleMsg {
     Approve {
         spender: HumanAddr,
-        amount: String,
+        amount: Uint128,
     },
     Transfer {
         recipient: HumanAddr,
-        amount: String,
+        amount: Uint128,
     },
     TransferFrom {
         owner: HumanAddr,
         recipient: HumanAddr,
-        amount: String,
+        amount: Uint128,
     },
     Burn {
-        amount: String,
+        amount: Uint128,
     },
 }
 
@@ -52,10 +52,10 @@ pub enum QueryMsg {
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema)]
 pub struct BalanceResponse {
-    pub balance: String,
+    pub balance: Uint128,
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema)]
 pub struct AllowanceResponse {
-    pub allowance: String,
+    pub allowance: Uint128,
 }

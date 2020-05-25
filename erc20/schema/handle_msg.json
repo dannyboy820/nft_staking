@@ -16,7 +16,7 @@
           ],
           "properties": {
             "amount": {
-              "type": "string"
+              "$ref": "#/definitions/Uint128"
             },
             "spender": {
               "$ref": "#/definitions/HumanAddr"
@@ -39,7 +39,7 @@
           ],
           "properties": {
             "amount": {
-              "type": "string"
+              "$ref": "#/definitions/Uint128"
             },
             "recipient": {
               "$ref": "#/definitions/HumanAddr"
@@ -63,7 +63,7 @@
           ],
           "properties": {
             "amount": {
-              "type": "string"
+              "$ref": "#/definitions/Uint128"
             },
             "owner": {
               "$ref": "#/definitions/HumanAddr"
@@ -88,7 +88,7 @@
           ],
           "properties": {
             "amount": {
-              "type": "string"
+              "$ref": "#/definitions/Uint128"
             }
           }
         }
@@ -97,6 +97,9 @@
   ],
   "definitions": {
     "HumanAddr": {
+      "type": "string"
+    },
+    "Uint128": {
       "type": "string"
     }
   }
