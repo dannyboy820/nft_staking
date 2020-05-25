@@ -5,7 +5,7 @@ use std::convert::TryInto;
 use crate::msg::{AllowanceResponse, BalanceResponse, HandleMsg, InitMsg, QueryMsg};
 use cosmwasm_std::{
     generic_err, log, to_binary, to_vec, Api, Binary, CanonicalAddr, Env, Extern, HandleResponse,
-    HumanAddr, InitResponse, Querier, ReadonlyStorage, StdResult, Storage,
+    HumanAddr, InitResponse, Querier, ReadonlyStorage, StdResult, Storage, Uint128,
 };
 use cosmwasm_storage::{PrefixedStorage, ReadonlyPrefixedStorage};
 
@@ -34,7 +34,7 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
         let mut balances_store = PrefixedStorage::new(PREFIX_BALANCES, &mut deps.storage);
         for row in msg.initial_balances {
             let raw_address = deps.api.canonical_address(&row.address)?;
-            let amount_raw = parse_u128(&row.amount)?;
+            let amount_raw = row.amount.u128();
             balances_store.set(raw_address.as_slice(), &amount_raw.to_be_bytes())?;
             total_supply += amount_raw;
         }
@@ -93,7 +93,7 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
             let address_key = deps.api.canonical_address(&address)?;
             let balance = read_balance(&deps.storage, &address_key)?;
             let out = to_binary(&BalanceResponse {
-                balance: balance.to_string(),
+                balance: Uint128::from(balance),
             })?;
             Ok(out)
         }
@@ -102,7 +102,7 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
             let spender_key = deps.api.canonical_address(&spender)?;
             let allowance = read_allowance(&deps.storage, &owner_key, &spender_key)?;
             let out = to_binary(&AllowanceResponse {
-                allowance: allowance.to_string(),
+                allowance: Uint128::from(allowance),
             })?;
             Ok(out)
         }
@@ -113,11 +113,11 @@ fn try_transfer<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
     recipient: &HumanAddr,
-    amount: &str,
+    amount: &Uint128,
 ) -> StdResult<HandleResponse> {
     let sender_address_raw = &env.message.sender;
     let recipient_address_raw = deps.api.canonical_address(recipient)?;
-    let amount_raw = parse_u128(amount)?;
+    let amount_raw = amount.u128();
 
     perform_transfer(
         &mut deps.storage,
@@ -146,12 +146,12 @@ fn try_transfer_from<S: Storage, A: Api, Q: Querier>(
     env: Env,
     owner: &HumanAddr,
     recipient: &HumanAddr,
-    amount: &str,
+    amount: &Uint128,
 ) -> StdResult<HandleResponse> {
     let spender_address_raw = &env.message.sender;
     let owner_address_raw = deps.api.canonical_address(owner)?;
     let recipient_address_raw = deps.api.canonical_address(recipient)?;
-    let amount_raw = parse_u128(amount)?;
+    let amount_raw = amount.u128();
 
     let mut allowance = read_allowance(&deps.storage, &owner_address_raw, &spender_address_raw)?;
     if allowance < amount_raw {
@@ -194,16 +194,15 @@ fn try_approve<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
     spender: &HumanAddr,
-    amount: &str,
+    amount: &Uint128,
 ) -> StdResult<HandleResponse> {
     let owner_address_raw = &env.message.sender;
     let spender_address_raw = deps.api.canonical_address(spender)?;
-    let amount_raw = parse_u128(amount)?;
     write_allowance(
         &mut deps.storage,
         &owner_address_raw,
         &spender_address_raw,
-        amount_raw,
+        amount.u128(),
     )?;
     let res = HandleResponse {
         messages: vec![],
@@ -228,10 +227,10 @@ fn try_approve<S: Storage, A: Api, Q: Querier>(
 fn try_burn<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
-    amount: &str,
+    amount: &Uint128,
 ) -> StdResult<HandleResponse> {
     let owner_address_raw = &env.message.sender;
-    let amount_raw = parse_u128(amount)?;
+    let amount_raw = amount.u128();
 
     let mut account_balance = read_balance(&deps.storage, owner_address_raw)?;
 
@@ -265,7 +264,7 @@ fn try_burn<S: Storage, A: Api, Q: Querier>(
                 "account",
                 deps.api.human_address(&env.message.sender)?.as_str(),
             ),
-            log("amount", amount),
+            log("amount", &amount.to_string()),
         ],
         data: None,
     };
@@ -314,14 +313,6 @@ pub fn read_u128<S: ReadonlyStorage>(store: &S, key: &[u8]) -> StdResult<u128> {
     match result {
         Some(data) => bytes_to_u128(&data),
         None => Ok(0u128),
-    }
-}
-
-// Source must be a decadic integer >= 0
-pub fn parse_u128(source: &str) -> StdResult<u128> {
-    match source.parse::<u128>() {
-        Ok(value) => Ok(value),
-        Err(_) => Err(generic_err("Error while parsing string to u128")),
     }
 }
 

@@ -1,5 +1,7 @@
 use cosmwasm_std::testing::{mock_dependencies, mock_env};
-use cosmwasm_std::{from_slice, log, Api, Env, HumanAddr, ReadonlyStorage, StdError, Storage};
+use cosmwasm_std::{
+    from_slice, log, Api, Env, HumanAddr, ReadonlyStorage, StdError, Storage, Uint128,
+};
 use cosmwasm_storage::ReadonlyPrefixedStorage;
 
 use crate::contract::{
@@ -61,86 +63,6 @@ fn get_allowance<S: ReadonlyStorage, A: Api>(
     return read_u128(&owner_storage, spender_raw_address.as_slice()).unwrap();
 }
 
-mod helpers {
-    use super::*;
-    use crate::contract::parse_u128;
-
-    #[test]
-    fn works_for_simple_inputs() {
-        assert_eq!(parse_u128("0").expect("could not be parsed"), 0);
-        assert_eq!(parse_u128("1").expect("could not be parsed"), 1);
-        assert_eq!(parse_u128("345").expect("could not be parsed"), 345);
-        assert_eq!(
-            parse_u128("340282366920938463463374607431768211455").expect("could not be parsed"),
-            340282366920938463463374607431768211455
-        );
-    }
-
-    #[test]
-    fn works_for_leading_zeros() {
-        assert_eq!(parse_u128("01").expect("could not be parsed"), 1);
-        assert_eq!(parse_u128("001").expect("could not be parsed"), 1);
-        assert_eq!(parse_u128("0001").expect("could not be parsed"), 1);
-    }
-
-    #[test]
-    fn errors_for_empty_input() {
-        match parse_u128("") {
-            Ok(_) => panic!("must not pass"),
-            Err(StdError::GenericErr { msg, .. }) => {
-                assert_eq!(msg, "Error while parsing string to u128")
-            }
-            Err(e) => panic!("unexpected error: {:?}", e),
-        }
-    }
-
-    #[test]
-    fn errors_for_values_out_of_range() {
-        match parse_u128("-1") {
-            Ok(_) => panic!("must not pass"),
-            Err(StdError::GenericErr { msg, .. }) => {
-                assert_eq!(msg, "Error while parsing string to u128")
-            }
-            Err(e) => panic!("unexpected error: {:?}", e),
-        }
-
-        match parse_u128("340282366920938463463374607431768211456") {
-            Ok(_) => panic!("must not pass"),
-            Err(StdError::GenericErr { msg, .. }) => {
-                assert_eq!(msg, "Error while parsing string to u128")
-            }
-            Err(e) => panic!("unexpected error: {:?}", e),
-        }
-    }
-
-    #[test]
-    fn fails_for_non_decadic_strings() {
-        match parse_u128("0xAB") {
-            Ok(_) => panic!("must not pass"),
-            Err(StdError::GenericErr { msg, .. }) => {
-                assert_eq!(msg, "Error while parsing string to u128")
-            }
-            Err(e) => panic!("unexpected error: {:?}", e),
-        }
-
-        match parse_u128("0xab") {
-            Ok(_) => panic!("must not pass"),
-            Err(StdError::GenericErr { msg, .. }) => {
-                assert_eq!(msg, "Error while parsing string to u128")
-            }
-            Err(e) => panic!("unexpected error: {:?}", e),
-        }
-
-        match parse_u128("0b1100") {
-            Ok(_) => panic!("must not pass"),
-            Err(StdError::GenericErr { msg, .. }) => {
-                assert_eq!(msg, "Error while parsing string to u128")
-            }
-            Err(e) => panic!("unexpected error: {:?}", e),
-        }
-    }
-}
-
 mod init {
     use super::*;
 
@@ -153,7 +75,7 @@ mod init {
             decimals: 9,
             initial_balances: [InitialBalance {
                 address: HumanAddr("addr0000".to_string()),
-                amount: "11223344".to_string(),
+                amount: Uint128::from(11223344u128),
             }]
             .to_vec(),
         };
@@ -202,15 +124,15 @@ mod init {
             initial_balances: [
                 InitialBalance {
                     address: HumanAddr("addr0000".to_string()),
-                    amount: "11".to_string(),
+                    amount: Uint128::from(11u128),
                 },
                 InitialBalance {
                     address: HumanAddr("addr1111".to_string()),
-                    amount: "22".to_string(),
+                    amount: Uint128::from(22u128),
                 },
                 InitialBalance {
                     address: HumanAddr("addrbbbb".to_string()),
-                    amount: "33".to_string(),
+                    amount: Uint128::from(33u128),
                 },
             ]
             .to_vec(),
@@ -248,7 +170,7 @@ mod init {
             decimals: 9,
             initial_balances: [InitialBalance {
                 address: HumanAddr("addr0000".to_string()),
-                amount: "9007199254740993".to_string(),
+                amount: Uint128::from(9007199254740993u128),
             }]
             .to_vec(),
         };
@@ -274,7 +196,7 @@ mod init {
             decimals: 9,
             initial_balances: [InitialBalance {
                 address: HumanAddr("addr0000".to_string()),
-                amount: "100000000000000000000000000".to_string(),
+                amount: Uint128::from(100000000000000000000000000u128),
             }]
             .to_vec(),
         };
@@ -287,31 +209,6 @@ mod init {
             100000000000000000000000000
         );
         assert_eq!(get_total_supply(&deps.storage), 100000000000000000000000000);
-    }
-
-    #[test]
-    fn fails_for_balance_larger_than_max_u128() {
-        let mut deps = mock_dependencies(CANONICAL_LENGTH, &[]);
-        let init_msg = InitMsg {
-            name: "Cash Token".to_string(),
-            symbol: "CASH".to_string(),
-            decimals: 9,
-            initial_balances: [InitialBalance {
-                address: HumanAddr("addr0000".to_string()),
-                // 2**128 = 340282366920938463463374607431768211456
-                amount: "340282366920938463463374607431768211456".to_string(),
-            }]
-            .to_vec(),
-        };
-        let env = mock_env_height(&deps.api, &HumanAddr("creator".to_string()), 450, 550);
-        let result = init(&mut deps, env, init_msg);
-        match result {
-            Ok(_) => panic!("expected error"),
-            Err(StdError::GenericErr { msg, .. }) => {
-                assert_eq!(msg, "Error while parsing string to u128")
-            }
-            Err(e) => panic!("unexpected error: {:?}", e),
-        }
     }
 
     #[test]
@@ -444,15 +341,15 @@ mod transfer {
             initial_balances: vec![
                 InitialBalance {
                     address: HumanAddr("addr0000".to_string()),
-                    amount: "11".to_string(),
+                    amount: Uint128::from(11u128),
                 },
                 InitialBalance {
                     address: HumanAddr("addr1111".to_string()),
-                    amount: "22".to_string(),
+                    amount: Uint128::from(22u128),
                 },
                 InitialBalance {
                     address: HumanAddr("addrbbbb".to_string()),
-                    amount: "33".to_string(),
+                    amount: Uint128::from(33u128),
                 },
             ],
         }
@@ -484,7 +381,7 @@ mod transfer {
         // Transfer
         let transfer_msg = HandleMsg::Transfer {
             recipient: HumanAddr("addr1111".to_string()),
-            amount: "1".to_string(),
+            amount: Uint128::from(1u128),
         };
         let env2 = mock_env_height(&deps.api, &HumanAddr("addr0000".to_string()), 450, 550);
         let transfer_result = handle(&mut deps, env2, transfer_msg).unwrap();
@@ -540,7 +437,7 @@ mod transfer {
         // Transfer
         let transfer_msg = HandleMsg::Transfer {
             recipient: HumanAddr("addr2323".to_string()),
-            amount: "1".to_string(),
+            amount: Uint128::from(1u128),
         };
         let env2 = mock_env_height(&deps.api, &HumanAddr("addr0000".to_string()), 450, 550);
         let transfer_result = handle(&mut deps, env2, transfer_msg).unwrap();
@@ -600,7 +497,7 @@ mod transfer {
         // Transfer
         let transfer_msg = HandleMsg::Transfer {
             recipient: HumanAddr("addr1111".to_string()),
-            amount: "0".to_string(),
+            amount: Uint128::from(0u128),
         };
         let env2 = mock_env_height(&deps.api, &HumanAddr("addr0000".to_string()), 450, 550);
         let transfer_result = handle(&mut deps, env2, transfer_msg).unwrap();
@@ -646,7 +543,7 @@ mod transfer {
         // Transfer
         let transfer_msg = HandleMsg::Transfer {
             recipient: sender.clone(),
-            amount: "3".to_string(),
+            amount: Uint128::from(3u128),
         };
         let env2 = mock_env_height(&deps.api, &sender, 450, 550);
         let transfer_result = handle(&mut deps, env2, transfer_msg).unwrap();
@@ -690,7 +587,7 @@ mod transfer {
         // Transfer
         let transfer_msg = HandleMsg::Transfer {
             recipient: HumanAddr("addr1111".to_string()),
-            amount: "12".to_string(),
+            amount: Uint128::from(12u128),
         };
         let env2 = mock_env_height(&deps.api, &HumanAddr("addr0000".to_string()), 450, 550);
         let transfer_result = handle(&mut deps, env2, transfer_msg);
@@ -730,15 +627,15 @@ mod approve {
             initial_balances: vec![
                 InitialBalance {
                     address: HumanAddr("addr0000".to_string()),
-                    amount: "11".to_string(),
+                    amount: Uint128::from(11u128),
                 },
                 InitialBalance {
                     address: HumanAddr("addr1111".to_string()),
-                    amount: "22".to_string(),
+                    amount: Uint128::from(22u128),
                 },
                 InitialBalance {
                     address: HumanAddr("addrbbbb".to_string()),
-                    amount: "33".to_string(),
+                    amount: Uint128::from(33u128),
                 },
             ],
         }
@@ -802,7 +699,7 @@ mod approve {
         let spender = make_spender();
         let approve_msg1 = HandleMsg::Approve {
             spender: spender.clone(),
-            amount: "334422".to_string(),
+            amount: Uint128::from(334422u128),
         };
         let env2 = mock_env_height(&deps.api, &owner, 450, 550);
         let approve_result1 = handle(&mut deps, env2, approve_msg1).unwrap();
@@ -824,7 +721,7 @@ mod approve {
         // Updated approval
         let approve_msg2 = HandleMsg::Approve {
             spender: spender.clone(),
-            amount: "777888".to_string(),
+            amount: Uint128::from(777888u128),
         };
         let env3 = mock_env_height(&deps.api, &owner, 450, 550);
         let approve_result2 = handle(&mut deps, env3, approve_msg2).unwrap();
@@ -856,15 +753,15 @@ mod transfer_from {
             initial_balances: vec![
                 InitialBalance {
                     address: HumanAddr("addr0000".to_string()),
-                    amount: "11".to_string(),
+                    amount: Uint128::from(11u128),
                 },
                 InitialBalance {
                     address: HumanAddr("addr1111".to_string()),
-                    amount: "22".to_string(),
+                    amount: Uint128::from(22u128),
                 },
                 InitialBalance {
                     address: HumanAddr("addrbbbb".to_string()),
-                    amount: "33".to_string(),
+                    amount: Uint128::from(33u128),
                 },
             ],
         }
@@ -889,7 +786,7 @@ mod transfer_from {
         // Set approval
         let approve_msg = HandleMsg::Approve {
             spender: spender.clone(),
-            amount: "4".to_string(),
+            amount: Uint128::from(4u128),
         };
         let env2 = mock_env_height(&deps.api, &owner, 450, 550);
         let approve_result = handle(&mut deps, env2, approve_msg).unwrap();
@@ -910,7 +807,7 @@ mod transfer_from {
         let transfer_from_msg = HandleMsg::TransferFrom {
             owner: owner.clone(),
             recipient: recipient.clone(),
-            amount: "3".to_string(),
+            amount: Uint128::from(3u128),
         };
         let env3 = mock_env_height(&deps.api, &spender, 450, 550);
         let transfer_from_result = handle(&mut deps, env3, transfer_from_msg).unwrap();
@@ -945,7 +842,7 @@ mod transfer_from {
         // Set approval
         let approve_msg = HandleMsg::Approve {
             spender: spender.clone(),
-            amount: "2".to_string(),
+            amount: Uint128::from(2u128),
         };
         let env2 = mock_env_height(&deps.api, &owner, 450, 550);
         let approve_result = handle(&mut deps, env2, approve_msg).unwrap();
@@ -966,7 +863,7 @@ mod transfer_from {
         let fransfer_from_msg = HandleMsg::TransferFrom {
             owner: owner.clone(),
             recipient: recipient.clone(),
-            amount: "3".to_string(),
+            amount: Uint128::from(3u128),
         };
         let env3 = mock_env_height(&deps.api, &spender, 450, 550);
         let transfer_result = handle(&mut deps, env3, fransfer_from_msg);
@@ -994,7 +891,7 @@ mod transfer_from {
         // Set approval
         let approve_msg = HandleMsg::Approve {
             spender: spender.clone(),
-            amount: "20".to_string(),
+            amount: Uint128::from(20u128),
         };
         let env2 = mock_env_height(&deps.api, &owner, 450, 550);
         let approve_result = handle(&mut deps, env2, approve_msg).unwrap();
@@ -1018,7 +915,7 @@ mod transfer_from {
         let fransfer_from_msg = HandleMsg::TransferFrom {
             owner: owner.clone(),
             recipient: recipient.clone(),
-            amount: "15".to_string(),
+            amount: Uint128::from(15u128),
         };
         let env3 = mock_env_height(&deps.api, &spender, 450, 550);
         let transfer_result = handle(&mut deps, env3, fransfer_from_msg);
@@ -1043,11 +940,11 @@ mod burn {
             initial_balances: vec![
                 InitialBalance {
                     address: HumanAddr("addr0000".to_string()),
-                    amount: "11".to_string(),
+                    amount: Uint128::from(11u128),
                 },
                 InitialBalance {
                     address: HumanAddr("addr1111".to_string()),
-                    amount: "22".to_string(),
+                    amount: Uint128::from(22u128),
                 },
             ],
         }
@@ -1074,7 +971,7 @@ mod burn {
 
         // Burn
         let burn_msg = HandleMsg::Burn {
-            amount: "1".to_string(),
+            amount: Uint128::from(1u128),
         };
         let env2 = mock_env_height(&deps.api, &HumanAddr("addr0000".to_string()), 450, 550);
         let burn_result = handle(&mut deps, env2, burn_msg).unwrap();
@@ -1121,7 +1018,7 @@ mod burn {
 
         // Burn
         let burn_msg = HandleMsg::Burn {
-            amount: "0".to_string(),
+            amount: Uint128::from(0u128),
         };
         let env2 = mock_env_height(&deps.api, &HumanAddr("addr0000".to_string()), 450, 550);
         let burn_result = handle(&mut deps, env2, burn_msg).unwrap();
@@ -1168,7 +1065,7 @@ mod burn {
 
         // Burn
         let burn_msg = HandleMsg::Burn {
-            amount: "12".to_string(),
+            amount: Uint128::from(12u128),
         };
         let env2 = mock_env_height(&deps.api, &HumanAddr("addr0000".to_string()), 450, 550);
         let burn_result = handle(&mut deps, env2, burn_msg);
@@ -1215,15 +1112,15 @@ mod query {
             initial_balances: vec![
                 InitialBalance {
                     address: address(1),
-                    amount: "11".to_string(),
+                    amount: Uint128::from(11u128),
                 },
                 InitialBalance {
                     address: address(2),
-                    amount: "22".to_string(),
+                    amount: Uint128::from(22u128),
                 },
                 InitialBalance {
                     address: address(3),
-                    amount: "33".to_string(),
+                    amount: Uint128::from(33u128),
                 },
             ],
         }
@@ -1272,7 +1169,7 @@ mod query {
 
         let approve_msg = HandleMsg::Approve {
             spender: spender.clone(),
-            amount: "42".to_string(),
+            amount: Uint128::from(42u128),
         };
         let env2 = mock_env_height(&deps.api, &owner, 450, 550);
         let action_result = handle(&mut deps, env2, approve_msg).unwrap();
@@ -1308,7 +1205,7 @@ mod query {
 
         let approve_msg = HandleMsg::Approve {
             spender: spender.clone(),
-            amount: "42".to_string(),
+            amount: Uint128::from(42u128),
         };
         let env2 = mock_env_height(&deps.api, &owner, 450, 550);
         let approve_result = handle(&mut deps, env2, approve_msg).unwrap();

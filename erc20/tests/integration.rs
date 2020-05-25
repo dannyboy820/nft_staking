@@ -17,7 +17,7 @@
 //!      });
 //! 4. Anywhere you see query(&deps, ...) you must replace it with query(&mut deps, ...)
 
-use cosmwasm_std::{from_slice, log, Env, HandleResponse, HumanAddr, InitResponse};
+use cosmwasm_std::{from_slice, log, Env, HandleResponse, HumanAddr, InitResponse, Uint128};
 use cosmwasm_storage::{to_length_prefixed, to_length_prefixed_nested};
 use cosmwasm_vm::testing::{handle, init, mock_env, mock_instance, query};
 use cosmwasm_vm::{Api, ReadonlyStorage, Storage};
@@ -115,15 +115,15 @@ fn init_msg() -> InitMsg {
         initial_balances: [
             InitialBalance {
                 address: address(1),
-                amount: "11".to_string(),
+                amount: Uint128::from(11u128),
             },
             InitialBalance {
                 address: address(2),
-                amount: "22".to_string(),
+                amount: Uint128::from(22u128),
             },
             InitialBalance {
                 address: address(3),
-                amount: "33".to_string(),
+                amount: Uint128::from(33u128),
             },
         ]
         .to_vec(),
@@ -181,7 +181,7 @@ fn transfer_works() {
     // Transfer
     let transfer_msg = HandleMsg::Transfer {
         recipient: recipient.clone(),
-        amount: "1".to_string(),
+        amount: Uint128::from(1u128),
     };
     let env2 = mock_env_height(&deps.api, &sender, 877, 0);
     let transfer_response: HandleResponse = handle(&mut deps, env2, transfer_msg).unwrap();
@@ -226,7 +226,7 @@ fn approve_works() {
     // Approve
     let approve_msg = HandleMsg::Approve {
         spender: spender.clone(),
-        amount: "42".to_string(),
+        amount: Uint128::from(42u128),
     };
     let env2 = mock_env_height(&deps.api, &owner, 877, 0);
     let approve_response: HandleResponse = handle(&mut deps, env2, approve_msg).unwrap();
@@ -273,7 +273,7 @@ fn transfer_from_works() {
     // Approve
     let approve_msg = HandleMsg::Approve {
         spender: spender.clone(),
-        amount: "42".to_string(),
+        amount: Uint128::from(42u128),
     };
     let env2 = mock_env_height(&deps.api, &owner, 877, 0);
     let approve_response: HandleResponse = handle(&mut deps, env2, approve_msg).unwrap();
@@ -291,7 +291,7 @@ fn transfer_from_works() {
     let transfer_from_msg = HandleMsg::TransferFrom {
         owner: owner.clone(),
         recipient: recipient.clone(),
-        amount: "2".to_string(),
+        amount: Uint128::from(2u128),
     };
     let env3 = mock_env_height(&deps.api, &spender, 878, 0);
     let transfer_from_response: HandleResponse =
@@ -337,7 +337,7 @@ fn burn_works() {
 
     // Burn
     let burn_msg = HandleMsg::Burn {
-        amount: "1".to_string(),
+        amount: Uint128::from(1u128),
     };
     let env2 = mock_env_height(&deps.api, &owner, 877, 0);
     let burn_response: HandleResponse = handle(&mut deps, env2, burn_msg).unwrap();
