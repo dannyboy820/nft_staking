@@ -25,7 +25,7 @@ for example in ./*; do
           docker run --rm -v "$(pwd)":/code \
             --mount type=volume,source="$(basename "$(pwd)")_cache",target=/code/target \
             --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
-            confio/cosmwasm-opt:0.7.3
+            cosmwasm/rust-optimizer:0.8.0
         fi
     )
   fi

@@ -31,7 +31,7 @@ use cw_nameservice::state::{Config, CONFIG_KEY};
 
 // This line will test the output of cargo wasm
 static WASM: &[u8] = include_bytes!("../target/wasm32-unknown-unknown/release/cw_nameservice.wasm");
-// You can uncomment this line instead to test productionified build from cosmwasm-opt
+// You can uncomment this line instead to test productionified build from rust-optimizer
 // static WASM: &[u8] = include_bytes!("../contract.wasm");
 
 fn assert_name_owner(

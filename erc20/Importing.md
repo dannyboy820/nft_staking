@@ -59,8 +59,10 @@ cargo run --example schema
 And to generate the `contract.wasm` and `hash.txt`:
 
 ```sh
-docker run --rm -u $(id -u):$(id -g) -v $(pwd):/code confio/cosmwasm-opt:0.4.1
-sha256sum contract.wasm > hash.txt
+docker run --rm -v "$(pwd)":/code \
+  --mount type=volume,source="$(basename "$(pwd)")_cache",target=/code/target \
+  --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
+  cosmwasm/rust-optimizer:0.8.0
 ```
 
 Make sure the values you generate match what was uploaded with a simple `git diff`.
