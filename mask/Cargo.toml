@@ -7,7 +7,7 @@ description = "A Mask for CosmWasm - allows you to reflect arbitrary messages wi
 license = "Apache-2.0"
 
 exclude = [
-  # Those files are cosmwasm-opt artifacts. You might want to commit them for convenience but they should not be part of the source code publication.
+  # Those files are rust-optimizer artifacts. You might want to commit them for convenience but they should not be part of the source code publication.
   "contract.wasm",
   "hash.txt",
 ]

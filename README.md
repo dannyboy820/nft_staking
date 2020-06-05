@@ -42,15 +42,16 @@ contract.
 
 You should also prepare a compiled `contract.wasm` before each merge to master.
 This is not enforced by the CI (a full build each commit), but should be tested
-on merge. See [`cosmwasm-opt`](https://github.com/confio/cosmwasm-opt/blob/master/README.md#usage)
+on merge. See [`rust-optimizer`](https://github.com/CosmWasm/rust-optimizer/blob/master/README.md#usage)
 for an explanation of how to make a deterministic build.
 
 ```sh
 rm contract.wasm
-docker run --rm -v $(pwd):/code \
-  --mount type=volume,source=$(basename $(pwd))_cache,target=/code/target \
+
+docker run --rm -v "$(pwd)":/code \
+  --mount type=volume,source="$(basename "$(pwd)")_cache",target=/code/target \
   --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
-  confio/cosmwasm-opt:0.6.0
+  cosmwasm/rust-optimizer:0.8.0
 
 # verify output - these should be the same
 sha256sum contract.wasm
@@ -58,6 +59,6 @@ cat hash.txt
 ```
 
 If the sha256 hash changes without any code changes, even when compiling on different machines,
-or removing those cache volumes, then please submit an issue on [cosmwasm-opt](https://github.com/confio/cosmwasm-opt).
+or removing those cache volumes, then please submit an issue on [rust-optimizer](https://github.com/CosmWasm/rust-optimizer).
 
 Once you pass these checks, please open a [PR on this repo](https://github.com/CosmWasm/cosmwasm-examples/pulls).
