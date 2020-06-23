@@ -1,6 +1,6 @@
 use cosmwasm_std::{
-    generic_err, to_binary, unauthorized, Api, Binary, Env, Extern, HandleResponse, HandleResult,
-    HumanAddr, InitResponse, InitResult, Querier, StdResult, Storage,
+    to_binary, Api, Binary, Env, Extern, HandleResponse, HandleResult, HumanAddr, InitResponse,
+    InitResult, Querier, StdError, StdResult, Storage,
 };
 
 use crate::coin_helpers::assert_sent_sufficient_coin;
@@ -53,7 +53,7 @@ pub fn try_register<S: Storage, A: Api, Q: Querier>(
 
     if (resolver(&mut deps.storage).may_load(key)?).is_some() {
         // name is already taken
-        return Err(generic_err("Name is already taken"));
+        return Err(StdError::generic_err("Name is already taken"));
     }
 
     // name is available
@@ -77,13 +77,13 @@ pub fn try_transfer<S: Storage, A: Api, Q: Querier>(
     resolver(&mut deps.storage).update(key, |record| {
         if let Some(mut record) = record {
             if env.message.sender != record.owner {
-                return Err(unauthorized());
+                return Err(StdError::unauthorized());
             }
 
             record.owner = new_owner.clone();
             Ok(record)
         } else {
-            Err(generic_err("Name does not exist"))
+            Err(StdError::generic_err("Name does not exist"))
         }
     })?;
     Ok(HandleResponse::default())
@@ -125,15 +125,15 @@ fn invalid_char(c: char) -> bool {
 /// (we require 3-64 lowercase ascii letters, numbers, or . - _)
 fn validate_name(name: &str) -> StdResult<()> {
     if name.len() < MIN_NAME_LENGTH {
-        Err(generic_err("Name too short"))
+        Err(StdError::generic_err("Name too short"))
     } else if name.len() > MAX_NAME_LENGTH {
-        Err(generic_err("Name too long"))
+        Err(StdError::generic_err("Name too long"))
     } else {
         match name.find(invalid_char) {
             None => Ok(()),
             Some(bytepos_invalid_char_start) => {
                 let c = name[bytepos_invalid_char_start..].chars().next().unwrap();
-                Err(generic_err(format!("Invalid character: '{}'", c)))
+                Err(StdError::generic_err(format!("Invalid character: '{}'", c)))
             }
         }
     }
