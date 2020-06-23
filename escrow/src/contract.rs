@@ -1,6 +1,6 @@
 use cosmwasm_std::{
-    generic_err, log, unauthorized, Api, BankMsg, Binary, CanonicalAddr, Coin, CosmosMsg, Env,
-    Extern, HandleResponse, HandleResult, InitResponse, InitResult, Querier, StdResult, Storage,
+    log, Api, BankMsg, Binary, CanonicalAddr, Coin, CosmosMsg, Env, Extern, HandleResponse,
+    HandleResult, InitResponse, InitResult, Querier, StdError, StdResult, Storage,
 };
 
 use crate::msg::{HandleMsg, InitMsg, QueryMsg};
@@ -19,7 +19,7 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
         end_time: msg.end_time,
     };
     if state.is_expired(&env) {
-        Err(generic_err("creating expired escrow"))
+        Err(StdError::generic_err("creating expired escrow"))
     } else {
         config(&mut deps.storage).save(&state)?;
         Ok(InitResponse::default())
@@ -45,9 +45,9 @@ fn try_approve<S: Storage, A: Api, Q: Querier>(
     quantity: Option<Vec<Coin>>,
 ) -> HandleResult {
     if env.message.sender != state.arbiter {
-        Err(unauthorized())
+        Err(StdError::unauthorized())
     } else if state.is_expired(&env) {
-        Err(generic_err("escrow expired"))
+        Err(StdError::generic_err("escrow expired"))
     } else {
         let amount = if let Some(quantity) = quantity {
             quantity
@@ -77,7 +77,7 @@ fn try_refund<S: Storage, A: Api, Q: Querier>(
 ) -> HandleResult {
     // anyone can try to refund, as long as the contract is expired
     if !state.is_expired(&env) {
-        Err(generic_err("escrow not yet expired"))
+        Err(StdError::generic_err("escrow not yet expired"))
     } else {
         let contract_address_human = deps.api.human_address(&env.contract.address)?;
         // Querier guarantees to returns up-to-date data, including funds sent in this handle message

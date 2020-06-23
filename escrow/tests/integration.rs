@@ -23,7 +23,7 @@ use cosmwasm_std::{
 };
 use cosmwasm_storage::to_length_prefixed;
 use cosmwasm_vm::testing::{handle, init, mock_env, mock_instance};
-use cosmwasm_vm::{from_slice, Api, ReadonlyStorage};
+use cosmwasm_vm::{from_slice, Api, Storage};
 
 use cw_escrow::msg::{HandleMsg, InitMsg};
 use cw_escrow::state::State;
@@ -62,7 +62,7 @@ fn proper_initialization() {
     let api = deps.api;
     deps.with_storage(|store| {
         let config_key_raw = to_length_prefixed(b"config");
-        let state: State = from_slice(&store.get(&config_key_raw).unwrap().unwrap()).unwrap();
+        let state: State = from_slice(&store.get(&config_key_raw).unwrap().0.unwrap()).unwrap();
         assert_eq!(
             state,
             State {
