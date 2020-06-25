@@ -22,10 +22,10 @@ use cosmwasm_std::{
     InitResult, StdError,
 };
 use cosmwasm_storage::to_length_prefixed;
-use cosmwasm_vm::testing::{handle, init, mock_env, mock_instance};
+use cosmwasm_vm::testing::{handle, init, mock_env, mock_instance, query};
 use cosmwasm_vm::{from_slice, Api, Storage};
 
-use cw_escrow::msg::{HandleMsg, InitMsg};
+use cw_escrow::msg::{HandleMsg, InitMsg, QueryMsg};
 use cw_escrow::state::State;
 
 // This line will test the output of cargo wasm
@@ -88,6 +88,35 @@ fn cannot_initialize_expired() {
     match res.unwrap_err() {
         StdError::GenericErr { msg, .. } => assert_eq!(msg, "creating expired escrow"),
         e => panic!("unexpected error: {:?}", e),
+    }
+}
+
+#[test]
+fn init_and_query() {
+    let mut deps = mock_instance(WASM, &[]);
+
+    let arbiter = HumanAddr::from("arbiters");
+    let recipient = HumanAddr::from("receives");
+    let creator = HumanAddr::from("creates");
+    let msg = InitMsg {
+        arbiter: arbiter.clone(),
+        recipient,
+        end_height: None,
+        end_time: None,
+    };
+    let env = mock_env(&deps.api, creator.as_str(), &coins(1000, "earth"));
+    let res: InitResponse = init(&mut deps, env, msg).unwrap();
+    assert_eq!(0, res.messages.len());
+
+    // now let's query
+    let query_response = query(&mut deps, QueryMsg::Arbiter {}).unwrap();
+    assert_eq!(query_response.as_slice(), b"{\"arbiter\":\"arbiters\"}");
+
+    // bad query returns parse error (pass wrong type - this connection is not enforced)
+    let qres = query(&mut deps, HandleMsg::Refund {});
+    match qres.unwrap_err() {
+        StdError::ParseErr { .. } => {}
+        _ => panic!("Expected parse error"),
     }
 }
 
