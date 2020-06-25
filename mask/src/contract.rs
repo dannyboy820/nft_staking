@@ -1,6 +1,6 @@
 use cosmwasm_std::{
-    generic_err, log, to_binary, unauthorized, Api, Binary, CosmosMsg, Env, Extern, HandleResponse,
-    HandleResult, HumanAddr, InitResponse, InitResult, Querier, StdResult, Storage,
+    log, to_binary, Api, Binary, CosmosMsg, Env, Extern, HandleResponse, HandleResult, HumanAddr,
+    InitResponse, InitResult, Querier, StdError, StdResult, Storage,
 };
 
 use crate::msg::{HandleMsg, InitMsg, OwnerResponse, QueryMsg};
@@ -38,10 +38,10 @@ pub fn try_reflect<S: Storage, A: Api, Q: Querier>(
 ) -> HandleResult {
     let state = config(&mut deps.storage).load()?;
     if env.message.sender != state.owner {
-        return Err(unauthorized());
+        return Err(StdError::unauthorized());
     }
     if msgs.is_empty() {
-        return Err(generic_err("Must reflect at least one message"));
+        return Err(StdError::generic_err("Must reflect at least one message"));
     }
     let res = HandleResponse {
         messages: msgs,
@@ -59,7 +59,7 @@ pub fn try_change_owner<S: Storage, A: Api, Q: Querier>(
     let api = deps.api;
     config(&mut deps.storage).update(|mut state| {
         if env.message.sender != state.owner {
-            return Err(unauthorized());
+            return Err(StdError::unauthorized());
         }
         state.owner = api.canonical_address(&owner)?;
         Ok(state)

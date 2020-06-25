@@ -24,7 +24,7 @@ use cosmwasm_storage::to_length_prefixed;
 use cosmwasm_vm::testing::{
     handle, init, mock_env, mock_instance, query, MockApi, MockQuerier, MockStorage,
 };
-use cosmwasm_vm::{from_slice, Instance, ReadonlyStorage};
+use cosmwasm_vm::{from_slice, Instance, Storage};
 
 use cw_nameservice::msg::{HandleMsg, InitMsg, QueryMsg, ResolveRecordResponse};
 use cw_nameservice::state::{Config, CONFIG_KEY};
@@ -98,7 +98,7 @@ fn proper_init_no_fees() {
 
     deps.with_storage(|storage| {
         let key = to_length_prefixed(CONFIG_KEY);
-        let data = storage.get(&key).unwrap().unwrap();
+        let data = storage.get(&key).unwrap().0.unwrap();
         let config_state: Config = from_slice(&data).unwrap();
 
         assert_eq!(
@@ -121,7 +121,7 @@ fn proper_init_with_prices() {
 
     deps.with_storage(|storage| {
         let key = to_length_prefixed(CONFIG_KEY);
-        let data = storage.get(&key).unwrap().unwrap();
+        let data = storage.get(&key).unwrap().0.unwrap();
         let config_state: Config = from_slice(&data).unwrap();
 
         assert_eq!(
