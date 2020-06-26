@@ -1,9 +1,9 @@
 use cosmwasm_std::{
-    log, Api, BankMsg, Binary, CanonicalAddr, Coin, CosmosMsg, Env, Extern, HandleResponse,
-    HandleResult, InitResponse, InitResult, Querier, StdError, StdResult, Storage,
+    log, to_binary, Api, BankMsg, Binary, CanonicalAddr, Coin, CosmosMsg, Env, Extern,
+    HandleResponse, HandleResult, InitResponse, InitResult, Querier, StdError, StdResult, Storage,
 };
 
-use crate::msg::{HandleMsg, InitMsg, QueryMsg};
+use crate::msg::{ArbiterResponse, HandleMsg, InitMsg, QueryMsg};
 use crate::state::{config, config_read, State};
 
 pub fn init<S: Storage, A: Api, Q: Querier>(
@@ -118,11 +118,20 @@ fn send_tokens<A: Api>(
 }
 
 pub fn query<S: Storage, A: Api, Q: Querier>(
-    _deps: &Extern<S, A, Q>,
+    deps: &Extern<S, A, Q>,
     msg: QueryMsg,
 ) -> StdResult<Binary> {
-    // this always returns error
-    match msg {}
+    match msg {
+        QueryMsg::Arbiter {} => to_binary(&query_arbiter(deps)?),
+    }
+}
+
+fn query_arbiter<S: Storage, A: Api, Q: Querier>(
+    deps: &Extern<S, A, Q>,
+) -> StdResult<ArbiterResponse> {
+    let state = config_read(&deps.storage).load()?;
+    let addr = deps.api.human_address(&state.arbiter)?;
+    Ok(ArbiterResponse { arbiter: addr })
 }
 
 #[cfg(test)]
@@ -196,6 +205,28 @@ mod tests {
             StdError::GenericErr { msg, .. } => assert_eq!(msg, "creating expired escrow"),
             e => panic!("unexpected error: {:?}", e),
         }
+    }
+
+    #[test]
+    fn init_and_query() {
+        let mut deps = mock_dependencies(20, &[]);
+
+        let arbiter = HumanAddr::from("arbiters");
+        let recipient = HumanAddr::from("receives");
+        let creator = HumanAddr::from("creates");
+        let msg = InitMsg {
+            arbiter: arbiter.clone(),
+            recipient,
+            end_height: None,
+            end_time: None,
+        };
+        let env = mock_env(&deps.api, creator.as_str(), &[]);
+        let res = init(&mut deps, env, msg).unwrap();
+        assert_eq!(0, res.messages.len());
+
+        // now let's query
+        let query_response = query_arbiter(&deps).unwrap();
+        assert_eq!(query_response.arbiter, arbiter);
     }
 
     #[test]

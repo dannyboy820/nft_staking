@@ -27,4 +27,12 @@ pub enum HandleMsg {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
-pub enum QueryMsg {}
+pub enum QueryMsg {
+    /// Returns a human-readable representation of the arbiter.
+    Arbiter {},
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct ArbiterResponse {
+    pub arbiter: HumanAddr,
+}
