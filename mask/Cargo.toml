@@ -1,6 +1,6 @@
 [package]
 name = "cw-mask"
-version = "0.3.1"
+version = "0.3.2"
 authors = ["Ethan Frey <ethanfrey@users.noreply.github.com>"]
 edition = "2018"
 description = "A Mask for CosmWasm - allows you to reflect arbitrary messages with the contract's address"
@@ -37,11 +37,11 @@ cranelift = ["cosmwasm-vm/default-cranelift"]
 singlepass = ["cosmwasm-vm/default-singlepass"]
 
 [dependencies]
-cosmwasm-std = "0.9.1"
-cosmwasm-storage = "0.9.1"
+cosmwasm-std = "0.9.2"
+cosmwasm-storage = "0.9.2"
 schemars = "0.7"
 serde = { version = "1.0.103", default-features = false, features = ["derive"] }
 
 [dev-dependencies]
-cosmwasm-vm = { version = "0.9.1", default-features = false }
-cosmwasm-schema = "0.9.1"
+cosmwasm-vm = { version = "0.9.2", default-features = false }
+cosmwasm-schema = "0.9.2"
