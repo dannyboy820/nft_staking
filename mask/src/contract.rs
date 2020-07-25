@@ -12,7 +12,7 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
     _msg: InitMsg,
 ) -> InitResult {
     let state = State {
-        owner: env.message.sender,
+        owner: deps.api.canonical_address(&env.message.sender)?,
     };
 
     config(&mut deps.storage).save(&state)?;
@@ -37,7 +37,7 @@ pub fn try_reflect<S: Storage, A: Api, Q: Querier>(
     msgs: Vec<CosmosMsg>,
 ) -> HandleResult {
     let state = config(&mut deps.storage).load()?;
-    if env.message.sender != state.owner {
+    if deps.api.canonical_address(&env.message.sender)? != state.owner {
         return Err(StdError::unauthorized());
     }
     if msgs.is_empty() {
@@ -58,7 +58,7 @@ pub fn try_change_owner<S: Storage, A: Api, Q: Querier>(
 ) -> HandleResult {
     let api = deps.api;
     config(&mut deps.storage).update(|mut state| {
-        if env.message.sender != state.owner {
+        if api.canonical_address(&env.message.sender)? != state.owner {
             return Err(StdError::unauthorized());
         }
         state.owner = api.canonical_address(&owner)?;
@@ -99,7 +99,7 @@ mod tests {
         let mut deps = mock_dependencies(20, &[]);
 
         let msg = InitMsg {};
-        let env = mock_env(&deps.api, "creator", &coins(1000, "earth"));
+        let env = mock_env("creator", &coins(1000, "earth"));
 
         // we can just call .unwrap() to assert this was a success
         let res = init(&mut deps, env, msg).unwrap();
@@ -116,12 +116,12 @@ mod tests {
         let mut deps = mock_dependencies(20, &[]);
 
         let msg = InitMsg {};
-        let env = mock_env(&deps.api, "creator", &coins(2, "token"));
+        let env = mock_env("creator", &coins(2, "token"));
         let _res = init(&mut deps, env, msg).unwrap();
 
-        let env = mock_env(&deps.api, "creator", &[]);
+        let env = mock_env("creator", &[]);
         let payload = vec![CosmosMsg::Bank(BankMsg::Send {
-            from_address: deps.api.human_address(&env.contract.address).unwrap(),
+            from_address: env.contract.address.clone(),
             to_address: HumanAddr::from("friend"),
             amount: coins(1, "token"),
         })];
@@ -138,13 +138,13 @@ mod tests {
         let mut deps = mock_dependencies(20, &[]);
 
         let msg = InitMsg {};
-        let env = mock_env(&deps.api, "creator", &coins(2, "token"));
+        let env = mock_env("creator", &coins(2, "token"));
         let _res = init(&mut deps, env, msg).unwrap();
 
         // sender is not contract owner
-        let env = mock_env(&deps.api, "someone", &[]);
+        let env = mock_env("someone", &[]);
         let payload = vec![CosmosMsg::Bank(BankMsg::Send {
-            from_address: deps.api.human_address(&env.contract.address).unwrap(),
+            from_address: env.contract.address.clone(),
             to_address: HumanAddr::from("friend"),
             amount: coins(1, "token"),
         })];
@@ -164,10 +164,10 @@ mod tests {
         let mut deps = mock_dependencies(20, &[]);
 
         let msg = InitMsg {};
-        let env = mock_env(&deps.api, "creator", &coins(2, "token"));
+        let env = mock_env("creator", &coins(2, "token"));
         let _res = init(&mut deps, env, msg).unwrap();
 
-        let env = mock_env(&deps.api, "creator", &[]);
+        let env = mock_env("creator", &[]);
         let payload = vec![];
 
         let msg = HandleMsg::ReflectMsg {
@@ -187,18 +187,18 @@ mod tests {
         let mut deps = mock_dependencies(20, &[]);
 
         let msg = InitMsg {};
-        let env = mock_env(&deps.api, "creator", &coins(2, "token"));
+        let env = mock_env("creator", &coins(2, "token"));
         let _res = init(&mut deps, env, msg).unwrap();
 
-        let env = mock_env(&deps.api, "creator", &[]);
+        let env = mock_env("creator", &[]);
         let payload = vec![
             CosmosMsg::Bank(BankMsg::Send {
-                from_address: deps.api.human_address(&env.contract.address).unwrap(),
+                from_address: env.contract.address.clone(),
                 to_address: HumanAddr::from("friend1"),
                 amount: coins(1, "token"),
             }),
             CosmosMsg::Bank(BankMsg::Send {
-                from_address: deps.api.human_address(&env.contract.address).unwrap(),
+                from_address: env.contract.address.clone(),
                 to_address: HumanAddr::from("friend2"),
                 amount: coins(1, "token"),
             }),
@@ -216,10 +216,10 @@ mod tests {
         let mut deps = mock_dependencies(20, &[]);
 
         let msg = InitMsg {};
-        let env = mock_env(&deps.api, "creator", &coins(2, "token"));
+        let env = mock_env("creator", &coins(2, "token"));
         let _res = init(&mut deps, env, msg).unwrap();
 
-        let env = mock_env(&deps.api, "creator", &[]);
+        let env = mock_env("creator", &[]);
         let new_owner = HumanAddr::from("friend");
         let msg = HandleMsg::ChangeOwner {
             owner: new_owner.clone(),
@@ -238,10 +238,10 @@ mod tests {
         let mut deps = mock_dependencies(20, &[]);
 
         let msg = InitMsg {};
-        let env = mock_env(&deps.api, "creator", &coins(2, "token"));
+        let env = mock_env("creator", &coins(2, "token"));
         let _res = init(&mut deps, env, msg).unwrap();
 
-        let env = mock_env(&deps.api, "random", &[]);
+        let env = mock_env("random", &[]);
         let new_owner = HumanAddr::from("friend");
         let msg = HandleMsg::ChangeOwner {
             owner: new_owner.clone(),
