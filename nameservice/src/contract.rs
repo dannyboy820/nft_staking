@@ -48,7 +48,7 @@ pub fn try_register<S: Storage, A: Api, Q: Querier>(
 
     let key = name.as_bytes();
     let record = NameRecord {
-        owner: env.message.sender,
+        owner: deps.api.canonical_address(&env.message.sender)?,
     };
 
     if (resolver(&mut deps.storage).may_load(key)?).is_some() {
@@ -68,6 +68,7 @@ pub fn try_transfer<S: Storage, A: Api, Q: Querier>(
     name: String,
     to: HumanAddr,
 ) -> HandleResult {
+    let api = deps.api;
     let config_state = config(&mut deps.storage).load()?;
     assert_sent_sufficient_coin(&env.message.sent_funds, config_state.transfer_price)?;
 
@@ -76,7 +77,7 @@ pub fn try_transfer<S: Storage, A: Api, Q: Querier>(
 
     resolver(&mut deps.storage).update(key, |record| {
         if let Some(mut record) = record {
-            if env.message.sender != record.owner {
+            if api.canonical_address(&env.message.sender)? != record.owner {
                 return Err(StdError::unauthorized());
             }
 
