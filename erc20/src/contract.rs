@@ -115,7 +115,7 @@ fn try_transfer<S: Storage, A: Api, Q: Querier>(
     recipient: &HumanAddr,
     amount: &Uint128,
 ) -> StdResult<HandleResponse> {
-    let sender_address_raw = &env.message.sender;
+    let sender_address_raw = deps.api.canonical_address(&env.message.sender)?;
     let recipient_address_raw = deps.api.canonical_address(recipient)?;
     let amount_raw = amount.u128();
 
@@ -132,7 +132,7 @@ fn try_transfer<S: Storage, A: Api, Q: Querier>(
             log("action", "transfer"),
             log(
                 "sender",
-                deps.api.human_address(&env.message.sender)?.as_str(),
+                env.message.sender.as_str(),
             ),
             log("recipient", recipient.as_str()),
         ],
@@ -148,7 +148,7 @@ fn try_transfer_from<S: Storage, A: Api, Q: Querier>(
     recipient: &HumanAddr,
     amount: &Uint128,
 ) -> StdResult<HandleResponse> {
-    let spender_address_raw = &env.message.sender;
+    let spender_address_raw = deps.api.canonical_address(&env.message.sender)?;
     let owner_address_raw = deps.api.canonical_address(owner)?;
     let recipient_address_raw = deps.api.canonical_address(recipient)?;
     let amount_raw = amount.u128();
@@ -180,7 +180,7 @@ fn try_transfer_from<S: Storage, A: Api, Q: Querier>(
             log("action", "transfer_from"),
             log(
                 "spender",
-                deps.api.human_address(&env.message.sender)?.as_str(),
+                &env.message.sender.as_str(),
             ),
             log("sender", owner.as_str()),
             log("recipient", recipient.as_str()),
@@ -196,7 +196,7 @@ fn try_approve<S: Storage, A: Api, Q: Querier>(
     spender: &HumanAddr,
     amount: &Uint128,
 ) -> StdResult<HandleResponse> {
-    let owner_address_raw = &env.message.sender;
+    let owner_address_raw = deps.api.canonical_address(&env.message.sender)?;
     let spender_address_raw = deps.api.canonical_address(spender)?;
     write_allowance(
         &mut deps.storage,
@@ -210,7 +210,7 @@ fn try_approve<S: Storage, A: Api, Q: Querier>(
             log("action", "approve"),
             log(
                 "owner",
-                deps.api.human_address(&env.message.sender)?.as_str(),
+                env.message.sender.as_str(),
             ),
             log("spender", spender.as_str()),
         ],
@@ -229,7 +229,7 @@ fn try_burn<S: Storage, A: Api, Q: Querier>(
     env: Env,
     amount: &Uint128,
 ) -> StdResult<HandleResponse> {
-    let owner_address_raw = &env.message.sender;
+    let owner_address_raw = &deps.api.canonical_address(&env.message.sender)?;
     let amount_raw = amount.u128();
 
     let mut account_balance = read_balance(&deps.storage, owner_address_raw)?;
@@ -261,7 +261,7 @@ fn try_burn<S: Storage, A: Api, Q: Querier>(
             log("action", "burn"),
             log(
                 "account",
-                deps.api.human_address(&env.message.sender)?.as_str(),
+                env.message.sender.as_str(),
             ),
             log("amount", &amount.to_string()),
         ],
