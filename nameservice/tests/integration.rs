@@ -257,10 +257,7 @@ fn transfer_works_with_fees() {
     mock_alice_registers_name(&mut deps, &coins(2, "token"));
 
     // alice can transfer her name successfully to bob
-    let params = mock_env(
-        "alice_key",
-        &vec![coin(1, "earth"), coin(2, "token")],
-    );
+    let params = mock_env("alice_key", &vec![coin(1, "earth"), coin(2, "token")]);
     let msg = HandleMsg::Transfer {
         name: "alice".to_string(),
         to: HumanAddr::from("bob_key"),
@@ -301,10 +298,7 @@ fn fails_on_transfer_insufficient_fees() {
     mock_alice_registers_name(&mut deps, &coins(2, "token"));
 
     // alice can transfer her name successfully to bob
-    let params = mock_env(
-        "alice_key",
-        &vec![coin(1, "earth"), coin(2, "token")],
-    );
+    let params = mock_env("alice_key", &vec![coin(1, "earth"), coin(2, "token")]);
     let msg = HandleMsg::Transfer {
         name: "alice".to_string(),
         to: HumanAddr::from("bob_key"),

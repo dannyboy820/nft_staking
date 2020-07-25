@@ -147,12 +147,7 @@ mod tests {
         }
     }
 
-    fn mock_env_height(
-        signer: &str,
-        sent: &[Coin],
-        height: u64,
-        time: u64,
-    ) -> Env {
+    fn mock_env_height(signer: &str, sent: &[Coin], height: u64, time: u64) -> Env {
         let mut env = mock_env(signer, sent);
         env.block.height = height;
         env.block.time = time;

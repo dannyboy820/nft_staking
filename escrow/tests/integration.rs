@@ -66,9 +66,18 @@ fn proper_initialization() {
         assert_eq!(
             state,
             State {
-                arbiter: api.canonical_address(&HumanAddr::from("verifies")).0.unwrap(),
-                recipient: api.canonical_address(&HumanAddr::from("benefits")).0.unwrap(),
-                source: api.canonical_address(&HumanAddr::from("creator")).0.unwrap(),
+                arbiter: api
+                    .canonical_address(&HumanAddr::from("verifies"))
+                    .0
+                    .unwrap(),
+                recipient: api
+                    .canonical_address(&HumanAddr::from("benefits"))
+                    .0
+                    .unwrap(),
+                source: api
+                    .canonical_address(&HumanAddr::from("creator"))
+                    .0
+                    .unwrap(),
                 end_height: Some(1000),
                 end_time: None,
             }

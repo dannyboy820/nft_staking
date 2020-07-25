@@ -130,10 +130,7 @@ fn try_transfer<S: Storage, A: Api, Q: Querier>(
         messages: vec![],
         log: vec![
             log("action", "transfer"),
-            log(
-                "sender",
-                env.message.sender.as_str(),
-            ),
+            log("sender", env.message.sender.as_str()),
             log("recipient", recipient.as_str()),
         ],
         data: None,
@@ -178,10 +175,7 @@ fn try_transfer_from<S: Storage, A: Api, Q: Querier>(
         messages: vec![],
         log: vec![
             log("action", "transfer_from"),
-            log(
-                "spender",
-                &env.message.sender.as_str(),
-            ),
+            log("spender", &env.message.sender.as_str()),
             log("sender", owner.as_str()),
             log("recipient", recipient.as_str()),
         ],
@@ -208,10 +202,7 @@ fn try_approve<S: Storage, A: Api, Q: Querier>(
         messages: vec![],
         log: vec![
             log("action", "approve"),
-            log(
-                "owner",
-                env.message.sender.as_str(),
-            ),
+            log("owner", env.message.sender.as_str()),
             log("spender", spender.as_str()),
         ],
         data: None,
@@ -259,10 +250,7 @@ fn try_burn<S: Storage, A: Api, Q: Querier>(
         messages: vec![],
         log: vec![
             log("action", "burn"),
-            log(
-                "account",
-                env.message.sender.as_str(),
-            ),
+            log("account", env.message.sender.as_str()),
             log("amount", &amount.to_string()),
         ],
         data: None,
