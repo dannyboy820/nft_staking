@@ -318,7 +318,7 @@ dependencies = [
 
 [[package]]
 name = "cw-escrow"
-version = "0.5.3"
+version = "0.6.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
