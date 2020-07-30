@@ -61,7 +61,7 @@ fn mock_init_with_price(
         transfer_price: Some(transfer_price),
     };
 
-    let params = mock_env(&deps.api, "creator", &coins(2, "token"));
+    let params = mock_env("creator", &coins(2, "token"));
     // unwrap: contract successfully handles InitMsg
     let _res: InitResponse = init(&mut deps, params, msg).unwrap();
 }
@@ -72,7 +72,7 @@ fn mock_init_no_price(mut deps: &mut Instance<MockStorage, MockApi, MockQuerier>
         transfer_price: None,
     };
 
-    let params = mock_env(&deps.api, "creator", &coins(2, "token"));
+    let params = mock_env("creator", &coins(2, "token"));
     // unwrap: contract successfully handles InitMsg
     let _res: InitResponse = init(&mut deps, params, msg).unwrap();
 }
@@ -82,7 +82,7 @@ fn mock_alice_registers_name(
     sent: &[Coin],
 ) {
     // alice can register an available name
-    let params = mock_env(&deps.api, "alice_key", sent);
+    let params = mock_env("alice_key", sent);
     let msg = HandleMsg::Register {
         name: "alice".to_string(),
     };
@@ -98,7 +98,7 @@ fn proper_init_no_fees() {
 
     deps.with_storage(|storage| {
         let key = to_length_prefixed(CONFIG_KEY);
-        let data = storage.get(&key).unwrap().0.unwrap();
+        let data = storage.get(&key).0.unwrap().unwrap();
         let config_state: Config = from_slice(&data).unwrap();
 
         assert_eq!(
@@ -121,7 +121,7 @@ fn proper_init_with_prices() {
 
     deps.with_storage(|storage| {
         let key = to_length_prefixed(CONFIG_KEY);
-        let data = storage.get(&key).unwrap().0.unwrap();
+        let data = storage.get(&key).0.unwrap().unwrap();
         let config_state: Config = from_slice(&data).unwrap();
 
         assert_eq!(
@@ -144,7 +144,7 @@ fn register_available_name_and_query_works_with_prices() {
     mock_alice_registers_name(&mut deps, &coins(2, "token"));
 
     // anyone can register an available name with more fees than needed
-    let params = mock_env(&deps.api, "bob_key", &coins(5, "token"));
+    let params = mock_env("bob_key", &coins(5, "token"));
     let msg = HandleMsg::Register {
         name: "bob".to_string(),
     };
@@ -174,7 +174,7 @@ fn fails_on_register_already_taken_name() {
     mock_alice_registers_name(&mut deps, &[]);
 
     // bob can't register the same name
-    let params = mock_env(&deps.api, "bob_key", &coins(2, "token"));
+    let params = mock_env("bob_key", &coins(2, "token"));
     let msg = HandleMsg::Register {
         name: "alice".to_string(),
     };
@@ -185,7 +185,7 @@ fn fails_on_register_already_taken_name() {
     }
 
     // alice can't register the same name again
-    let params = mock_env(&deps.api, "alice_key", &coins(2, "token"));
+    let params = mock_env("alice_key", &coins(2, "token"));
     let msg = HandleMsg::Register {
         name: "alice".to_string(),
     };
@@ -202,7 +202,7 @@ fn fails_on_register_insufficient_fees() {
     mock_init_with_price(&mut deps, coin(2, "token"), coin(2, "token"));
 
     // anyone can register an available name with sufficient fees
-    let params = mock_env(&deps.api, "alice_key", &[]);
+    let params = mock_env("alice_key", &[]);
     let msg = HandleMsg::Register {
         name: "alice".to_string(),
     };
@@ -220,7 +220,7 @@ fn fails_on_register_wrong_fee_denom() {
     mock_init_with_price(&mut deps, coin(2, "token"), coin(2, "token"));
 
     // anyone can register an available name with sufficient fees
-    let params = mock_env(&deps.api, "alice_key", &coins(2, "earth"));
+    let params = mock_env("alice_key", &coins(2, "earth"));
     let msg = HandleMsg::Register {
         name: "alice".to_string(),
     };
@@ -239,7 +239,7 @@ fn transfer_works() {
     mock_alice_registers_name(&mut deps, &[]);
 
     // alice can transfer her name successfully to bob
-    let params = mock_env(&deps.api, "alice_key", &[]);
+    let params = mock_env("alice_key", &[]);
     let msg = HandleMsg::Transfer {
         name: "alice".to_string(),
         to: HumanAddr::from("bob_key"),
@@ -257,11 +257,7 @@ fn transfer_works_with_fees() {
     mock_alice_registers_name(&mut deps, &coins(2, "token"));
 
     // alice can transfer her name successfully to bob
-    let params = mock_env(
-        &deps.api,
-        "alice_key",
-        &vec![coin(1, "earth"), coin(2, "token")],
-    );
+    let params = mock_env("alice_key", &vec![coin(1, "earth"), coin(2, "token")]);
     let msg = HandleMsg::Transfer {
         name: "alice".to_string(),
         to: HumanAddr::from("bob_key"),
@@ -279,7 +275,7 @@ fn fails_on_transfer_from_nonowner() {
     mock_alice_registers_name(&mut deps, &[]);
 
     // alice can transfer her name successfully to bob
-    let params = mock_env(&deps.api, "frank_key", &coins(2, "token"));
+    let params = mock_env("frank_key", &coins(2, "token"));
     let msg = HandleMsg::Transfer {
         name: "alice".to_string(),
         to: HumanAddr::from("bob_key"),
@@ -302,11 +298,7 @@ fn fails_on_transfer_insufficient_fees() {
     mock_alice_registers_name(&mut deps, &coins(2, "token"));
 
     // alice can transfer her name successfully to bob
-    let params = mock_env(
-        &deps.api,
-        "alice_key",
-        &vec![coin(1, "earth"), coin(2, "token")],
-    );
+    let params = mock_env("alice_key", &vec![coin(1, "earth"), coin(2, "token")]);
     let msg = HandleMsg::Transfer {
         name: "alice".to_string(),
         to: HumanAddr::from("bob_key"),

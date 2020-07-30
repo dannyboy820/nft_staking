@@ -42,8 +42,8 @@ fn init_msg_expire_by_height(height: u64) -> InitMsg {
     }
 }
 
-fn mock_env_height<A: Api>(api: &A, signer: &str, sent: &[Coin], height: u64, time: u64) -> Env {
-    let mut env = mock_env(api, signer, sent);
+fn mock_env_height(signer: &str, sent: &[Coin], height: u64, time: u64) -> Env {
+    let mut env = mock_env(signer, sent);
     env.block.height = height;
     env.block.time = time;
     env
@@ -54,7 +54,7 @@ fn proper_initialization() {
     let mut deps = mock_instance(WASM, &[]);
 
     let msg = init_msg_expire_by_height(1000);
-    let env = mock_env_height(&deps.api, "creator", &coins(1000, "earth"), 876, 0);
+    let env = mock_env_height("creator", &coins(1000, "earth"), 876, 0);
     let res: InitResponse = init(&mut deps, env, msg).unwrap();
     assert_eq!(0, res.messages.len());
 
@@ -62,13 +62,22 @@ fn proper_initialization() {
     let api = deps.api;
     deps.with_storage(|store| {
         let config_key_raw = to_length_prefixed(b"config");
-        let state: State = from_slice(&store.get(&config_key_raw).unwrap().0.unwrap()).unwrap();
+        let state: State = from_slice(&store.get(&config_key_raw).0.unwrap().unwrap()).unwrap();
         assert_eq!(
             state,
             State {
-                arbiter: api.canonical_address(&HumanAddr::from("verifies")).unwrap(),
-                recipient: api.canonical_address(&HumanAddr::from("benefits")).unwrap(),
-                source: api.canonical_address(&HumanAddr::from("creator")).unwrap(),
+                arbiter: api
+                    .canonical_address(&HumanAddr::from("verifies"))
+                    .0
+                    .unwrap(),
+                recipient: api
+                    .canonical_address(&HumanAddr::from("benefits"))
+                    .0
+                    .unwrap(),
+                source: api
+                    .canonical_address(&HumanAddr::from("creator"))
+                    .0
+                    .unwrap(),
                 end_height: Some(1000),
                 end_time: None,
             }
@@ -83,7 +92,7 @@ fn cannot_initialize_expired() {
     let mut deps = mock_instance(WASM, &[]);
 
     let msg = init_msg_expire_by_height(1000);
-    let env = mock_env_height(&deps.api, "creator", &coins(1000, "earth"), 1001, 0);
+    let env = mock_env_height("creator", &coins(1000, "earth"), 1001, 0);
     let res: InitResult = init(&mut deps, env, msg);
     match res.unwrap_err() {
         StdError::GenericErr { msg, .. } => assert_eq!(msg, "creating expired escrow"),
@@ -104,7 +113,7 @@ fn init_and_query() {
         end_height: None,
         end_time: None,
     };
-    let env = mock_env(&deps.api, creator.as_str(), &coins(1000, "earth"));
+    let env = mock_env(creator.as_str(), &coins(1000, "earth"));
     let res: InitResponse = init(&mut deps, env, msg).unwrap();
     assert_eq!(0, res.messages.len());
 
@@ -126,8 +135,8 @@ fn handle_approve() {
 
     // initialize the store
     let init_amount = coins(1000, "earth");
-    let init_env = mock_env_height(&deps.api, "creator", &init_amount, 876, 0);
-    let contract_addr = deps.api.human_address(&init_env.contract.address).unwrap();
+    let init_env = mock_env_height("creator", &init_amount, 876, 0);
+    let contract_addr = init_env.contract.address.clone();
     let msg = init_msg_expire_by_height(1000);
     let init_res: InitResponse = init(&mut deps, init_env, msg).unwrap();
     assert_eq!(0, init_res.messages.len());
@@ -141,7 +150,7 @@ fn handle_approve() {
 
     // beneficiary cannot release it
     let msg = HandleMsg::Approve { quantity: None };
-    let env = mock_env_height(&deps.api, "beneficiary", &[], 900, 0);
+    let env = mock_env_height("beneficiary", &[], 900, 0);
     let handle_res: HandleResult = handle(&mut deps, env, msg.clone());
     match handle_res.unwrap_err() {
         StdError::Unauthorized { .. } => {}
@@ -149,7 +158,7 @@ fn handle_approve() {
     }
 
     // verifier cannot release it when expired
-    let env = mock_env_height(&deps.api, "verifies", &[], 1100, 0);
+    let env = mock_env_height("verifies", &[], 1100, 0);
     let handle_res: HandleResult = handle(&mut deps, env, msg.clone());
     match handle_res.unwrap_err() {
         StdError::GenericErr { msg, .. } => assert_eq!(msg, "escrow expired"),
@@ -157,7 +166,7 @@ fn handle_approve() {
     }
 
     // complete release by verfier, before expiration
-    let env = mock_env_height(&deps.api, "verifies", &[], 999, 0);
+    let env = mock_env_height("verifies", &[], 999, 0);
     let handle_res: HandleResponse = handle(&mut deps, env, msg.clone()).unwrap();
     assert_eq!(1, handle_res.messages.len());
     let msg = handle_res.messages.get(0).expect("no message");
@@ -174,7 +183,7 @@ fn handle_approve() {
     let partial_msg = HandleMsg::Approve {
         quantity: Some(coins(500, "earth")),
     };
-    let env = mock_env_height(&deps.api, "verifies", &[], 999, 0);
+    let env = mock_env_height("verifies", &[], 999, 0);
     let handle_res: HandleResponse = handle(&mut deps, env, partial_msg).unwrap();
     assert_eq!(1, handle_res.messages.len());
     let msg = handle_res.messages.get(0).expect("no message");
@@ -194,8 +203,8 @@ fn handle_refund() {
 
     // initialize the store
     let init_amount = coins(1000, "earth");
-    let init_env = mock_env_height(&deps.api, "creator", &init_amount, 876, 0);
-    let contract_addr = deps.api.human_address(&init_env.contract.address).unwrap();
+    let init_env = mock_env_height("creator", &init_amount, 876, 0);
+    let contract_addr = init_env.contract.address.clone();
     let msg = init_msg_expire_by_height(1000);
     let init_res: InitResponse = init(&mut deps, init_env, msg).unwrap();
     assert_eq!(0, init_res.messages.len());
@@ -208,7 +217,7 @@ fn handle_refund() {
 
     // cannot release when unexpired
     let msg = HandleMsg::Refund {};
-    let env = mock_env_height(&deps.api, "anybody", &[], 800, 0);
+    let env = mock_env_height("anybody", &[], 800, 0);
     let handle_res: HandleResult = handle(&mut deps, env, msg.clone());
     match handle_res.unwrap_err() {
         StdError::GenericErr { msg, .. } => assert_eq!(msg, "escrow not yet expired"),
@@ -216,7 +225,7 @@ fn handle_refund() {
     }
 
     // anyone can release after expiration
-    let env = mock_env_height(&deps.api, "anybody", &[], 1001, 0);
+    let env = mock_env_height("anybody", &[], 1001, 0);
     let handle_res: HandleResponse = handle(&mut deps, env, msg.clone()).unwrap();
     assert_eq!(1, handle_res.messages.len());
     let msg = handle_res.messages.get(0).expect("no message");
