@@ -11,18 +11,18 @@
         "cast_vote": {
           "type": "object",
           "required": [
-            "encrypted_vote",
             "poll_id",
+            "vote",
             "weight"
           ],
           "properties": {
-            "encrypted_vote": {
-              "type": "string"
-            },
             "poll_id": {
               "type": "integer",
               "format": "uint64",
               "minimum": 0.0
+            },
+            "vote": {
+              "type": "string"
             },
             "weight": {
               "$ref": "#/definitions/Uint128"

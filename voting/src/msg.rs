@@ -13,7 +13,7 @@ pub struct InitMsg {
 pub enum HandleMsg {
     CastVote {
         poll_id: u64,
-        encrypted_vote: String,
+        vote: String,
         weight: Uint128,
     },
     StakeVotingTokens {},
