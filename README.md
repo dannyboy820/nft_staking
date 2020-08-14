@@ -46,16 +46,16 @@ on merge. See [`rust-optimizer`](https://github.com/CosmWasm/rust-optimizer/blob
 for an explanation of how to make a deterministic build.
 
 ```sh
-rm contract.wasm
+rm -rf artifacts
 
 docker run --rm -v "$(pwd)":/code \
   --mount type=volume,source="$(basename "$(pwd)")_cache",target=/code/target \
   --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
-  cosmwasm/rust-optimizer:0.9.0
+  cosmwasm/rust-optimizer:0.10.1
 
 # verify output - these should be the same
-sha256sum contract.wasm
-cat hash.txt
+sha256sum artifacts/*.wasm
+cat artifacts/checksums.txt
 ```
 
 If the sha256 hash changes without any code changes, even when compiling on different machines,
