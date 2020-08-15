@@ -53,8 +53,6 @@ pub struct Poll {
     pub description: String,
 }
 
-impl State {}
-
 pub fn config<S: Storage>(storage: &mut S) -> Singleton<S, State> {
     singleton(storage, CONFIG_KEY)
 }
