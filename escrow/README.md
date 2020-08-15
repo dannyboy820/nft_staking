@@ -19,7 +19,7 @@ which is the recommended way to create any contracts.
 
 ## Using this project
 
-If you want to get aquainted more with this contratc, you should check out
+If you want to get acquainted more with this contract, you should check out
 [Developing](./Developing.md), which explains more on how to run tests and develop code.
 [Publishing](./Publishing.md) contains useful information on how to publish your contract
 to the world, once you are ready to deploy it on a running blockchain. And
