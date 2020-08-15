@@ -2,7 +2,7 @@ use cosmwasm_schema::{export_schema, remove_schemas, schema_for};
 use std::env::current_dir;
 use std::fs::create_dir_all;
 
-use cw_voting::msg::{HandleMsg, InitMsg, QueryMsg, PollResponse, TokenStakeResponse};
+use cw_voting::msg::{HandleMsg, InitMsg, PollResponse, QueryMsg, TokenStakeResponse};
 use cw_voting::state::State;
 
 fn main() {
