@@ -27,7 +27,7 @@ use cosmwasm_vm::testing::{handle, init, mock_env, mock_instance, query};
 use cosmwasm_vm::{from_slice, Api, Storage};
 use cw_voting::contract::VOTING_TOKEN;
 use cw_voting::msg::{HandleMsg, InitMsg, PollResponse, QueryMsg};
-use cw_voting::state::State;
+use cw_voting::state::{PollStatus, State};
 
 // This line will test the output of cargo wasm
 static WASM: &[u8] = include_bytes!("../target/wasm32-unknown-unknown/release/cw_voting.wasm");
@@ -321,6 +321,10 @@ fn happy_days_end_poll() {
             log("passed", "true"),
         ]
     );
+
+    let res = query(&mut deps, QueryMsg::Poll { poll_id: 1 }).unwrap();
+    let value: PollResponse = from_binary(&res).unwrap();
+    assert_eq!(PollStatus::Passed, value.status);
 }
 
 #[test]
@@ -351,6 +355,9 @@ fn end_poll_zero_quorum() {
             log("passed", "false"),
         ]
     );
+    let res = query(&mut deps, QueryMsg::Poll { poll_id: 1 }).unwrap();
+    let value: PollResponse = from_binary(&res).unwrap();
+    assert_eq!(PollStatus::Rejected, value.status);
 }
 
 #[test]
@@ -413,6 +420,10 @@ fn end_poll_quorum_rejected() {
             log("passed", "false"),
         ]
     );
+
+    let res = query(&mut deps, QueryMsg::Poll { poll_id: 1 }).unwrap();
+    let value: PollResponse = from_binary(&res).unwrap();
+    assert_eq!(PollStatus::Rejected, value.status);
 }
 
 #[test]
@@ -480,6 +491,10 @@ fn end_poll_nay_rejected() {
             log("passed", "false"),
         ]
     );
+
+    let res = query(&mut deps, QueryMsg::Poll { poll_id: 1 }).unwrap();
+    let value: PollResponse = from_binary(&res).unwrap();
+    assert_eq!(PollStatus::Rejected, value.status);
 }
 
 #[test]

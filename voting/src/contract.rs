@@ -268,7 +268,6 @@ pub fn end_poll<S: Storage, A: Api, Q: Querier>(
     }
     let tallied_weight = yes + no;
 
-    let poll_status = PollStatus::Rejected;
     let mut rejected_reason = "";
     let mut passed = false;
 
@@ -302,7 +301,9 @@ pub fn end_poll<S: Storage, A: Api, Q: Querier>(
     } else {
         rejected_reason = "Quorum not reached";
     }
-    a_poll.status = poll_status;
+    if !passed {
+        a_poll.status = PollStatus::Rejected
+    }
     poll(&mut deps.storage).save(key.as_bytes(), &a_poll)?;
 
     for voter in &a_poll.voters {
