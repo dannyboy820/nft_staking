@@ -2,7 +2,7 @@
 mod tests {
     use crate::contract::{handle, init, query, VOTING_TOKEN};
     use crate::msg::{HandleMsg, InitMsg, PollResponse, QueryMsg};
-    use crate::state::{config_read, State};
+    use crate::state::{config_read, PollStatus, State};
     use cosmwasm_std::testing::{mock_dependencies, mock_env, MockApi, MockQuerier, MockStorage};
     use cosmwasm_std::{
         coins, from_binary, log, Api, BankMsg, Coin, CosmosMsg, Env, Extern, HandleResponse,
@@ -276,6 +276,9 @@ mod tests {
                 log("passed", "true"),
             ]
         );
+        let res = query(&deps, QueryMsg::Poll { poll_id: 1 }).unwrap();
+        let value: PollResponse = from_binary(&res).unwrap();
+        assert_eq!(PollStatus::Passed, value.status);
     }
 
     #[test]
@@ -302,6 +305,10 @@ mod tests {
                 log("passed", "false"),
             ]
         );
+
+        let res = query(&deps, QueryMsg::Poll { poll_id: 1 }).unwrap();
+        let value: PollResponse = from_binary(&res).unwrap();
+        assert_eq!(PollStatus::Rejected, value.status);
     }
 
     #[test]
@@ -368,6 +375,10 @@ mod tests {
                 log("passed", "false"),
             ]
         );
+
+        let res = query(&deps, QueryMsg::Poll { poll_id: 1 }).unwrap();
+        let value: PollResponse = from_binary(&res).unwrap();
+        assert_eq!(PollStatus::Rejected, value.status);
     }
 
     #[test]
@@ -432,6 +443,10 @@ mod tests {
                 log("passed", "false"),
             ]
         );
+
+        let res = query(&deps, QueryMsg::Poll { poll_id: 1 }).unwrap();
+        let value: PollResponse = from_binary(&res).unwrap();
+        assert_eq!(PollStatus::Rejected, value.status);
     }
 
     #[test]
