@@ -3,11 +3,11 @@
 [![CircleCI](https://circleci.com/gh/confio/cosmwasm-examples/tree/master.svg?style=shield)](https://circleci.com/gh/confio/cosmwasm-examples/tree/master)
 
 This repo is a collection of simple contracts built with the
-[cosmwasm](https://github.com/confio/cosmwasm) framework.
+[cosmwasm](https://github.com/CosmWasm/cosmwasm) framework.
 Smart contracts here are for only demonstration purposes, **not production ready**. 
-Production grade smart contracts are collected under [cosmwasm-plus](https://github.com/CosmWasm/cosmwasm-plus)
+Production grade smart contracts are collected under [cosmwasm-plus](https://github.com/CosmWasm/cosmwasm-plus).
 
-Ths repo's organization is relatively simple. The top-level directory is just a placeholder
+This repo's organization is relatively simple. The top-level directory is just a placeholder
 and has no real code. And we use workspaces to add multiple contracts below.
 This allows us to compile all contracts with one command.
 
