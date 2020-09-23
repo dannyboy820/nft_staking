@@ -1,6 +1,10 @@
-use cosmwasm_std::{Coin, StdError, StdResult};
+use crate::error::ContractError;
+use cosmwasm_std::Coin;
 
-pub fn assert_sent_sufficient_coin(sent: &[Coin], required: Option<Coin>) -> StdResult<()> {
+pub fn assert_sent_sufficient_coin(
+    sent: &[Coin],
+    required: Option<Coin>,
+) -> Result<(), ContractError> {
     if let Some(required_coin) = required {
         let required_amount = required_coin.amount.u128();
         if required_amount > 0 {
@@ -13,7 +17,7 @@ pub fn assert_sent_sufficient_coin(sent: &[Coin], required: Option<Coin>) -> Std
             return if sent_sufficient_funds {
                 Ok(())
             } else {
-                Err(StdError::generic_err("Insufficient funds sent"))
+                Err(ContractError::InsufficientFunds {})
             };
         }
     }
@@ -23,7 +27,7 @@ pub fn assert_sent_sufficient_coin(sent: &[Coin], required: Option<Coin>) -> Std
 #[cfg(test)]
 mod test {
     use super::*;
-    use cosmwasm_std::{coin, coins, StdError};
+    use cosmwasm_std::{coin, coins};
 
     #[test]
     fn assert_sent_sufficient_coin_works() {
@@ -34,13 +38,13 @@ mod test {
 
         match assert_sent_sufficient_coin(&vec![], Some(coin(5, "token"))) {
             Ok(()) => panic!("Should have raised insufficient funds error"),
-            Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "Insufficient funds sent"),
+            Err(ContractError::InsufficientFunds {}) => {}
             Err(e) => panic!("Unexpected error: {:?}", e),
         };
 
         match assert_sent_sufficient_coin(&coins(10, "smokin"), Some(coin(5, "token"))) {
             Ok(()) => panic!("Should have raised insufficient funds error"),
-            Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "Insufficient funds sent"),
+            Err(ContractError::InsufficientFunds {}) => {}
             Err(e) => panic!("Unexpected error: {:?}", e),
         };
 

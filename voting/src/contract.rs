@@ -1,4 +1,5 @@
 use crate::coin_helpers::assert_sent_sufficient_coin;
+use crate::error::ContractError;
 use crate::msg::{
     CreatePollResponse, HandleMsg, InitMsg, PollResponse, QueryMsg, TokenStakeResponse,
 };
@@ -6,9 +7,8 @@ use crate::state::{
     bank, bank_read, config, config_read, poll, poll_read, Poll, PollStatus, State, Voter,
 };
 use cosmwasm_std::{
-    coin, log, to_binary, Api, BankMsg, Binary, CanonicalAddr, Coin, CosmosMsg, Env, Extern,
-    HandleResponse, HandleResult, HumanAddr, InitResponse, InitResult, Querier, StdError,
-    StdResult, Storage, Uint128,
+    attr, coin, to_binary, Api, BankMsg, Binary, CanonicalAddr, Coin, CosmosMsg, Env, Extern,
+    HandleResponse, HumanAddr, InitResponse, Querier, StdError, StdResult, Storage, Uint128,
 };
 
 pub const VOTING_TOKEN: &str = "voting_token";
@@ -21,7 +21,7 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
     msg: InitMsg,
-) -> InitResult {
+) -> Result<InitResponse, ContractError> {
     let state = State {
         denom: msg.denom,
         owner: deps.api.canonical_address(&env.message.sender)?,
@@ -38,7 +38,7 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
     msg: HandleMsg,
-) -> StdResult<HandleResponse> {
+) -> Result<HandleResponse, ContractError> {
     match msg {
         HandleMsg::StakeVotingTokens {} => stake_voting_tokens(deps, env),
         HandleMsg::WithdrawVotingTokens { amount } => withdraw_voting_tokens(deps, env, amount),
@@ -67,7 +67,7 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
 pub fn stake_voting_tokens<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
-) -> HandleResult {
+) -> Result<HandleResponse, ContractError> {
     let sender_address_raw = deps.api.canonical_address(&env.message.sender)?;
     let key = &sender_address_raw.as_slice();
 
@@ -102,7 +102,7 @@ pub fn withdraw_voting_tokens<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
     amount: Option<Uint128>,
-) -> HandleResult {
+) -> Result<HandleResponse, ContractError> {
     let sender_address_raw = deps.api.canonical_address(&env.message.sender)?;
     let contract_address_raw = deps.api.canonical_address(&env.contract.address)?;
     let key = sender_address_raw.as_slice();
@@ -115,9 +115,8 @@ pub fn withdraw_voting_tokens<S: Storage, A: Api, Q: Querier>(
         }
         .unwrap();
         if largest_staked + withdraw_amount > token_manager.token_balance.u128() {
-            Err(StdError::generic_err(
-                "User is trying to withdraw too many tokens.",
-            ))
+            let max_amount = token_manager.token_balance.u128() - largest_staked;
+            Err(ContractError::ExcessiveWithdraw { max_amount })
         } else {
             let balance = token_manager.token_balance.u128() - withdraw_amount;
             token_manager.token_balance = Uint128::from(balance);
@@ -138,16 +137,20 @@ pub fn withdraw_voting_tokens<S: Storage, A: Api, Q: Querier>(
             )
         }
     } else {
-        Err(StdError::generic_err("Nothing staked"))
+        Err(ContractError::PollNoStake {})
     }
 }
 
 /// validate_description returns an error if the description is invalid
-fn validate_description(description: &str) -> StdResult<()> {
+fn validate_description(description: &str) -> Result<(), ContractError> {
     if description.len() < MIN_DESC_LENGTH {
-        Err(StdError::generic_err("Description too short"))
+        Err(ContractError::DescriptionTooShort {
+            min_desc_length: MIN_DESC_LENGTH,
+        })
     } else if description.len() > MAX_DESC_LENGTH {
-        Err(StdError::generic_err("Description too long"))
+        Err(ContractError::DescriptionTooLong {
+            max_desc_length: MAX_DESC_LENGTH,
+        })
     } else {
         Ok(())
     }
@@ -155,18 +158,24 @@ fn validate_description(description: &str) -> StdResult<()> {
 
 /// validate_quorum_percentage returns an error if the quorum_percentage is invalid
 /// (we require 0-100)
-fn validate_quorum_percentage(quorum_percentage: Option<u8>) -> StdResult<()> {
-    if quorum_percentage.is_some() && quorum_percentage.unwrap() > 100 {
-        Err(StdError::generic_err("quorum_percentage must be 0 to 100"))
-    } else {
-        Ok(())
+fn validate_quorum_percentage(quorum_percentage: Option<u8>) -> Result<(), ContractError> {
+    match quorum_percentage {
+        Some(qp) => {
+            if qp > 100 {
+                return Err(ContractError::PollQuorumPercentage {
+                    quorum_percentage: qp,
+                });
+            }
+            Ok(())
+        }
+        None => Ok(()),
     }
 }
 
 /// validate_end_height returns an error if the poll ends in the past
-fn validate_end_height(end_height: Option<u64>, env: Env) -> StdResult<()> {
+fn validate_end_height(end_height: Option<u64>, env: Env) -> Result<(), ContractError> {
     if end_height.is_some() && env.block.height >= end_height.unwrap() {
-        Err(StdError::generic_err("Poll cannot end in the past"))
+        Err(ContractError::PollCannotEndInPast {})
     } else {
         Ok(())
     }
@@ -180,7 +189,7 @@ pub fn create_poll<S: Storage, A: Api, Q: Querier>(
     description: String,
     start_height: Option<u64>,
     end_height: Option<u64>,
-) -> StdResult<HandleResponse> {
+) -> Result<HandleResponse, ContractError> {
     validate_quorum_percentage(quorum_percentage)?;
     validate_end_height(end_height, env.clone())?;
     validate_description(&description)?;
@@ -210,16 +219,16 @@ pub fn create_poll<S: Storage, A: Api, Q: Querier>(
 
     let r = HandleResponse {
         messages: vec![],
-        log: vec![
-            log("action", "create_poll"),
-            log(
+        attributes: vec![
+            attr("action", "create_poll"),
+            attr(
                 "creator",
                 deps.api.human_address(&new_poll.creator)?.as_str(),
             ),
-            log("poll_id", &poll_id.to_string()),
-            log("quorum_percentage", quorum_percentage.unwrap_or(0)),
-            log("end_height", new_poll.end_height),
-            log("start_height", start_height.unwrap_or(0)),
+            attr("poll_id", &poll_id.to_string()),
+            attr("quorum_percentage", quorum_percentage.unwrap_or(0)),
+            attr("end_height", new_poll.end_height),
+            attr("start_height", start_height.unwrap_or(0)),
         ],
         data: Some(to_binary(&CreatePollResponse { poll_id })?),
     };
@@ -233,27 +242,33 @@ pub fn end_poll<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
     poll_id: u64,
-) -> HandleResult {
+) -> Result<HandleResponse, ContractError> {
     let key = &poll_id.to_string();
     let mut a_poll = poll(&mut deps.storage).load(key.as_bytes())?;
 
     let sender_address_raw = deps.api.canonical_address(&env.message.sender)?;
     if a_poll.creator != sender_address_raw {
-        return Err(StdError::generic_err(
-            "User is not the creator of the poll.",
-        ));
+        return Err(ContractError::PollNotCreator {
+            creator: a_poll.creator,
+            sender: sender_address_raw,
+        });
     }
 
     if a_poll.status != PollStatus::InProgress {
-        return Err(StdError::generic_err("Poll is not in progress"));
+        return Err(ContractError::PollNotInProgress {});
     }
 
-    if a_poll.start_height.is_some() && a_poll.start_height.unwrap() > env.block.height {
-        return Err(StdError::generic_err("Voting period has not started."));
+    if a_poll.start_height.is_some() {
+        let start_height = a_poll.start_height.unwrap();
+        if start_height > env.block.height {
+            return Err(ContractError::PoolVotingPeriodNotStarted { start_height });
+        }
     }
 
     if a_poll.end_height > env.block.height {
-        return Err(StdError::generic_err("Voting period has not expired."));
+        return Err(ContractError::PollVotingPeriodNotExpired {
+            expire_height: a_poll.end_height,
+        });
     }
 
     let mut no = 0u128;
@@ -282,7 +297,7 @@ pub fn end_poll<S: Storage, A: Api, Q: Querier>(
             .u128();
 
         if staked_weight == 0 {
-            return Err(StdError::generic_err("Nothing staked"));
+            return Err(ContractError::PollNoStake {});
         }
 
         let quorum = ((tallied_weight / staked_weight) * 100) as u8;
@@ -310,16 +325,16 @@ pub fn end_poll<S: Storage, A: Api, Q: Querier>(
         unlock_tokens(deps, voter, poll_id)?;
     }
 
-    let log = vec![
-        log("action", "end_poll"),
-        log("poll_id", &poll_id.to_string()),
-        log("rejected_reason", rejected_reason),
-        log("passed", &passed.to_string()),
+    let attributes = vec![
+        attr("action", "end_poll"),
+        attr("poll_id", &poll_id.to_string()),
+        attr("rejected_reason", rejected_reason),
+        attr("passed", &passed.to_string()),
     ];
 
     let r = HandleResponse {
         messages: vec![],
-        log,
+        attributes,
         data: None,
     };
     Ok(r)
@@ -330,7 +345,7 @@ fn unlock_tokens<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     voter: &CanonicalAddr,
     poll_id: u64,
-) -> HandleResult {
+) -> Result<HandleResponse, ContractError> {
     let voter_key = &voter.as_slice();
     let mut token_manager = bank_read(&deps.storage).load(voter_key).unwrap();
 
@@ -365,31 +380,29 @@ pub fn cast_vote<S: Storage, A: Api, Q: Querier>(
     poll_id: u64,
     vote: String,
     weight: Uint128,
-) -> HandleResult {
+) -> Result<HandleResponse, ContractError> {
     let sender_address_raw = deps.api.canonical_address(&env.message.sender)?;
     let poll_key = &poll_id.to_string();
     let state = config_read(&deps.storage).load()?;
     if poll_id == 0 || state.poll_count > poll_id {
-        return Err(StdError::generic_err("Poll does not exist"));
+        return Err(ContractError::PollNotExist {});
     }
 
     let mut a_poll = poll(&mut deps.storage).load(poll_key.as_bytes())?;
 
     if a_poll.status != PollStatus::InProgress {
-        return Err(StdError::generic_err("Poll is not in progress"));
+        return Err(ContractError::PollNotInProgress {});
     }
 
     if has_voted(&sender_address_raw, &a_poll) {
-        return Err(StdError::generic_err("User has already voted."));
+        return Err(ContractError::PollSenderVoted {});
     }
 
     let key = &sender_address_raw.as_slice();
     let mut token_manager = bank_read(&deps.storage).may_load(key)?.unwrap_or_default();
 
     if token_manager.token_balance < weight {
-        return Err(StdError::generic_err(
-            "User does not have enough staked tokens.",
-        ));
+        return Err(ContractError::PollInsufficientStake {});
     }
     token_manager.participated_polls.push(poll_id);
     token_manager.locked_tokens.push((poll_id, weight));
@@ -402,16 +415,16 @@ pub fn cast_vote<S: Storage, A: Api, Q: Querier>(
     a_poll.voter_info.push(voter_info);
     poll(&mut deps.storage).save(poll_key.as_bytes(), &a_poll)?;
 
-    let log = vec![
-        log("action", "vote_casted"),
-        log("poll_id", &poll_id.to_string()),
-        log("weight", &weight.to_string()),
-        log("voter", &env.message.sender.as_str()),
+    let attributes = vec![
+        attr("action", "vote_casted"),
+        attr("poll_id", &poll_id.to_string()),
+        attr("weight", &weight.to_string()),
+        attr("voter", &env.message.sender.as_str()),
     ];
 
     let r = HandleResponse {
         messages: vec![],
-        log,
+        attributes,
         data: None,
     };
     Ok(r)
@@ -423,10 +436,10 @@ fn send_tokens<A: Api>(
     to_address: &CanonicalAddr,
     amount: Vec<Coin>,
     action: &str,
-) -> HandleResult {
+) -> Result<HandleResponse, ContractError> {
     let from_human = api.human_address(from_address)?;
     let to_human = api.human_address(to_address)?;
-    let log = vec![log("action", action), log("to", to_human.as_str())];
+    let attributes = vec![attr("action", action), attr("to", to_human.as_str())];
 
     let r = HandleResponse {
         messages: vec![CosmosMsg::Bank(BankMsg::Send {
@@ -434,7 +447,7 @@ fn send_tokens<A: Api>(
             to_address: to_human,
             amount,
         })],
-        log,
+        attributes,
         data: None,
     };
     Ok(r)

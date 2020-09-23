@@ -121,9 +121,9 @@ checksum = "245097e9a4535ee1e3e3931fcfcd55a796a44c643e8596ff6566d68f09b87bbc"
 
 [[package]]
 name = "cosmwasm-schema"
-version = "0.10.0"
+version = "0.11.0-alpha1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1592dd62fbf542dca476606d4768ae54c5febd586c5e246d147c3c90b2f4289c"
+checksum = "4d8160b24bf6f20eef87e09cdc1273c62dfd1cb957c651c554c8d8c1968eeb32"
 dependencies = [
  "schemars",
  "serde_json",
@@ -131,9 +131,9 @@ dependencies = [
 
 [[package]]
 name = "cosmwasm-std"
-version = "0.10.0"
+version = "0.11.0-alpha1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7934161da3638926acf9ac1ee92d0080993052df6dcd09fc5deb1d1ba6fbcb02"
+checksum = "c790cceb802f0264721c11338847ce0ffa950324e6867883b37ec8c27a63d8ff"
 dependencies = [
  "base64",
  "schemars",
@@ -144,9 +144,9 @@ dependencies = [
 
 [[package]]
 name = "cosmwasm-storage"
-version = "0.10.0"
+version = "0.11.0-alpha1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "24d8f927309936e47b2d593f602161bb5dbef4c717ee185b19618873b1370b93"
+checksum = "28d2ee768db4325c90db675bb7637de2aaa11fd15822f853d42627b202fa79f7"
 dependencies = [
  "cosmwasm-std",
  "serde",
@@ -154,9 +154,9 @@ dependencies = [
 
 [[package]]
 name = "cosmwasm-vm"
-version = "0.10.0"
+version = "0.11.0-alpha1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3d78c26bef0db1e8c23369eccc1882a9822dccc55c9fb74fb107e31aabc556ec"
+checksum = "96039b55363a0215f4f28aed9a345e66f11f8ffcc92334157e8a848922a3a761"
 dependencies = [
  "cosmwasm-std",
  "hex",
@@ -307,6 +307,7 @@ dependencies = [
  "hex",
  "schemars",
  "serde",
+ "thiserror",
 ]
 
 [[package]]
@@ -850,18 +851,18 @@ checksum = "ab0e7238dcc7b40a7be719a25365910f6807bd864f4cce6b2e6b873658e2b19d"
 
 [[package]]
 name = "thiserror"
-version = "1.0.11"
+version = "1.0.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ee14bf8e6767ab4c687c9e8bc003879e042a96fd67a3ba5934eadb6536bef4db"
+checksum = "7dfdd070ccd8ccb78f4ad66bf1982dc37f620ef696c6b5028fe2ed83dd3d0d08"
 dependencies = [
  "thiserror-impl",
 ]
 
 [[package]]
 name = "thiserror-impl"
-version = "1.0.11"
+version = "1.0.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a7b51e1fbc44b5a0840be594fbc0f960be09050f2617e61e6aa43bef97cd3ef4"
+checksum = "bd80fc12f73063ac132ac92aceea36734f04a1d93c1240c6944e23a3b8841793"
 dependencies = [
  "proc-macro2",
  "quote",
