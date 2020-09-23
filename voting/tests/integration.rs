@@ -19,13 +19,14 @@
 //! 4. Anywhere you see query(&deps, ...) you must replace it with query(&mut deps, ...)
 
 use cosmwasm_std::{
-    coins, from_binary, log, BankMsg, CosmosMsg, Env, HandleResponse, HandleResult, HumanAddr,
-    InitResponse, StdError, Uint128,
+    attr, coins, from_binary, BankMsg, ContractResult, CosmosMsg, Env, HandleResponse,
+    HumanAddr, InitResponse, StdError, Uint128,
 };
 use cosmwasm_storage::to_length_prefixed;
 use cosmwasm_vm::testing::{handle, init, mock_env, mock_instance, query};
 use cosmwasm_vm::{from_slice, Api, Storage};
 use cw_voting::contract::VOTING_TOKEN;
+use cw_voting::error::ContractError;
 use cw_voting::msg::{HandleMsg, InitMsg, PollResponse, QueryMsg};
 use cw_voting::state::{PollStatus, State};
 
@@ -102,7 +103,7 @@ fn poll_not_found() {
     let res = query(&mut deps, QueryMsg::Poll { poll_id: 1 });
 
     match res {
-        Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "Poll does not exist"),
+        Err(ContractError::PollNotExist {}) => {},
         Err(e) => panic!("Unexpected error: {:?}", e),
         _ => panic!("Must return error"),
     }
@@ -115,13 +116,11 @@ fn fails_create_poll_invalid_quorum_percentage() {
 
     let msg = create_poll_msg(101, "test".to_string(), None, None);
 
-    let res: HandleResult = handle(&mut deps, env, msg);
+    let res = handle(&mut deps, env, msg);
 
     match res {
         Ok(_) => panic!("Must return error"),
-        Err(StdError::GenericErr { msg, .. }) => {
-            assert_eq!(msg, "quorum_percentage must be 0 to 100")
-        }
+        Err(ContractError::PollQuorumPercentageMismatch { .. }) => {}
         Err(e) => panic!("Unexpected error: {:?}", e),
     }
 }
@@ -133,9 +132,9 @@ fn fails_create_poll_invalid_description() {
 
     let msg: HandleMsg = create_poll_msg(30, "a".to_string(), None, None);
 
-    let handle_res: HandleResult = handle(&mut deps, env.clone(), msg.clone());
+    let handle_res: ContractResult<HandleResponse> = handle(&mut deps, env.clone(), msg.clone());
     match handle_res.unwrap_err() {
-        StdError::GenericErr { msg, .. } => assert_eq!(msg, "Description too short"),
+        ContractError::DescriptionTooShort {..} => {}
         e => panic!("unexpected error: {:?}", e),
     }
 
@@ -146,11 +145,11 @@ fn fails_create_poll_invalid_description() {
         None,
     );
 
-    let res: HandleResult = handle(&mut deps, env.clone(), msg);
+    let res = handle(&mut deps, env.clone(), msg);
 
     match res {
         Ok(_) => panic!("Must return error"),
-        Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "Description too long"),
+        ContractError::DescriptionTooLong{..} => {}
         Err(_) => panic!("Unknown error"),
     }
 }
@@ -244,11 +243,11 @@ fn fails_end_poll_before_end_height() {
 
     let msg = HandleMsg::EndPoll { poll_id: 1 };
 
-    let handle_res: HandleResult = handle(&mut deps, env.clone(), msg);
+    let handle_res= handle(&mut deps, env.clone(), msg);
 
     match handle_res {
         Ok(_) => panic!("Must return error"),
-        Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "Voting period has not expired."),
+        Err(ContractError::PollVotingPeriodNotExpired {..}) => {},
         Err(e) => panic!("Unexpected error: {:?}", e),
     }
 }
@@ -298,12 +297,12 @@ fn happy_days_end_poll() {
     let handle_res: HandleResponse = handle(&mut deps, env.clone(), msg).unwrap();
 
     assert_eq!(
-        handle_res.log,
+        handle_res.attributes,
         vec![
-            log("action", "vote_casted"),
-            log("poll_id", POLL_ID),
-            log("weight", "1000"),
-            log("voter", TEST_VOTER),
+            attr("action", "vote_casted"),
+            attr("poll_id", POLL_ID),
+            attr("weight", "1000"),
+            attr("voter", TEST_VOTER),
         ]
     );
     creator_env.block.height = &creator_env.block.height + 1;
@@ -313,12 +312,12 @@ fn happy_days_end_poll() {
     let handle_res: HandleResponse = handle(&mut deps, creator_env.clone(), msg).unwrap();
 
     assert_eq!(
-        handle_res.log,
+        handle_res.attributes,
         vec![
-            log("action", "end_poll"),
-            log("poll_id", "1"),
-            log("rejected_reason", ""),
-            log("passed", "true"),
+            attr("action", "end_poll"),
+            attr("poll_id", "1"),
+            attr("rejected_reason", ""),
+            attr("passed", "true"),
         ]
     );
 
@@ -347,12 +346,12 @@ fn end_poll_zero_quorum() {
     let handle_res: HandleResponse = handle(&mut deps, env2.clone(), msg).unwrap();
 
     assert_eq!(
-        handle_res.log,
+        handle_res.attributes,
         vec![
-            log("action", "end_poll"),
-            log("poll_id", "1"),
-            log("rejected_reason", "Quorum not reached"),
-            log("passed", "false"),
+            attr("action", "end_poll"),
+            attr("poll_id", "1"),
+            attr("rejected_reason", "Quorum not reached"),
+            attr("passed", "false"),
         ]
     );
     let res = query(&mut deps, QueryMsg::Poll { poll_id: 1 }).unwrap();
@@ -373,14 +372,14 @@ fn end_poll_quorum_rejected() {
 
     let handle_res: HandleResponse = handle(&mut deps, env.clone(), msg.clone()).unwrap();
     assert_eq!(
-        handle_res.log,
+        handle_res.attributes,
         vec![
-            log("action", "create_poll"),
-            log("creator", &HumanAddr(TEST_CREATOR.to_string())),
-            log("poll_id", "1"),
-            log("quorum_percentage", "30"),
-            log("end_height", "12346"),
-            log("start_height", "0"),
+            attr("action", "create_poll"),
+            attr("creator", &HumanAddr(TEST_CREATOR.to_string())),
+            attr("poll_id", "1"),
+            attr("quorum_percentage", "30"),
+            attr("end_height", "12346"),
+            attr("start_height", "0"),
         ]
     );
 
@@ -397,12 +396,12 @@ fn end_poll_quorum_rejected() {
     let handle_res: HandleResponse = handle(&mut deps, env.clone(), msg).unwrap();
 
     assert_eq!(
-        handle_res.log,
+        handle_res.attributes,
         vec![
-            log("action", "vote_casted"),
-            log("poll_id", "1"),
-            log("weight", "10"),
-            log("voter", TEST_CREATOR),
+            attr("action", "vote_casted"),
+            attr("poll_id", "1"),
+            attr("weight", "10"),
+            attr("voter", TEST_CREATOR),
         ]
     );
 
@@ -412,12 +411,12 @@ fn end_poll_quorum_rejected() {
 
     let handle_res: HandleResponse = handle(&mut deps, env.clone(), msg.clone()).unwrap();
     assert_eq!(
-        handle_res.log,
+        handle_res.attributes,
         vec![
-            log("action", "end_poll"),
-            log("poll_id", "1"),
-            log("rejected_reason", "Quorum not reached"),
-            log("passed", "false"),
+            attr("action", "end_poll"),
+            attr("poll_id", "1"),
+            attr("rejected_reason", "Quorum not reached"),
+            attr("passed", "false"),
         ]
     );
 
@@ -446,14 +445,14 @@ fn end_poll_nay_rejected() {
 
     let handle_res: HandleResponse = handle(&mut deps, creator_env.clone(), msg.clone()).unwrap();
     assert_eq!(
-        handle_res.log,
+        handle_res.attributes,
         vec![
-            log("action", "create_poll"),
-            log("creator", &HumanAddr(TEST_CREATOR.to_string())),
-            log("poll_id", "1"),
-            log("quorum_percentage", "10"),
-            log("end_height", "12346"),
-            log("start_height", "0"),
+            attr("action", "create_poll"),
+            attr("creator", &HumanAddr(TEST_CREATOR.to_string())),
+            attr("poll_id", "1"),
+            attr("quorum_percentage", "10"),
+            attr("end_height", "12346"),
+            attr("start_height", "0"),
         ]
     );
 
@@ -483,12 +482,12 @@ fn end_poll_nay_rejected() {
     creator_env.block.height = &creator_env.block.height + 2;
     let handle_res: HandleResponse = handle(&mut deps, creator_env.clone(), msg.clone()).unwrap();
     assert_eq!(
-        handle_res.log,
+        handle_res.attributes,
         vec![
-            log("action", "end_poll"),
-            log("poll_id", "1"),
-            log("rejected_reason", "Threshold not reached"),
-            log("passed", "false"),
+            attr("action", "end_poll"),
+            attr("poll_id", "1"),
+            attr("rejected_reason", "Threshold not reached"),
+            attr("passed", "false"),
         ]
     );
 
@@ -525,11 +524,11 @@ fn fails_end_poll_before_start_height() {
     );
     let msg = HandleMsg::EndPoll { poll_id: 1 };
 
-    let handle_res: HandleResult = handle(&mut deps, env.clone(), msg);
+    let handle_res = handle(&mut deps, env.clone(), msg);
 
     match handle_res {
         Ok(_) => panic!("Must return error"),
-        Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "Voting period has not started."),
+        Err(ContractError::PoolVotingPeriodNotStarted {..}) => {},
         Err(e) => panic!("Unexpected error: {:?}", e),
     }
 }
@@ -561,13 +560,11 @@ fn fails_cast_vote_not_enough_staked() {
         weight: Uint128::from(1u128),
     };
 
-    let res: HandleResult = handle(&mut deps, env, msg);
+    let res = handle(&mut deps, env, msg);
 
     match res {
         Ok(_) => panic!("Must return error"),
-        Err(StdError::GenericErr { msg, .. }) => {
-            assert_eq!(msg, "User does not have enough staked tokens.")
-        }
+        Err(ContractError::PollInsufficientStake {}) => {}
         Err(e) => panic!("Unexpected error: {:?}", e),
     }
 }
@@ -703,11 +700,11 @@ fn fails_withdraw_voting_tokens_no_stake() {
         amount: Some(Uint128::from(11u128)),
     };
 
-    let res: HandleResult = handle(&mut deps, env, msg);
+    let res = handle(&mut deps, env, msg);
 
     match res {
         Ok(_) => panic!("Must return error"),
-        Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "Nothing staked"),
+        Err(ContractError::PollNoStake {}) => {},
         Err(e) => panic!("Unexpected error: {:?}", e),
     }
 }
@@ -732,13 +729,11 @@ fn fails_withdraw_too_many_tokens() {
         amount: Some(Uint128::from(11u128)),
     };
 
-    let res: HandleResult = handle(&mut deps, env, msg);
+    let res = handle(&mut deps, env, msg);
 
     match res {
         Ok(_) => panic!("Must return error"),
-        Err(StdError::GenericErr { msg, .. }) => {
-            assert_eq!(msg, "User is trying to withdraw too many tokens.")
-        }
+        Err(ContractError::ExcessiveWithdraw {..}) => {}
         Err(e) => panic!("Unexpected error: {:?}", e),
     }
 }
@@ -785,11 +780,11 @@ fn fails_cast_vote_twice() {
         vote: "yes".to_string(),
         weight: Uint128::from(weight),
     };
-    let res: HandleResult = handle(&mut deps, env.clone(), msg);
+    let res = handle(&mut deps, env.clone(), msg);
 
     match res {
         Ok(_) => panic!("Must return error"),
-        Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "User has already voted."),
+        Err(ContractError::PollSenderVoted {}) => {},
         Err(e) => panic!("Unexpected error: {:?}", e),
     }
 }
@@ -810,11 +805,11 @@ fn fails_cast_vote_without_poll() {
     };
     let env = mock_env(TEST_VOTER, &coins(11, VOTING_TOKEN));
 
-    let res: HandleResult = handle(&mut deps, env, msg);
+    let res = handle(&mut deps, env, msg);
 
     match res {
         Ok(_) => panic!("Must return error"),
-        Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "Poll does not exist"),
+        Err(ContractError::PollNotExist {}) => {},
         Err(e) => panic!("Unexpected error: {:?}", e),
     }
 }
@@ -847,11 +842,11 @@ fn fails_insufficient_funds() {
     let msg = HandleMsg::StakeVotingTokens {};
     let env = mock_env(TEST_VOTER, &coins(0, VOTING_TOKEN));
 
-    let res: HandleResult = handle(&mut deps, env, msg);
+    let res = handle(&mut deps, env, msg);
 
     match res {
         Ok(_) => panic!("Must return error"),
-        Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "Insufficient funds sent"),
+        Err(ContractError::InsufficientFunds {}) => {},
         Err(e) => panic!("Unexpected error: {:?}", e),
     }
 }
@@ -870,11 +865,11 @@ fn fails_staking_wrong_token() {
     let msg = HandleMsg::StakeVotingTokens {};
     let env = mock_env(TEST_VOTER, &coins(11, "play money"));
 
-    let res: HandleResult = handle(&mut deps, env, msg);
+    let res: ContractResult<HandleResponse> = handle(&mut deps, env, msg);
 
     match res {
+        Err(ContractError::InsufficientFunds {}) => {},
         Ok(_) => panic!("Must return error"),
-        Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "Insufficient funds sent"),
         Err(e) => panic!("Unexpected error: {:?}", e),
     }
 }
@@ -889,26 +884,26 @@ fn assert_create_poll_result(
     handle_res: HandleResponse,
 ) {
     assert_eq!(
-        handle_res.log,
+        handle_res.attributes,
         vec![
-            log("action", "create_poll"),
-            log("creator", creator),
-            log("poll_id", poll_id.to_string()),
-            log("quorum_percentage", quorum.to_string()),
-            log("end_height", end_height.to_string()),
-            log("start_height", start_height.to_string()),
+            attr("action", "create_poll"),
+            attr("creator", creator),
+            attr("poll_id", poll_id.to_string()),
+            attr("quorum_percentage", quorum.to_string()),
+            attr("end_height", end_height.to_string()),
+            attr("start_height", start_height.to_string()),
         ]
     );
 }
 
 fn assert_cast_vote_success(voter: &str, weight: u128, poll_id: u64, handle_res: HandleResponse) {
     assert_eq!(
-        handle_res.log,
+        handle_res.attributes,
         vec![
-            log("action", "vote_casted"),
-            log("poll_id", poll_id.to_string()),
-            log("weight", weight.to_string()),
-            log("voter", voter),
+            attr("action", "vote_casted"),
+            attr("poll_id", poll_id.to_string()),
+            attr("weight", weight.to_string()),
+            attr("voter", voter),
         ]
     );
 }

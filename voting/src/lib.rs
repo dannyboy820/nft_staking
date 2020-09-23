@@ -1,9 +1,9 @@
 pub mod coin_helpers;
 pub mod contract;
+pub mod error;
 pub mod msg;
 pub mod state;
 
-mod error;
 #[cfg(test)]
 mod tests;
 

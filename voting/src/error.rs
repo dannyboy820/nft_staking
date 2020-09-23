@@ -4,11 +4,7 @@ use thiserror::Error;
 #[derive(Error, Debug)]
 pub enum ContractError {
     #[error("{}", original)]
-    Std {
-        // let thiserror implement From<StdError> for you
-        #[from]
-        original: StdError,
-    },
+    Std (#[from] StdError),
 
     #[error("insufficient funds sent")]
     InsufficientFunds {},
