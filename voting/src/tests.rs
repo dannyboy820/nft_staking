@@ -87,7 +87,7 @@ mod tests {
 
         match res {
             Ok(_) => panic!("Must return error"),
-            Err(ContractError::PollQuorumPercentage { quorum_percentage }) => {
+            Err(ContractError::PollQuorumPercentageMismatch { quorum_percentage }) => {
                 assert_eq!(quorum_percentage, qp)
             }
             Err(e) => panic!("Unexpected error: {:?}", e),

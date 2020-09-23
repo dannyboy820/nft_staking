@@ -162,7 +162,7 @@ fn validate_quorum_percentage(quorum_percentage: Option<u8>) -> Result<(), Contr
     match quorum_percentage {
         Some(qp) => {
             if qp > 100 {
-                return Err(ContractError::PollQuorumPercentage {
+                return Err(ContractError::PollQuorumPercentageMismatch {
                     quorum_percentage: qp,
                 });
             }
