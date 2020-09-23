@@ -3,12 +3,8 @@ use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum ContractError {
-    #[error("{}", original)]
-    Std {
-        // let thiserror implement From<StdError> for you
-        #[from]
-        original: StdError,
-    },
+    #[error("{0}")]
+    Std(#[from] StdError),
 
     #[error("expired option (expired {expired:?})")]
     OptionExpired { expired: u64 },
