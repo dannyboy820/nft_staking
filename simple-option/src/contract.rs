@@ -1,8 +1,9 @@
 use cosmwasm_std::{
     to_binary, Api, BankMsg, Binary, Context, Env, Extern, HandleResponse, HumanAddr, InitResponse,
-    Querier, StdError, StdResult, Storage,
+    Querier, StdResult, Storage,
 };
 
+use crate::error::ContractError;
 use crate::msg::{ConfigResponse, HandleMsg, InitMsg, QueryMsg};
 use crate::state::{config, config_read, State};
 
@@ -10,9 +11,11 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
     msg: InitMsg,
-) -> StdResult<InitResponse> {
+) -> Result<InitResponse, ContractError> {
     if msg.expires <= env.block.height {
-        return Err(StdError::generic_err("Cannot create expired option"));
+        return Err(ContractError::OptionExpired {
+            expired: msg.expires,
+        });
     }
 
     let state = State {
@@ -32,7 +35,7 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
     msg: HandleMsg,
-) -> StdResult<HandleResponse> {
+) -> Result<HandleResponse, ContractError> {
     match msg {
         HandleMsg::Transfer { recipient } => handle_transfer(deps, env, recipient),
         HandleMsg::Execute {} => handle_execute(deps, env),
@@ -44,11 +47,11 @@ pub fn handle_transfer<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
     recipient: HumanAddr,
-) -> StdResult<HandleResponse> {
+) -> Result<HandleResponse, ContractError> {
     // ensure msg sender is the owner
     let mut state = config(&mut deps.storage).load()?;
     if env.message.sender != state.owner {
-        return Err(StdError::unauthorized());
+        return Err(ContractError::Unauthorized {});
     }
 
     // set new owner on state
@@ -56,32 +59,34 @@ pub fn handle_transfer<S: Storage, A: Api, Q: Querier>(
     config(&mut deps.storage).save(&state)?;
 
     let mut res = Context::new();
-    res.add_log("action", "transfer");
-    res.add_log("owner", recipient);
+    res.add_attribute("action", "transfer");
+    res.add_attribute("owner", recipient);
     Ok(res.into())
 }
 
 pub fn handle_execute<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
-) -> StdResult<HandleResponse> {
+) -> Result<HandleResponse, ContractError> {
     // ensure msg sender is the owner
     let state = config(&mut deps.storage).load()?;
     if env.message.sender != state.owner {
-        return Err(StdError::unauthorized());
+        return Err(ContractError::Unauthorized {});
     }
 
     // ensure not expired
     if env.block.height >= state.expires {
-        return Err(StdError::generic_err("option expired"));
+        return Err(ContractError::OptionExpired {
+            expired: state.expires,
+        });
     }
 
     // ensure sending proper counter_offer
     if env.message.sent_funds != state.counter_offer {
-        return Err(StdError::generic_err(format!(
-            "must send exact counter offer: {:?}",
-            state.counter_offer
-        )));
+        return Err(ContractError::CounterOfferMismatch {
+            offer: env.message.sent_funds,
+            counter_offer: state.counter_offer,
+        });
     }
 
     // release counter_offer to creator
@@ -102,23 +107,25 @@ pub fn handle_execute<S: Storage, A: Api, Q: Querier>(
     // delete the option
     config(&mut deps.storage).remove();
 
-    res.add_log("action", "execute");
+    res.add_attribute("action", "execute");
     Ok(res.into())
 }
 
 pub fn handle_burn<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
-) -> StdResult<HandleResponse> {
+) -> Result<HandleResponse, ContractError> {
     // ensure is expired
     let state = config(&mut deps.storage).load()?;
     if env.block.height < state.expires {
-        return Err(StdError::generic_err("option not yet expired"));
+        return Err(ContractError::OptionNotExpired {
+            expires: state.expires,
+        });
     }
 
     // ensure sending proper counter_offer
     if !env.message.sent_funds.is_empty() {
-        return Err(StdError::generic_err("don't send funds with burn"));
+        return Err(ContractError::FundSentWithBurn {});
     }
 
     // release collateral to creator
@@ -132,7 +139,7 @@ pub fn handle_burn<S: Storage, A: Api, Q: Querier>(
     // delete the option
     config(&mut deps.storage).remove();
 
-    res.add_log("action", "burn");
+    res.add_attribute("action", "burn");
     Ok(res.into())
 }
 
@@ -156,7 +163,7 @@ fn query_config<S: Storage, A: Api, Q: Querier>(
 mod tests {
     use super::*;
     use cosmwasm_std::testing::{mock_dependencies, mock_env, MOCK_CONTRACT_ADDR};
-    use cosmwasm_std::{coins, log, CosmosMsg};
+    use cosmwasm_std::{attr, coins, CosmosMsg};
 
     #[test]
     fn proper_initialization() {
@@ -199,15 +206,15 @@ mod tests {
         let env = mock_env("anyone", &[]);
         let err = handle_transfer(&mut deps, env, HumanAddr::from("anyone")).unwrap_err();
         match err {
-            StdError::Unauthorized { .. } => {}
+            ContractError::Unauthorized {} => {}
             e => panic!("unexpected error: {}", e),
         }
 
         // owner can transfer
         let env = mock_env("creator", &[]);
         let res = handle_transfer(&mut deps, env, HumanAddr::from("someone")).unwrap();
-        assert_eq!(res.log.len(), 2);
-        assert_eq!(res.log[0], log("action", "transfer"));
+        assert_eq!(res.attributes.len(), 2);
+        assert_eq!(res.attributes[0], attr("action", "transfer"));
 
         // check updated properly
         let res = query_config(&deps).unwrap();
@@ -219,11 +226,12 @@ mod tests {
     fn execute() {
         let mut deps = mock_dependencies(20, &[]);
 
-        let counter_offer = coins(40, "ETH");
+        let msg_counter_offer = coins(40, "ETH");
         let collateral = coins(1, "BTC");
+        let expires = 100_000;
         let msg = InitMsg {
-            counter_offer: counter_offer.clone(),
-            expires: 100_000,
+            counter_offer: msg_counter_offer.clone(),
+            expires: expires,
         };
         let env = mock_env("creator", &collateral);
 
@@ -235,32 +243,39 @@ mod tests {
         let _ = handle_transfer(&mut deps, env, HumanAddr::from("owner")).unwrap();
 
         // random cannot execute
-        let env = mock_env("creator", &counter_offer);
+        let env = mock_env("creator", &msg_counter_offer);
         let err = handle_execute(&mut deps, env).unwrap_err();
         match err {
-            StdError::Unauthorized { .. } => {}
+            ContractError::Unauthorized {} => {}
             e => panic!("unexpected error: {}", e),
         }
 
         // expired cannot execute
-        let mut env = mock_env("owner", &counter_offer);
+        let mut env = mock_env("owner", &msg_counter_offer);
         env.block.height = 200_000;
         let err = handle_execute(&mut deps, env).unwrap_err();
         match err {
-            StdError::GenericErr { msg, .. } => assert_eq!("option expired", msg.as_str()),
+            ContractError::OptionExpired { expired } => assert_eq!(expired, expires),
             e => panic!("unexpected error: {}", e),
         }
 
         // bad counter_offer cannot execute
-        let env = mock_env("owner", &coins(39, "ETH"));
+        let msg_offer = coins(39, "ETH");
+        let env = mock_env("owner", &msg_offer);
         let err = handle_execute(&mut deps, env).unwrap_err();
         match err {
-            StdError::GenericErr { msg, .. } => assert!(msg.contains("counter offer")),
+            ContractError::CounterOfferMismatch {
+                offer,
+                counter_offer,
+            } => {
+                assert_eq!(msg_offer, offer);
+                assert_eq!(msg_counter_offer, counter_offer);
+            }
             e => panic!("unexpected error: {}", e),
         }
 
         // proper execution
-        let env = mock_env("owner", &counter_offer);
+        let env = mock_env("owner", &msg_counter_offer);
         let res = handle_execute(&mut deps, env).unwrap();
         assert_eq!(res.messages.len(), 2);
         assert_eq!(
@@ -268,7 +283,7 @@ mod tests {
             CosmosMsg::Bank(BankMsg::Send {
                 from_address: MOCK_CONTRACT_ADDR.into(),
                 to_address: "creator".into(),
-                amount: counter_offer,
+                amount: msg_counter_offer,
             })
         );
         assert_eq!(
@@ -290,9 +305,10 @@ mod tests {
 
         let counter_offer = coins(40, "ETH");
         let collateral = coins(1, "BTC");
+        let msg_expires = 100_000;
         let msg = InitMsg {
             counter_offer: counter_offer.clone(),
-            expires: 100_000,
+            expires: msg_expires,
         };
         let env = mock_env("creator", &collateral);
 
@@ -307,7 +323,7 @@ mod tests {
         let env = mock_env("anyone", &[]);
         let err = handle_burn(&mut deps, env).unwrap_err();
         match err {
-            StdError::GenericErr { msg, .. } => assert_eq!("option not yet expired", msg.as_str()),
+            ContractError::OptionNotExpired { expires } => assert_eq!(expires, msg_expires),
             e => panic!("unexpected error: {}", e),
         }
 
@@ -316,9 +332,7 @@ mod tests {
         env.block.height = 200_000;
         let err = handle_burn(&mut deps, env).unwrap_err();
         match err {
-            StdError::GenericErr { msg, .. } => {
-                assert_eq!("don't send funds with burn", msg.as_str())
-            }
+            ContractError::FundSentWithBurn {} => {}
             e => panic!("unexpected error: {}", e),
         }
 
