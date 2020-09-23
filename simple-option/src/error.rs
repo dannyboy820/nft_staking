@@ -26,5 +26,5 @@ pub enum ContractError {
     },
 
     #[error("do not send funds with burn")]
-    FundSentWithBurn {},
+    FundsSentWithBurn {},
 }

@@ -125,7 +125,7 @@ pub fn handle_burn<S: Storage, A: Api, Q: Querier>(
 
     // ensure sending proper counter_offer
     if !env.message.sent_funds.is_empty() {
-        return Err(ContractError::FundSentWithBurn {});
+        return Err(ContractError::FundsSentWithBurn {});
     }
 
     // release collateral to creator
@@ -226,11 +226,11 @@ mod tests {
     fn execute() {
         let mut deps = mock_dependencies(20, &[]);
 
-        let msg_counter_offer = coins(40, "ETH");
+        let amount = coins(40, "ETH");
         let collateral = coins(1, "BTC");
         let expires = 100_000;
         let msg = InitMsg {
-            counter_offer: msg_counter_offer.clone(),
+            counter_offer: amount.clone(),
             expires: expires,
         };
         let env = mock_env("creator", &collateral);
@@ -243,7 +243,7 @@ mod tests {
         let _ = handle_transfer(&mut deps, env, HumanAddr::from("owner")).unwrap();
 
         // random cannot execute
-        let env = mock_env("creator", &msg_counter_offer);
+        let env = mock_env("creator", &amount);
         let err = handle_execute(&mut deps, env).unwrap_err();
         match err {
             ContractError::Unauthorized {} => {}
@@ -251,7 +251,7 @@ mod tests {
         }
 
         // expired cannot execute
-        let mut env = mock_env("owner", &msg_counter_offer);
+        let mut env = mock_env("owner", &amount);
         env.block.height = 200_000;
         let err = handle_execute(&mut deps, env).unwrap_err();
         match err {
@@ -269,13 +269,13 @@ mod tests {
                 counter_offer,
             } => {
                 assert_eq!(msg_offer, offer);
-                assert_eq!(msg_counter_offer, counter_offer);
+                assert_eq!(amount, counter_offer);
             }
             e => panic!("unexpected error: {}", e),
         }
 
         // proper execution
-        let env = mock_env("owner", &msg_counter_offer);
+        let env = mock_env("owner", &amount);
         let res = handle_execute(&mut deps, env).unwrap();
         assert_eq!(res.messages.len(), 2);
         assert_eq!(
@@ -283,7 +283,7 @@ mod tests {
             CosmosMsg::Bank(BankMsg::Send {
                 from_address: MOCK_CONTRACT_ADDR.into(),
                 to_address: "creator".into(),
-                amount: msg_counter_offer,
+                amount,
             })
         );
         assert_eq!(
@@ -332,7 +332,7 @@ mod tests {
         env.block.height = 200_000;
         let err = handle_burn(&mut deps, env).unwrap_err();
         match err {
-            ContractError::FundSentWithBurn {} => {}
+            ContractError::FundsSentWithBurn {} => {}
             e => panic!("unexpected error: {}", e),
         }
 

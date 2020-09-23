@@ -233,7 +233,6 @@ dependencies = [
  "cosmwasm-storage",
  "schemars",
  "serde",
- "snafu",
  "thiserror",
 ]
 
