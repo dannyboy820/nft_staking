@@ -258,8 +258,7 @@ pub fn end_poll<S: Storage, A: Api, Q: Querier>(
         return Err(ContractError::PollNotInProgress {});
     }
 
-    if a_poll.start_height.is_some() {
-        let start_height = a_poll.start_height.unwrap();
+    if let Some(start_height) = a_poll.start_height {
         if start_height > env.block.height {
             return Err(ContractError::PoolVotingPeriodNotStarted { start_height });
         }
