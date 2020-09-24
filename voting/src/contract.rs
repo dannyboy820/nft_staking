@@ -223,9 +223,9 @@ pub fn create_poll<S: Storage, A: Api, Q: Querier>(
             attr("action", "create_poll"),
             attr(
                 "creator",
-                deps.api.human_address(&new_poll.creator)?.as_str(),
+                deps.api.human_address(&new_poll.creator)?,
             ),
-            attr("poll_id", &poll_id.to_string()),
+            attr("poll_id", &poll_id),
             attr("quorum_percentage", quorum_percentage.unwrap_or(0)),
             attr("end_height", new_poll.end_height),
             attr("start_height", start_height.unwrap_or(0)),
@@ -327,9 +327,9 @@ pub fn end_poll<S: Storage, A: Api, Q: Querier>(
 
     let attributes = vec![
         attr("action", "end_poll"),
-        attr("poll_id", &poll_id.to_string()),
+        attr("poll_id", &poll_id),
         attr("rejected_reason", rejected_reason),
-        attr("passed", &passed.to_string()),
+        attr("passed", &passed),
     ];
 
     let r = HandleResponse {
@@ -417,9 +417,9 @@ pub fn cast_vote<S: Storage, A: Api, Q: Querier>(
 
     let attributes = vec![
         attr("action", "vote_casted"),
-        attr("poll_id", &poll_id.to_string()),
-        attr("weight", &weight.to_string()),
-        attr("voter", &env.message.sender.as_str()),
+        attr("poll_id", &poll_id),
+        attr("weight", &weight),
+        attr("voter", &env.message.sender),
     ];
 
     let r = HandleResponse {
@@ -439,7 +439,7 @@ fn send_tokens<A: Api>(
 ) -> Result<HandleResponse, ContractError> {
     let from_human = api.human_address(from_address)?;
     let to_human = api.human_address(to_address)?;
-    let attributes = vec![attr("action", action), attr("to", to_human.as_str())];
+    let attributes = vec![attr("action", action), attr("to", to_human.clone())];
 
     let r = HandleResponse {
         messages: vec![CosmosMsg::Bank(BankMsg::Send {
