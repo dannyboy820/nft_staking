@@ -7,7 +7,7 @@ pub enum ContractError {
     Std(#[from] StdError),
 
     #[error("insufficient funds sent")]
-    InsufficientFunds {},
+    InsufficientFundsSent {},
 
     #[error("excessive withdrawal amount (max_amount {max_amount:?})")]
     ExcessiveWithdraw { max_amount: u128 },

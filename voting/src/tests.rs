@@ -768,7 +768,7 @@ mod tests {
 
         match res {
             Ok(_) => panic!("Must return error"),
-            Err(ContractError::InsufficientFunds {}) => {}
+            Err(ContractError::InsufficientFundsSent {}) => {}
             Err(e) => panic!("Unexpected error: {:?}", e),
         }
     }
@@ -791,7 +791,7 @@ mod tests {
 
         match res {
             Ok(_) => panic!("Must return error"),
-            Err(ContractError::InsufficientFunds {}) => {}
+            Err(ContractError::InsufficientFundsSent {}) => {}
             Err(e) => panic!("Unexpected error: {:?}", e),
         }
     }

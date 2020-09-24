@@ -17,7 +17,7 @@ pub fn validate_sent_sufficient_coin(
             return if sent_sufficient_funds {
                 Ok(())
             } else {
-                Err(ContractError::InsufficientFunds {})
+                Err(ContractError::InsufficientFundsSent {})
             };
         }
     }
@@ -38,13 +38,13 @@ mod test {
 
         match validate_sent_sufficient_coin(&vec![], Some(coin(5, "token"))) {
             Ok(()) => panic!("Should have raised insufficient funds error"),
-            Err(ContractError::InsufficientFunds {}) => {}
+            Err(ContractError::InsufficientFundsSent {}) => {}
             Err(e) => panic!("Unexpected error: {:?}", e),
         };
 
         match validate_sent_sufficient_coin(&coins(10, "smokin"), Some(coin(5, "token"))) {
             Ok(()) => panic!("Should have raised insufficient funds error"),
-            Err(ContractError::InsufficientFunds {}) => {}
+            Err(ContractError::InsufficientFundsSent {}) => {}
             Err(e) => panic!("Unexpected error: {:?}", e),
         };
 
