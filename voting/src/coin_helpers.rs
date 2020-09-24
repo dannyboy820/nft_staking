@@ -1,7 +1,7 @@
 use crate::error::ContractError;
 use cosmwasm_std::Coin;
 
-pub fn assert_sent_sufficient_coin(
+pub fn validate_sent_sufficient_coin(
     sent: &[Coin],
     required: Option<Coin>,
 ) -> Result<(), ContractError> {
@@ -31,30 +31,30 @@ mod test {
 
     #[test]
     fn assert_sent_sufficient_coin_works() {
-        match assert_sent_sufficient_coin(&vec![], Some(coin(0, "token"))) {
+        match validate_sent_sufficient_coin(&vec![], Some(coin(0, "token"))) {
             Ok(()) => {}
             Err(e) => panic!("Unexpected error: {:?}", e),
         };
 
-        match assert_sent_sufficient_coin(&vec![], Some(coin(5, "token"))) {
+        match validate_sent_sufficient_coin(&vec![], Some(coin(5, "token"))) {
             Ok(()) => panic!("Should have raised insufficient funds error"),
             Err(ContractError::InsufficientFunds {}) => {}
             Err(e) => panic!("Unexpected error: {:?}", e),
         };
 
-        match assert_sent_sufficient_coin(&coins(10, "smokin"), Some(coin(5, "token"))) {
+        match validate_sent_sufficient_coin(&coins(10, "smokin"), Some(coin(5, "token"))) {
             Ok(()) => panic!("Should have raised insufficient funds error"),
             Err(ContractError::InsufficientFunds {}) => {}
             Err(e) => panic!("Unexpected error: {:?}", e),
         };
 
-        match assert_sent_sufficient_coin(&coins(10, "token"), Some(coin(5, "token"))) {
+        match validate_sent_sufficient_coin(&coins(10, "token"), Some(coin(5, "token"))) {
             Ok(()) => {}
             Err(e) => panic!("Unexpected error: {:?}", e),
         };
 
         let sent_coins = vec![coin(2, "smokin"), coin(5, "token"), coin(1, "earth")];
-        match assert_sent_sufficient_coin(&sent_coins, Some(coin(5, "token"))) {
+        match validate_sent_sufficient_coin(&sent_coins, Some(coin(5, "token"))) {
             Ok(()) => {}
             Err(e) => panic!("Unexpected error: {:?}", e),
         };

@@ -1,4 +1,4 @@
-use crate::coin_helpers::assert_sent_sufficient_coin;
+use crate::coin_helpers::validate_sent_sufficient_coin;
 use crate::error::ContractError;
 use crate::msg::{
     CreatePollResponse, HandleMsg, InitMsg, PollResponse, QueryMsg, TokenStakeResponse,
@@ -75,7 +75,7 @@ pub fn stake_voting_tokens<S: Storage, A: Api, Q: Querier>(
 
     let mut state = config(&mut deps.storage).load()?;
 
-    assert_sent_sufficient_coin(
+    validate_sent_sufficient_coin(
         &env.message.sent_funds,
         Some(coin(MIN_STAKE_AMOUNT, &state.denom)),
     )?;
