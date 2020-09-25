@@ -15,7 +15,7 @@ pub const VOTING_TOKEN: &str = "voting_token";
 pub const DEFAULT_END_HEIGHT_BLOCKS: &u64 = &100_800_u64;
 const MIN_STAKE_AMOUNT: u128 = 1;
 const MIN_DESC_LENGTH: u8 = 3;
-const MAX_DESC_LENGTH: u8  = 64;
+const MAX_DESC_LENGTH: u8 = 64;
 
 pub fn init<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
@@ -221,10 +221,7 @@ pub fn create_poll<S: Storage, A: Api, Q: Querier>(
         messages: vec![],
         attributes: vec![
             attr("action", "create_poll"),
-            attr(
-                "creator",
-                deps.api.human_address(&new_poll.creator)?,
-            ),
+            attr("creator", deps.api.human_address(&new_poll.creator)?),
             attr("poll_id", &poll_id),
             attr("quorum_percentage", quorum_percentage.unwrap_or(0)),
             attr("end_height", new_poll.end_height),
