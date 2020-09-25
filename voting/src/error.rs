@@ -13,10 +13,10 @@ pub enum ContractError {
     ExcessiveWithdraw { max_amount: u128 },
 
     #[error("description too short (minimum description length {min_desc_length})")]
-    DescriptionTooShort { min_desc_length: u8 },
+    DescriptionTooShort { min_desc_length: u64 },
 
     #[error("description too long (maximum description length {max_desc_length})")]
-    DescriptionTooLong { max_desc_length: u8 },
+    DescriptionTooLong { max_desc_length: u64 },
 
     #[error("no stake")]
     PollNoStake {},

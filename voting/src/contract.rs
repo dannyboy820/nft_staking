@@ -14,8 +14,8 @@ use cosmwasm_std::{
 pub const VOTING_TOKEN: &str = "voting_token";
 pub const DEFAULT_END_HEIGHT_BLOCKS: &u64 = &100_800_u64;
 const MIN_STAKE_AMOUNT: u128 = 1;
-const MIN_DESC_LENGTH: u8 = 3;
-const MAX_DESC_LENGTH: u8 = 64;
+const MIN_DESC_LENGTH: u64 = 3;
+const MAX_DESC_LENGTH: u64 = 64;
 
 pub fn init<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
@@ -143,11 +143,11 @@ pub fn withdraw_voting_tokens<S: Storage, A: Api, Q: Querier>(
 
 /// validate_description returns an error if the description is invalid
 fn validate_description(description: &str) -> Result<(), ContractError> {
-    if description.len() < MIN_DESC_LENGTH.into() {
+    if (description.len() as u64) < MIN_DESC_LENGTH {
         Err(ContractError::DescriptionTooShort {
             min_desc_length: MIN_DESC_LENGTH,
         })
-    } else if description.len() > MAX_DESC_LENGTH.into() {
+    } else if (description.len() as u64) > MAX_DESC_LENGTH.into() {
         Err(ContractError::DescriptionTooLong {
             max_desc_length: MAX_DESC_LENGTH,
         })
