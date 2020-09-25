@@ -48,6 +48,6 @@ pub enum ContractError {
     #[error("sender staked tokens insufficient")]
     PollInsufficientStake {},
 
-    #[error("quorum percentage must be 0 to 100 ( quorum_percentage: {quorum_percentage})")]
+    #[error("quorum percentage must be 0 to 100 (quorum_percentage: {quorum_percentage})")]
     PollQuorumPercentageMismatch { quorum_percentage: u8 },
 }
