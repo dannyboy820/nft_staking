@@ -147,7 +147,7 @@ fn validate_description(description: &str) -> Result<(), ContractError> {
         Err(ContractError::DescriptionTooShort {
             min_desc_length: MIN_DESC_LENGTH,
         })
-    } else if (description.len() as u64) > MAX_DESC_LENGTH.into() {
+    } else if (description.len() as u64) > MAX_DESC_LENGTH {
         Err(ContractError::DescriptionTooLong {
             max_desc_length: MAX_DESC_LENGTH,
         })
