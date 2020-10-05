@@ -126,12 +126,12 @@ fn invalid_char(c: char) -> bool {
 /// (we require 3-64 lowercase ascii letters, numbers, or . - _)
 fn validate_name(name: &str) -> Result<(), ContractError> {
     let length = name.len() as u64;
-    if (name.len() as u64) < MIN_NAME_LENGTH {
+    if length < MIN_NAME_LENGTH {
         Err(ContractError::NameTooShort {
             length,
             min_length: MIN_NAME_LENGTH,
         })
-    } else if (name.len() as u64) > MAX_NAME_LENGTH {
+    } else if length > MAX_NAME_LENGTH {
         Err(ContractError::NameTooLong {
             length,
             max_length: MAX_NAME_LENGTH,
