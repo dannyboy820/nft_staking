@@ -1,11 +1,11 @@
 use cosmwasm_std::{
-    log, to_binary, Api, Binary, CosmosMsg, Env, Extern, HandleResponse, HandleResult, HumanAddr,
-    InitResponse, InitResult, Querier, StdError, StdResult, Storage,
+    attr, to_binary, Api, Binary, CosmosMsg, Env, Extern, HandleResponse, HumanAddr, InitResponse,
+    InitResult, Querier, StdResult, Storage,
 };
 
+use crate::error::ContractError;
 use crate::msg::{HandleMsg, InitMsg, OwnerResponse, QueryMsg};
 use crate::state::{config, config_read, State};
-use crate::error::ContractError;
 
 pub fn init<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
@@ -36,17 +36,17 @@ pub fn try_reflect<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
     msgs: Vec<CosmosMsg>,
-) -> Result<HandleResponse, ContractError>{
+) -> Result<HandleResponse, ContractError> {
     let state = config(&mut deps.storage).load()?;
     if deps.api.canonical_address(&env.message.sender)? != state.owner {
-        return Err(StdError::unauthorized());
+        return Err(ContractError::Unauthorized {});
     }
     if msgs.is_empty() {
-        return Err(StdError::generic_err("Must reflect at least one message"));
+        return Err(ContractError::NoReflectMsg {});
     }
     let res = HandleResponse {
         messages: msgs,
-        log: vec![log("action", "reflect")],
+        attributes: vec![attr("action", "reflect")],
         data: None,
     };
     Ok(res)
@@ -56,17 +56,20 @@ pub fn try_change_owner<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
     owner: HumanAddr,
-) -> Result<HandleResponse, ContractError>{
+) -> Result<HandleResponse, ContractError> {
     let api = deps.api;
     config(&mut deps.storage).update(|mut state| {
         if api.canonical_address(&env.message.sender)? != state.owner {
-            return Err(StdError::unauthorized());
+            return Err(ContractError::Unauthorized {});
         }
         state.owner = api.canonical_address(&owner)?;
         Ok(state)
     })?;
     Ok(HandleResponse {
-        log: vec![log("action", "change_owner"), log("owner", owner.as_str())],
+        attributes: vec![
+            attr("action", "change_owner"),
+            attr("owner", owner.as_str()),
+        ],
         ..HandleResponse::default()
     })
 }
@@ -93,7 +96,7 @@ fn query_owner<S: Storage, A: Api, Q: Querier>(deps: &Extern<S, A, Q>) -> StdRes
 mod tests {
     use super::*;
     use cosmwasm_std::testing::{mock_dependencies, mock_env};
-    use cosmwasm_std::{coins, from_binary, BankMsg, StdError};
+    use cosmwasm_std::{coins, from_binary, BankMsg};
 
     #[test]
     fn proper_initialization() {
@@ -155,7 +158,7 @@ mod tests {
 
         let res = handle(&mut deps, env, msg);
         match res {
-            Err(StdError::Unauthorized { .. }) => {}
+            Err(ContractError::Unauthorized { .. }) => {}
             _ => panic!("Must return unauthorized error"),
         }
     }
@@ -176,9 +179,7 @@ mod tests {
         };
         let res = handle(&mut deps, env, msg);
         match res {
-            Err(StdError::GenericErr { msg, .. }) => {
-                assert_eq!(msg, "Must reflect at least one message")
-            }
+            Err(ContractError::NoReflectMsg {}) => {}
             _ => panic!("Must return contract error"),
         }
     }
@@ -250,7 +251,7 @@ mod tests {
 
         let res = handle(&mut deps, env, msg);
         match res {
-            Err(StdError::Unauthorized { .. }) => {}
+            Err(ContractError::Unauthorized { .. }) => {}
             _ => panic!("Must return unauthorized error"),
         }
     }
