@@ -5,6 +5,7 @@ use cosmwasm_std::{
 
 use crate::msg::{HandleMsg, InitMsg, OwnerResponse, QueryMsg};
 use crate::state::{config, config_read, State};
+use crate::error::ContractError;
 
 pub fn init<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
@@ -24,7 +25,7 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
     msg: HandleMsg,
-) -> HandleResult {
+) -> Result<HandleResponse, ContractError> {
     match msg {
         HandleMsg::ReflectMsg { msgs } => try_reflect(deps, env, msgs),
         HandleMsg::ChangeOwner { owner } => try_change_owner(deps, env, owner),
@@ -35,7 +36,7 @@ pub fn try_reflect<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
     msgs: Vec<CosmosMsg>,
-) -> HandleResult {
+) -> Result<HandleResponse, ContractError>{
     let state = config(&mut deps.storage).load()?;
     if deps.api.canonical_address(&env.message.sender)? != state.owner {
         return Err(StdError::unauthorized());
@@ -55,7 +56,7 @@ pub fn try_change_owner<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
     owner: HumanAddr,
-) -> HandleResult {
+) -> Result<HandleResponse, ContractError>{
     let api = deps.api;
     config(&mut deps.storage).update(|mut state| {
         if api.canonical_address(&env.message.sender)? != state.owner {
