@@ -1,8 +1,9 @@
 use cosmwasm_std::{
-    log, to_binary, Api, BankMsg, Binary, CanonicalAddr, Coin, CosmosMsg, Env, Extern,
-    HandleResponse, HandleResult, InitResponse, InitResult, Querier, StdError, StdResult, Storage,
+    attr, to_binary, Api, BankMsg, Binary, CanonicalAddr, Coin, CosmosMsg, Env, Extern,
+    HandleResponse, InitResponse, Querier, StdResult, Storage,
 };
 
+use crate::error::ContractError;
 use crate::msg::{ArbiterResponse, HandleMsg, InitMsg, QueryMsg};
 use crate::state::{config, config_read, State};
 
@@ -10,7 +11,7 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
     msg: InitMsg,
-) -> InitResult {
+) -> Result<InitResponse, ContractError> {
     let state = State {
         arbiter: deps.api.canonical_address(&msg.arbiter)?,
         recipient: deps.api.canonical_address(&msg.recipient)?,
@@ -18,19 +19,20 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
         end_height: msg.end_height,
         end_time: msg.end_time,
     };
-    if state.is_expired(&env) {
-        Err(StdError::generic_err("creating expired escrow"))
-    } else {
-        config(&mut deps.storage).save(&state)?;
-        Ok(InitResponse::default())
+    match state.is_expired(&env) {
+        ContractError::EscrowNotExpired {} => {}
+        err => return Err(err),
     }
+
+    config(&mut deps.storage).save(&state)?;
+    Ok(InitResponse::default())
 }
 
 pub fn handle<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
     msg: HandleMsg,
-) -> HandleResult {
+) -> Result<HandleResponse, ContractError> {
     let state = config_read(&deps.storage).load()?;
     match msg {
         HandleMsg::Approve { quantity } => try_approve(deps, env, state, quantity),
@@ -43,52 +45,60 @@ fn try_approve<S: Storage, A: Api, Q: Querier>(
     env: Env,
     state: State,
     quantity: Option<Vec<Coin>>,
-) -> HandleResult {
+) -> Result<HandleResponse, ContractError> {
     if deps.api.canonical_address(&env.message.sender)? != state.arbiter {
-        Err(StdError::unauthorized())
-    } else if state.is_expired(&env) {
-        Err(StdError::generic_err("escrow expired"))
-    } else {
-        let amount = if let Some(quantity) = quantity {
-            quantity
-        } else {
-            // release everything
-
-            // Querier guarantees to returns up-to-date data, including funds sent in this handle message
-            // https://github.com/CosmWasm/wasmd/blob/master/x/wasm/internal/keeper/keeper.go#L185-L192
-            deps.querier.query_all_balances(&env.contract.address)?
-        };
-
-        send_tokens(
-            &deps.api,
-            &deps.api.canonical_address(&env.contract.address)?,
-            &state.recipient,
-            amount,
-            "approve",
-        )
+        return Err(ContractError::Unauthorized {});
     }
+
+    // throws error if state is expired
+    match state.is_expired(&env) {
+        ContractError::EscrowNotExpired {} => {}
+        err => return Err(err),
+    }
+
+    let amount = if let Some(quantity) = quantity {
+        quantity
+    } else {
+        // release everything
+
+        // Querier guarantees to returns up-to-date data, including funds sent in this handle message
+        // https://github.com/CosmWasm/wasmd/blob/master/x/wasm/internal/keeper/keeper.go#L185-L192
+        deps.querier.query_all_balances(&env.contract.address)?
+    };
+
+    send_tokens(
+        &deps.api,
+        &deps.api.canonical_address(&env.contract.address)?,
+        &state.recipient,
+        amount,
+        "approve",
+    )
 }
 
 fn try_refund<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
     state: State,
-) -> HandleResult {
+) -> Result<HandleResponse, ContractError> {
     // anyone can try to refund, as long as the contract is expired
-    if !state.is_expired(&env) {
-        Err(StdError::generic_err("escrow not yet expired"))
-    } else {
-        // Querier guarantees to returns up-to-date data, including funds sent in this handle message
-        // https://github.com/CosmWasm/wasmd/blob/master/x/wasm/internal/keeper/keeper.go#L185-L192
-        let balance = deps.querier.query_all_balances(&env.contract.address)?;
-        send_tokens(
-            &deps.api,
-            &deps.api.canonical_address(&env.contract.address)?,
-            &state.source,
-            balance,
-            "refund",
-        )
+    let err = state.is_expired(&env);
+    match err {
+        ContractError::EscrowNotExpired {} => return Err(err),
+        ContractError::EscrowExpiredHeight { .. } => {}
+        ContractError::EscrowExpiredTime { .. } => {}
+        _ => return Err(err),
     }
+
+    // Querier guarantees to returns up-to-date data, including funds sent in this handle message
+    // https://github.com/CosmWasm/wasmd/blob/master/x/wasm/internal/keeper/keeper.go#L185-L192
+    let balance = deps.querier.query_all_balances(&env.contract.address)?;
+    send_tokens(
+        &deps.api,
+        &deps.api.canonical_address(&env.contract.address)?,
+        &state.source,
+        balance,
+        "refund",
+    )
 }
 
 // this is a helper to move the tokens, so the business logic is easy to read
@@ -98,10 +108,10 @@ fn send_tokens<A: Api>(
     to_address: &CanonicalAddr,
     amount: Vec<Coin>,
     action: &str,
-) -> HandleResult {
+) -> Result<HandleResponse, ContractError> {
     let from_human = api.human_address(from_address)?;
     let to_human = api.human_address(to_address)?;
-    let log = vec![log("action", action), log("to", to_human.as_str())];
+    let attributes = vec![attr("action", action), attr("to", to_human)];
 
     let r = HandleResponse {
         messages: vec![CosmosMsg::Bank(BankMsg::Send {
@@ -109,8 +119,8 @@ fn send_tokens<A: Api>(
             to_address: to_human,
             amount,
         })],
-        log,
         data: None,
+        attributes,
     };
     Ok(r)
 }
@@ -136,7 +146,7 @@ fn query_arbiter<S: Storage, A: Api, Q: Querier>(
 mod tests {
     use super::*;
     use cosmwasm_std::testing::{mock_dependencies, mock_env};
-    use cosmwasm_std::{coins, Api, HumanAddr, StdError};
+    use cosmwasm_std::{coins, Api, HumanAddr};
 
     fn init_msg_expire_by_height(height: u64) -> InitMsg {
         InitMsg {
@@ -194,7 +204,7 @@ mod tests {
         let env = mock_env_height("creator", &coins(1000, "earth"), 1001, 0);
         let res = init(&mut deps, env, msg);
         match res.unwrap_err() {
-            StdError::GenericErr { msg, .. } => assert_eq!(msg, "creating expired escrow"),
+            ContractError::EscrowExpiredHeight { .. } => {}
             e => panic!("unexpected error: {:?}", e),
         }
     }
@@ -241,7 +251,7 @@ mod tests {
         let env = mock_env_height("beneficiary", &[], 900, 0);
         let handle_res = handle(&mut deps, env, msg.clone());
         match handle_res.unwrap_err() {
-            StdError::Unauthorized { .. } => {}
+            ContractError::Unauthorized { .. } => {}
             e => panic!("unexpected error: {:?}", e),
         }
 
@@ -249,7 +259,7 @@ mod tests {
         let env = mock_env_height("verifies", &[], 1100, 0);
         let handle_res = handle(&mut deps, env, msg.clone());
         match handle_res.unwrap_err() {
-            StdError::GenericErr { msg, .. } => assert_eq!(msg, "escrow expired"),
+            ContractError::EscrowExpiredHeight { .. } => {}
             e => panic!("unexpected error: {:?}", e),
         }
 
@@ -305,7 +315,7 @@ mod tests {
         let env = mock_env_height("anybody", &[], 800, 0);
         let handle_res = handle(&mut deps, env, msg.clone());
         match handle_res.unwrap_err() {
-            StdError::GenericErr { msg, .. } => assert_eq!(msg, "escrow not yet expired"),
+            ContractError::EscrowNotExpired { .. } => {}
             e => panic!("unexpected error: {:?}", e),
         }
 
@@ -314,7 +324,7 @@ mod tests {
         let env = mock_env_height("anybody", &[], 1000, 0);
         let handle_res = handle(&mut deps, env, msg.clone());
         match handle_res.unwrap_err() {
-            StdError::GenericErr { msg, .. } => assert_eq!(msg, "escrow not yet expired"),
+            ContractError::EscrowNotExpired { .. } => {}
             e => panic!("unexpected error: {:?}", e),
         }
 
