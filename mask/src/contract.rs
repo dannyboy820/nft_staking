@@ -68,7 +68,7 @@ pub fn try_change_owner<S: Storage, A: Api, Q: Querier>(
     Ok(HandleResponse {
         attributes: vec![
             attr("action", "change_owner"),
-            attr("owner", owner.as_str()),
+            attr("owner", owner),
         ],
         ..HandleResponse::default()
     })
