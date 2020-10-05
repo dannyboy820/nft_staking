@@ -313,6 +313,7 @@ dependencies = [
  "cosmwasm-vm",
  "schemars",
  "serde",
+ "thiserror",
 ]
 
 [[package]]

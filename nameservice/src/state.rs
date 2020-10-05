@@ -30,9 +30,9 @@ pub struct NameRecord {
 }
 
 pub fn resolver<S: Storage>(storage: &mut S) -> Bucket<S, NameRecord> {
-    bucket(NAME_RESOLVER_KEY, storage)
+    bucket(storage, NAME_RESOLVER_KEY)
 }
 
 pub fn resolver_read<S: Storage>(storage: &S) -> ReadonlyBucket<S, NameRecord> {
-    bucket_read(NAME_RESOLVER_KEY, storage)
+    bucket_read(storage, NAME_RESOLVER_KEY)
 }
