@@ -1,14 +1,15 @@
 use cosmwasm_std::{
-    to_binary, Api, Binary, Env, Extern, HandleResponse, HandleResult, HumanAddr, InitResponse,
-    InitResult, Querier, StdError, StdResult, Storage,
+    to_binary, Api, Binary, Env, Extern, HandleResponse, HumanAddr, InitResponse, InitResult,
+    Querier, StdResult, Storage,
 };
 
 use crate::coin_helpers::assert_sent_sufficient_coin;
+use crate::error::ContractError;
 use crate::msg::{HandleMsg, InitMsg, QueryMsg, ResolveRecordResponse};
 use crate::state::{config, config_read, resolver, resolver_read, Config, NameRecord};
 
-const MIN_NAME_LENGTH: usize = 3;
-const MAX_NAME_LENGTH: usize = 64;
+const MIN_NAME_LENGTH: u64 = 3;
+const MAX_NAME_LENGTH: u64 = 64;
 
 pub fn init<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
@@ -29,7 +30,7 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
     msg: HandleMsg,
-) -> HandleResult {
+) -> Result<HandleResponse, ContractError> {
     match msg {
         HandleMsg::Register { name } => try_register(deps, env, name),
         HandleMsg::Transfer { name, to } => try_transfer(deps, env, name, to),
@@ -40,7 +41,7 @@ pub fn try_register<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
     name: String,
-) -> HandleResult {
+) -> Result<HandleResponse, ContractError> {
     // we only need to check here - at point of registration
     validate_name(&name)?;
     let config_state = config(&mut deps.storage).load()?;
@@ -53,7 +54,7 @@ pub fn try_register<S: Storage, A: Api, Q: Querier>(
 
     if (resolver(&mut deps.storage).may_load(key)?).is_some() {
         // name is already taken
-        return Err(StdError::generic_err("Name is already taken"));
+        return Err(ContractError::NameTaken { name });
     }
 
     // name is available
@@ -67,24 +68,23 @@ pub fn try_transfer<S: Storage, A: Api, Q: Querier>(
     env: Env,
     name: String,
     to: HumanAddr,
-) -> HandleResult {
+) -> Result<HandleResponse, ContractError> {
     let api = deps.api;
     let config_state = config(&mut deps.storage).load()?;
     assert_sent_sufficient_coin(&env.message.sent_funds, config_state.transfer_price)?;
 
-    let key = name.as_bytes();
     let new_owner = deps.api.canonical_address(&to)?;
 
-    resolver(&mut deps.storage).update(key, |record| {
+    resolver(&mut deps.storage).update(name.clone().as_bytes(), |record| {
         if let Some(mut record) = record {
             if api.canonical_address(&env.message.sender)? != record.owner {
-                return Err(StdError::unauthorized());
+                return Err(ContractError::Unauthorized {});
             }
 
             record.owner = new_owner.clone();
             Ok(record)
         } else {
-            Err(StdError::generic_err("Name does not exist"))
+            Err(ContractError::NameNotExists { name })
         }
     })?;
     Ok(HandleResponse::default())
@@ -124,17 +124,24 @@ fn invalid_char(c: char) -> bool {
 
 /// validate_name returns an error if the name is invalid
 /// (we require 3-64 lowercase ascii letters, numbers, or . - _)
-fn validate_name(name: &str) -> StdResult<()> {
-    if name.len() < MIN_NAME_LENGTH {
-        Err(StdError::generic_err("Name too short"))
-    } else if name.len() > MAX_NAME_LENGTH {
-        Err(StdError::generic_err("Name too long"))
+fn validate_name(name: &str) -> Result<(), ContractError> {
+    let length = name.len() as u64;
+    if (name.len() as u64) < MIN_NAME_LENGTH {
+        Err(ContractError::NameTooShort {
+            length,
+            min_length: MIN_NAME_LENGTH,
+        })
+    } else if (name.len() as u64) > MAX_NAME_LENGTH {
+        Err(ContractError::NameTooLong {
+            length,
+            max_length: MAX_NAME_LENGTH,
+        })
     } else {
         match name.find(invalid_char) {
             None => Ok(()),
             Some(bytepos_invalid_char_start) => {
                 let c = name[bytepos_invalid_char_start..].chars().next().unwrap();
-                Err(StdError::generic_err(format!("Invalid character: '{}'", c)))
+                Err(ContractError::InvalidCharacter { c })
             }
         }
     }
