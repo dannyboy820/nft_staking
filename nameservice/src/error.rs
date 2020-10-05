@@ -6,7 +6,7 @@ pub enum ContractError {
     #[error("{0}")]
     Std(#[from] StdError),
 
-    #[error("unauthorized ")]
+    #[error("unauthorized")]
     Unauthorized {},
 
     #[error("insufficient funds sent")]
