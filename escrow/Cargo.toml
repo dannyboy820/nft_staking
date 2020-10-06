@@ -38,12 +38,12 @@ cranelift = ["cosmwasm-vm/default-cranelift"]
 singlepass = ["cosmwasm-vm/default-singlepass"]
 
 [dependencies]
-cosmwasm-std = "0.11.0-alpha3"
-cosmwasm-storage = "0.11.0-alpha3"
+cosmwasm-std = "0.11.0-alpha4"
+cosmwasm-storage = "0.11.0-alpha4"
 schemars = "0.7"
 thiserror = { version = "1.0.20" }
 serde = { version = "1.0.103", default-features = false, features = ["derive"] }
 
 [dev-dependencies]
-cosmwasm-vm = { version = "0.11.0-alpha3", default-features = false }
-cosmwasm-schema = "0.11.0-alpha3"
+cosmwasm-vm = { version = "0.11.0-alpha4", default-features = false }
+cosmwasm-schema = "0.11.0-alpha4"
