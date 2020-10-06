@@ -111,7 +111,7 @@ fn send_tokens<A: Api>(
 ) -> Result<HandleResponse, ContractError> {
     let from_human = api.human_address(from_address)?;
     let to_human = api.human_address(to_address)?;
-    let attributes = vec![attr("action", action), attr("to", to_human)];
+    let attributes = vec![attr("action", action), attr("to", to_human.clone())];
 
     let r = HandleResponse {
         messages: vec![CosmosMsg::Bank(BankMsg::Send {
