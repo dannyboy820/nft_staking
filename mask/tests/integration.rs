@@ -22,6 +22,7 @@ use cosmwasm_std::{
 };
 use cosmwasm_vm::testing::{handle, init, mock_env, mock_instance, query};
 
+use cosmwasm_std::testing::mock_info;
 use cw_mask::msg::{HandleMsg, InitMsg, OwnerResponse, QueryMsg};
 
 // This line will test the output of cargo wasm
@@ -34,14 +35,15 @@ fn proper_initialization() {
     let mut deps = mock_instance(WASM, &[]);
 
     let msg = InitMsg {};
-    let env = mock_env("creator", &coins(1000, "earth"));
+    let env = mock_env();
+    let info = mock_info("creator", &coins(1000, "earth"));
 
     // we can just call .unwrap() to assert this was a success
-    let res: InitResponse = init(&mut deps, env, msg).unwrap();
+    let res: InitResponse = init(&mut deps, env.clone(), info, msg).unwrap();
     assert_eq!(0, res.messages.len());
 
     // it worked, let's query the state
-    let res = query(&mut deps, QueryMsg::Owner {}).unwrap();
+    let res = query(&mut deps, env, QueryMsg::Owner {}).unwrap();
     let value: OwnerResponse = from_slice(res.as_slice()).unwrap();
     assert_eq!("creator", value.owner.as_str());
 }
@@ -51,10 +53,12 @@ fn reflect() {
     let mut deps = mock_instance(WASM, &[]);
 
     let msg = InitMsg {};
-    let env = mock_env("creator", &coins(2, "token"));
-    let _res: InitResponse = init(&mut deps, env, msg).unwrap();
+    let env = mock_env();
+    let info = mock_info("creator", &coins(1000, "earth"));
+    let _res: InitResponse = init(&mut deps, env, info, msg).unwrap();
 
-    let env = mock_env("creator", &[]);
+    let env = mock_env();
+    let info = mock_info("creator", &[]);
     let payload = vec![CosmosMsg::Bank(BankMsg::Send {
         from_address: env.contract.address.clone(),
         to_address: HumanAddr::from("friend"),
@@ -63,7 +67,7 @@ fn reflect() {
     let msg = HandleMsg::ReflectMsg {
         msgs: payload.clone(),
     };
-    let res = handle(&mut deps, env, msg).unwrap();
+    let res = handle(&mut deps, env, info, msg).unwrap();
 
     // should return payload
     assert_eq!(payload, res.messages);
@@ -74,19 +78,20 @@ fn transfer() {
     let mut deps = mock_instance(WASM, &[]);
 
     let msg = InitMsg {};
-    let env = mock_env("creator", &coins(2, "token"));
-    let _res: InitResponse = init(&mut deps, env, msg).unwrap();
+    let env = mock_env();
+    let info = mock_info("creator", &coins(2, "token"));
+    let _res: InitResponse = init(&mut deps, env.clone(), info, msg).unwrap();
 
-    let env = mock_env("creator", &[]);
+    let info = mock_info("creator", &[]);
     let new_owner = HumanAddr::from("friend");
     let msg = HandleMsg::ChangeOwner {
         owner: new_owner.clone(),
     };
-    let res: HandleResponse = handle(&mut deps, env, msg).unwrap();
+    let res: HandleResponse = handle(&mut deps, env.clone(), info, msg).unwrap();
 
     // should change state
     assert_eq!(0, res.messages.len());
-    let res = query(&mut deps, QueryMsg::Owner {}).unwrap();
+    let res = query(&mut deps, env, QueryMsg::Owner {}).unwrap();
     let value: OwnerResponse = from_slice(res.as_slice()).unwrap();
     assert_eq!("friend", value.owner.as_str());
 }
