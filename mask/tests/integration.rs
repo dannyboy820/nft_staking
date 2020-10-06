@@ -18,8 +18,7 @@
 //! 4. Anywhere you see query(&deps, ...) you must replace it with query(&mut deps, ...)
 
 use cosmwasm_std::{
-    coins, from_slice, BankMsg, CosmosMsg, HandleResponse, HandleResult, HumanAddr, InitResponse,
-    StdError,
+    coins, from_slice, BankMsg, CosmosMsg, HandleResponse, HumanAddr, InitResponse,
 };
 use cosmwasm_vm::testing::{handle, init, mock_env, mock_instance, query};
 
@@ -71,32 +70,6 @@ fn reflect() {
 }
 
 #[test]
-fn reflect_requires_owner() {
-    let mut deps = mock_instance(WASM, &[]);
-
-    let msg = InitMsg {};
-    let env = mock_env("creator", &coins(2, "token"));
-    let _res: InitResponse = init(&mut deps, env, msg).unwrap();
-
-    // signer is not owner
-    let env = mock_env("someone", &[]);
-    let payload = vec![CosmosMsg::Bank(BankMsg::Send {
-        from_address: env.contract.address.clone(),
-        to_address: HumanAddr::from("friend"),
-        amount: coins(1, "token"),
-    })];
-    let msg = HandleMsg::ReflectMsg {
-        msgs: payload.clone(),
-    };
-
-    let res: HandleResult = handle(&mut deps, env, msg);
-    match res.unwrap_err() {
-        StdError::Unauthorized { .. } => {}
-        _ => panic!("Must return unauthorized error"),
-    }
-}
-
-#[test]
 fn transfer() {
     let mut deps = mock_instance(WASM, &[]);
 
@@ -116,25 +89,4 @@ fn transfer() {
     let res = query(&mut deps, QueryMsg::Owner {}).unwrap();
     let value: OwnerResponse = from_slice(res.as_slice()).unwrap();
     assert_eq!("friend", value.owner.as_str());
-}
-
-#[test]
-fn transfer_requires_owner() {
-    let mut deps = mock_instance(WASM, &[]);
-
-    let msg = InitMsg {};
-    let env = mock_env("creator", &coins(2, "token"));
-    let _res: InitResponse = init(&mut deps, env, msg).unwrap();
-
-    let env = mock_env("random", &[]);
-    let new_owner = HumanAddr::from("friend");
-    let msg = HandleMsg::ChangeOwner {
-        owner: new_owner.clone(),
-    };
-
-    let res: HandleResult = handle(&mut deps, env, msg);
-    match res.unwrap_err() {
-        StdError::Unauthorized { .. } => {}
-        _ => panic!("Must return unauthorized error"),
-    }
 }
