@@ -4,8 +4,8 @@ use std::convert::TryInto;
 
 use crate::msg::{AllowanceResponse, BalanceResponse, HandleMsg, InitMsg, QueryMsg};
 use cosmwasm_std::{
-    log, to_binary, to_vec, Api, Binary, CanonicalAddr, Env, Extern, HandleResponse, HumanAddr,
-    InitResponse, Querier, ReadonlyStorage, StdError, StdResult, Storage, Uint128,
+    attr, to_binary, to_vec, Api, Binary, CanonicalAddr, Env, Extern, HandleResponse, HumanAddr,
+    InitResponse, MessageInfo, Querier, ReadonlyStorage, StdError, StdResult, Storage, Uint128,
 };
 use cosmwasm_storage::{PrefixedStorage, ReadonlyPrefixedStorage};
 
@@ -26,12 +26,13 @@ pub const KEY_TOTAL_SUPPLY: &[u8] = b"total_supply";
 pub fn init<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     _env: Env,
+    _info: MessageInfo,
     msg: InitMsg,
 ) -> StdResult<InitResponse> {
     let mut total_supply: u128 = 0;
     {
         // Initial balances
-        let mut balances_store = PrefixedStorage::new(PREFIX_BALANCES, &mut deps.storage);
+        let mut balances_store = PrefixedStorage::new(&mut deps.storage, PREFIX_BALANCES);
         for row in msg.initial_balances {
             let raw_address = deps.api.canonical_address(&row.address)?;
             let amount_raw = row.amount.u128();
@@ -55,7 +56,7 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
         return Err(StdError::generic_err("Decimals must not exceed 18"));
     }
 
-    let mut config_store = PrefixedStorage::new(PREFIX_CONFIG, &mut deps.storage);
+    let mut config_store = PrefixedStorage::new(&mut deps.storage, PREFIX_CONFIG);
     let constants = to_vec(&Constants {
         name: msg.name,
         symbol: msg.symbol,
@@ -70,17 +71,20 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
 pub fn handle<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
+    info: MessageInfo,
     msg: HandleMsg,
 ) -> StdResult<HandleResponse> {
     match msg {
-        HandleMsg::Approve { spender, amount } => try_approve(deps, env, &spender, &amount),
-        HandleMsg::Transfer { recipient, amount } => try_transfer(deps, env, &recipient, &amount),
+        HandleMsg::Approve { spender, amount } => try_approve(deps, env, info, &spender, &amount),
+        HandleMsg::Transfer { recipient, amount } => {
+            try_transfer(deps, env, info, &recipient, &amount)
+        }
         HandleMsg::TransferFrom {
             owner,
             recipient,
             amount,
-        } => try_transfer_from(deps, env, &owner, &recipient, &amount),
-        HandleMsg::Burn { amount } => try_burn(deps, env, &amount),
+        } => try_transfer_from(deps, env, info, &owner, &recipient, &amount),
+        HandleMsg::Burn { amount } => try_burn(deps, env, info, &amount),
     }
 }
 
@@ -111,11 +115,12 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
 
 fn try_transfer<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
-    env: Env,
+    _env: Env,
+    info: MessageInfo,
     recipient: &HumanAddr,
     amount: &Uint128,
 ) -> StdResult<HandleResponse> {
-    let sender_address_raw = deps.api.canonical_address(&env.message.sender)?;
+    let sender_address_raw = deps.api.canonical_address(&info.sender)?;
     let recipient_address_raw = deps.api.canonical_address(recipient)?;
     let amount_raw = amount.u128();
 
@@ -128,10 +133,10 @@ fn try_transfer<S: Storage, A: Api, Q: Querier>(
 
     let res = HandleResponse {
         messages: vec![],
-        log: vec![
-            log("action", "transfer"),
-            log("sender", env.message.sender.as_str()),
-            log("recipient", recipient.as_str()),
+        attributes: vec![
+            attr("action", "transfer"),
+            attr("sender", info.sender.as_str()),
+            attr("recipient", recipient.as_str()),
         ],
         data: None,
     };
@@ -140,12 +145,13 @@ fn try_transfer<S: Storage, A: Api, Q: Querier>(
 
 fn try_transfer_from<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
-    env: Env,
+    _env: Env,
+    info: MessageInfo,
     owner: &HumanAddr,
     recipient: &HumanAddr,
     amount: &Uint128,
 ) -> StdResult<HandleResponse> {
-    let spender_address_raw = deps.api.canonical_address(&env.message.sender)?;
+    let spender_address_raw = deps.api.canonical_address(&info.sender)?;
     let owner_address_raw = deps.api.canonical_address(owner)?;
     let recipient_address_raw = deps.api.canonical_address(recipient)?;
     let amount_raw = amount.u128();
@@ -173,11 +179,11 @@ fn try_transfer_from<S: Storage, A: Api, Q: Querier>(
 
     let res = HandleResponse {
         messages: vec![],
-        log: vec![
-            log("action", "transfer_from"),
-            log("spender", &env.message.sender.as_str()),
-            log("sender", owner.as_str()),
-            log("recipient", recipient.as_str()),
+        attributes: vec![
+            attr("action", "transfer_from"),
+            attr("spender", &info.sender.as_str()),
+            attr("sender", owner.as_str()),
+            attr("recipient", recipient.as_str()),
         ],
         data: None,
     };
@@ -186,11 +192,12 @@ fn try_transfer_from<S: Storage, A: Api, Q: Querier>(
 
 fn try_approve<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
-    env: Env,
+    _env: Env,
+    info: MessageInfo,
     spender: &HumanAddr,
     amount: &Uint128,
 ) -> StdResult<HandleResponse> {
-    let owner_address_raw = deps.api.canonical_address(&env.message.sender)?;
+    let owner_address_raw = deps.api.canonical_address(&info.sender)?;
     let spender_address_raw = deps.api.canonical_address(spender)?;
     write_allowance(
         &mut deps.storage,
@@ -200,10 +207,10 @@ fn try_approve<S: Storage, A: Api, Q: Querier>(
     )?;
     let res = HandleResponse {
         messages: vec![],
-        log: vec![
-            log("action", "approve"),
-            log("owner", env.message.sender.as_str()),
-            log("spender", spender.as_str()),
+        attributes: vec![
+            attr("action", "approve"),
+            attr("owner", info.sender.as_str()),
+            attr("spender", spender.as_str()),
         ],
         data: None,
     };
@@ -217,10 +224,11 @@ fn try_approve<S: Storage, A: Api, Q: Querier>(
 /// @param amount the amount of money to burn
 fn try_burn<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
-    env: Env,
+    _env: Env,
+    info: MessageInfo,
     amount: &Uint128,
 ) -> StdResult<HandleResponse> {
-    let owner_address_raw = &deps.api.canonical_address(&env.message.sender)?;
+    let owner_address_raw = &deps.api.canonical_address(&info.sender)?;
     let amount_raw = amount.u128();
 
     let mut account_balance = read_balance(&deps.storage, owner_address_raw)?;
@@ -233,10 +241,10 @@ fn try_burn<S: Storage, A: Api, Q: Querier>(
     }
     account_balance -= amount_raw;
 
-    let mut balances_store = PrefixedStorage::new(PREFIX_BALANCES, &mut deps.storage);
+    let mut balances_store = PrefixedStorage::new(&mut deps.storage, PREFIX_BALANCES);
     balances_store.set(owner_address_raw.as_slice(), &account_balance.to_be_bytes());
 
-    let mut config_store = PrefixedStorage::new(PREFIX_CONFIG, &mut deps.storage);
+    let mut config_store = PrefixedStorage::new(&mut deps.storage, PREFIX_CONFIG);
     let data = config_store
         .get(KEY_TOTAL_SUPPLY)
         .expect("no total supply data stored");
@@ -248,10 +256,10 @@ fn try_burn<S: Storage, A: Api, Q: Querier>(
 
     let res = HandleResponse {
         messages: vec![],
-        log: vec![
-            log("action", "burn"),
-            log("account", env.message.sender.as_str()),
-            log("amount", &amount.to_string()),
+        attributes: vec![
+            attr("action", "burn"),
+            attr("account", info.sender.as_str()),
+            attr("amount", &amount.to_string()),
         ],
         data: None,
     };
@@ -265,7 +273,7 @@ fn perform_transfer<T: Storage>(
     to: &CanonicalAddr,
     amount: u128,
 ) -> StdResult<()> {
-    let mut balances_store = PrefixedStorage::new(PREFIX_BALANCES, store);
+    let mut balances_store = PrefixedStorage::new(store, PREFIX_BALANCES);
 
     let mut from_balance = read_u128(&balances_store, from.as_slice())?;
     if from_balance < amount {
@@ -306,7 +314,7 @@ pub fn read_u128<S: ReadonlyStorage>(store: &S, key: &[u8]) -> StdResult<u128> {
 }
 
 fn read_balance<S: Storage>(store: &S, owner: &CanonicalAddr) -> StdResult<u128> {
-    let balance_store = ReadonlyPrefixedStorage::new(PREFIX_BALANCES, store);
+    let balance_store = ReadonlyPrefixedStorage::new(store, PREFIX_BALANCES);
     read_u128(&balance_store, owner.as_slice())
 }
 
@@ -315,8 +323,8 @@ fn read_allowance<S: Storage>(
     owner: &CanonicalAddr,
     spender: &CanonicalAddr,
 ) -> StdResult<u128> {
-    let allowances_store = ReadonlyPrefixedStorage::new(PREFIX_ALLOWANCES, store);
-    let owner_store = ReadonlyPrefixedStorage::new(owner.as_slice(), &allowances_store);
+    let allowances_store = ReadonlyPrefixedStorage::new(store, PREFIX_ALLOWANCES);
+    let owner_store = ReadonlyPrefixedStorage::new(&allowances_store, owner.as_slice());
     read_u128(&owner_store, spender.as_slice())
 }
 
@@ -326,8 +334,8 @@ fn write_allowance<S: Storage>(
     spender: &CanonicalAddr,
     amount: u128,
 ) -> StdResult<()> {
-    let mut allowances_store = PrefixedStorage::new(PREFIX_ALLOWANCES, store);
-    let mut owner_store = PrefixedStorage::new(owner.as_slice(), &mut allowances_store);
+    let mut allowances_store = PrefixedStorage::new(store, PREFIX_ALLOWANCES);
+    let mut owner_store = PrefixedStorage::new(&mut allowances_store, owner.as_slice());
     owner_store.set(spender.as_slice(), &amount.to_be_bytes());
     Ok(())
 }
