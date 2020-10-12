@@ -1,4 +1,3 @@
-use crate::error::ContractError;
 use cosmwasm_std::{CanonicalAddr, Env, Storage};
 use cosmwasm_storage::{singleton, singleton_read, ReadonlySingleton, Singleton};
 use schemars::JsonSchema;
@@ -16,23 +15,19 @@ pub struct State {
 }
 
 impl State {
-    pub fn is_expired(&self, env: &Env) -> ContractError {
+    pub fn is_expired(&self, env: &Env) -> bool {
         if let Some(end_height) = self.end_height {
-            return if env.block.height > end_height {
-                ContractError::EscrowExpiredHeight { end_height }
-            } else {
-                ContractError::EscrowNotExpired {}
-            };
+            if env.block.height > end_height {
+                return true;
+            }
         }
 
         if let Some(end_time) = self.end_time {
-            return if env.block.time > end_time {
-                ContractError::EscrowExpiredTime { end_time }
-            } else {
-                ContractError::EscrowNotExpired {}
-            };
+            if env.block.time > end_time {
+                return true;
+            }
         }
-        ContractError::EscrowNotExpired {}
+        false
     }
 }
 

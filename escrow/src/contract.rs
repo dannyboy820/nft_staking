@@ -20,9 +20,12 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
         end_height: msg.end_height,
         end_time: msg.end_time,
     };
-    match state.is_expired(&env) {
-        ContractError::EscrowNotExpired {} => {}
-        err => return Err(err),
+
+    if state.is_expired(&env) {
+        return Err(ContractError::Expired {
+            end_height: env.block.height,
+            end_time: env.block.time,
+        });
     }
 
     config(&mut deps.storage).save(&state)?;
@@ -54,9 +57,11 @@ fn try_approve<S: Storage, A: Api, Q: Querier>(
     }
 
     // throws error if state is expired
-    match state.is_expired(&env) {
-        ContractError::EscrowNotExpired {} => {}
-        err => return Err(err),
+    if state.is_expired(&env) {
+        return Err(ContractError::Expired {
+            end_height: env.block.height,
+            end_time: env.block.time,
+        });
     }
 
     let amount = if let Some(quantity) = quantity {
@@ -84,12 +89,8 @@ fn try_refund<S: Storage, A: Api, Q: Querier>(
     state: State,
 ) -> Result<HandleResponse, ContractError> {
     // anyone can try to refund, as long as the contract is expired
-    let err = state.is_expired(&env);
-    match err {
-        ContractError::EscrowNotExpired {} => return Err(err),
-        ContractError::EscrowExpiredHeight { .. } => {}
-        ContractError::EscrowExpiredTime { .. } => {}
-        _ => return Err(err),
+    if !state.is_expired(&env) {
+        return Err(ContractError::NotExpired {});
     }
 
     // Querier guarantees to returns up-to-date data, including funds sent in this handle message
@@ -145,8 +146,8 @@ fn query_arbiter<S: Storage, A: Api, Q: Querier>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cosmwasm_std::testing::{mock_dependencies, mock_info, MOCK_CONTRACT_ADDR};
-    use cosmwasm_std::{coins, Api, BlockInfo, ContractInfo, HumanAddr};
+    use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
+    use cosmwasm_std::{coins, Api, HumanAddr};
 
     fn init_msg_expire_by_height(height: u64) -> InitMsg {
         InitMsg {
@@ -157,32 +158,16 @@ mod tests {
         }
     }
 
-    fn mock_env_info_height(
-        signer: &str,
-        sent: &[Coin],
-        height: u64,
-        time: u64,
-    ) -> (Env, MessageInfo) {
-        let env = Env {
-            block: BlockInfo {
-                height,
-                time,
-                ..Default::default()
-            },
-            contract: ContractInfo {
-                address: HumanAddr::from(MOCK_CONTRACT_ADDR),
-            },
-        };
-        let info = mock_info(signer, sent);
-        return (env, info);
-    }
-
     #[test]
     fn proper_initialization() {
         let mut deps = mock_dependencies(&[]);
 
         let msg = init_msg_expire_by_height(1000);
-        let (env, info) = mock_env_info_height("creator", &coins(1000, "earth"), 876, 0);
+        let mut env = mock_env();
+        env.block.height = 876;
+        env.block.time = 0;
+        let info = mock_info("creator", &coins(1000, "earth"));
+
         let res = init(&mut deps, env, info, msg).unwrap();
         assert_eq!(0, res.messages.len());
 
@@ -214,10 +199,14 @@ mod tests {
         let mut deps = mock_dependencies(&[]);
 
         let msg = init_msg_expire_by_height(1000);
-        let (env, info) = mock_env_info_height("creator", &coins(1000, "earth"), 1001, 0);
+        let mut env = mock_env();
+        env.block.height = 1001;
+        env.block.time = 0;
+        let info = mock_info("creator", &coins(1000, "earth"));
+
         let res = init(&mut deps, env, info, msg);
         match res.unwrap_err() {
-            ContractError::EscrowExpiredHeight { .. } => {}
+            ContractError::Expired { .. } => {}
             e => panic!("unexpected error: {:?}", e),
         }
     }
@@ -235,7 +224,10 @@ mod tests {
             end_height: None,
             end_time: None,
         };
-        let (env, info) = mock_env_info_height(creator.as_str(), &[], 876, 0);
+        let mut env = mock_env();
+        env.block.height = 876;
+        env.block.time = 0;
+        let info = mock_info(creator, &[]);
         let res = init(&mut deps, env, info, msg).unwrap();
         assert_eq!(0, res.messages.len());
 
@@ -251,7 +243,10 @@ mod tests {
         // initialize the store
         let init_amount = coins(1000, "earth");
         let msg = init_msg_expire_by_height(1000);
-        let (env, info) = mock_env_info_height("creator", &init_amount, 876, 0);
+        let mut env = mock_env();
+        env.block.height = 876;
+        env.block.time = 0;
+        let info = mock_info("creator", &init_amount);
         let contract_addr = env.clone().contract.address;
         let init_res = init(&mut deps, env, info, msg).unwrap();
         assert_eq!(0, init_res.messages.len());
@@ -261,7 +256,10 @@ mod tests {
 
         // beneficiary cannot release it
         let msg = HandleMsg::Approve { quantity: None };
-        let (env, info) = mock_env_info_height("beneficiary", &[], 900, 0);
+        let mut env = mock_env();
+        env.block.height = 900;
+        env.block.time = 0;
+        let info = mock_info("beneficiary", &[]);
         let handle_res = handle(&mut deps, env, info, msg.clone());
         match handle_res.unwrap_err() {
             ContractError::Unauthorized { .. } => {}
@@ -269,15 +267,21 @@ mod tests {
         }
 
         // verifier cannot release it when expired
-        let (env, info) = mock_env_info_height("verifies", &[], 1100, 0);
+        let mut env = mock_env();
+        env.block.height = 1100;
+        env.block.time = 0;
+        let info = mock_info("verifies", &[]);
         let handle_res = handle(&mut deps, env, info, msg.clone());
         match handle_res.unwrap_err() {
-            ContractError::EscrowExpiredHeight { .. } => {}
+            ContractError::Expired { .. } => {}
             e => panic!("unexpected error: {:?}", e),
         }
 
         // complete release by verfier, before expiration
-        let (env, info) = mock_env_info_height("verifies", &[], 999, 0);
+        let mut env = mock_env();
+        env.block.height = 999;
+        env.block.time = 0;
+        let info = mock_info("verifies", &[]);
         let handle_res = handle(&mut deps, env, info, msg.clone()).unwrap();
         assert_eq!(1, handle_res.messages.len());
         let msg = handle_res.messages.get(0).expect("no message");
@@ -294,7 +298,10 @@ mod tests {
         let partial_msg = HandleMsg::Approve {
             quantity: Some(coins(500, "earth")),
         };
-        let (env, info) = mock_env_info_height("verifies", &[], 999, 0);
+        let mut env = mock_env();
+        env.block.height = 999;
+        env.block.time = 0;
+        let info = mock_info("verifies", &[]);
         let handle_res = handle(&mut deps, env, info, partial_msg).unwrap();
         assert_eq!(1, handle_res.messages.len());
         let msg = handle_res.messages.get(0).expect("no message");
@@ -315,7 +322,10 @@ mod tests {
         // initialize the store
         let init_amount = coins(1000, "earth");
         let msg = init_msg_expire_by_height(1000);
-        let (env, info) = mock_env_info_height("creator", &init_amount, 876, 0);
+        let mut env = mock_env();
+        env.block.height = 876;
+        env.block.time = 0;
+        let info = mock_info("creator", &init_amount);
         let contract_addr = env.clone().contract.address;
         let init_res = init(&mut deps, env, info, msg).unwrap();
         assert_eq!(0, init_res.messages.len());
@@ -325,24 +335,33 @@ mod tests {
 
         // cannot release when unexpired (height < end_height)
         let msg = HandleMsg::Refund {};
-        let (env, info) = mock_env_info_height("anybody", &[], 800, 0);
+        let mut env = mock_env();
+        env.block.height = 800;
+        env.block.time = 0;
+        let info = mock_info("anybody", &[]);
         let handle_res = handle(&mut deps, env, info, msg.clone());
         match handle_res.unwrap_err() {
-            ContractError::EscrowNotExpired { .. } => {}
+            ContractError::NotExpired { .. } => {}
             e => panic!("unexpected error: {:?}", e),
         }
 
         // cannot release when unexpired (height == end_height)
         let msg = HandleMsg::Refund {};
-        let (env, info) = mock_env_info_height("anybody", &[], 1000, 0);
+        let mut env = mock_env();
+        env.block.height = 1000;
+        env.block.time = 0;
+        let info = mock_info("anybody", &[]);
         let handle_res = handle(&mut deps, env, info, msg.clone());
         match handle_res.unwrap_err() {
-            ContractError::EscrowNotExpired { .. } => {}
+            ContractError::NotExpired { .. } => {}
             e => panic!("unexpected error: {:?}", e),
         }
 
         // anyone can release after expiration
-        let (env, info) = mock_env_info_height("anybody", &[], 1001, 0);
+        let mut env = mock_env();
+        env.block.height = 1001;
+        env.block.time = 0;
+        let info = mock_info("anybody", &[]);
         let handle_res = handle(&mut deps, env, info, msg.clone()).unwrap();
         assert_eq!(1, handle_res.messages.len());
         let msg = handle_res.messages.get(0).expect("no message");

@@ -10,11 +10,8 @@ pub enum ContractError {
     Unauthorized {},
 
     #[error("escrow expired (end_height {end_height})")]
-    EscrowExpiredHeight { end_height: u64 },
-
-    #[error("escrow expired (end_time {end_time})")]
-    EscrowExpiredTime { end_time: u64 },
+    Expired { end_height: u64, end_time: u64 },
 
     #[error("escrow not expired")]
-    EscrowNotExpired {},
+    NotExpired {},
 }
