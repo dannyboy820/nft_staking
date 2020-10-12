@@ -1133,13 +1133,13 @@ mod query {
         let mut deps = mock_dependencies(&[]);
         let init_msg = make_init_msg();
         let (env, info) = mock_env_height(&address(0), 450, 550);
-        let res = init(&mut deps, env, info, init_msg).unwrap();
+        let res = init(&mut deps, env.clone(), info, init_msg).unwrap();
         assert_eq!(0, res.messages.len());
 
         let query_msg = QueryMsg::Balance {
             address: address(1),
         };
-        let query_result = query(&deps, query_msg).unwrap();
+        let query_result = query(&deps, env, query_msg).unwrap();
         assert_eq!(query_result.as_slice(), b"{\"balance\":\"11\"}");
     }
 
@@ -1148,13 +1148,13 @@ mod query {
         let mut deps = mock_dependencies(&[]);
         let init_msg = make_init_msg();
         let (env, info) = mock_env_height(&address(0), 450, 550);
-        let res = init(&mut deps, env, info, init_msg).unwrap();
+        let res = init(&mut deps, env.clone(), info, init_msg).unwrap();
         assert_eq!(0, res.messages.len());
 
         let query_msg = QueryMsg::Balance {
             address: address(4), // only indices 1, 2, 3 are initialized
         };
-        let query_result = query(&deps, query_msg).unwrap();
+        let query_result = query(&deps, env, query_msg).unwrap();
         assert_eq!(query_result.as_slice(), b"{\"balance\":\"0\"}");
     }
 
@@ -1174,7 +1174,7 @@ mod query {
             amount: Uint128::from(42u128),
         };
         let (env, info) = mock_env_height(&owner.clone(), 450, 550);
-        let action_result = handle(&mut deps, env, info, approve_msg).unwrap();
+        let action_result = handle(&mut deps, env.clone(), info, approve_msg).unwrap();
         assert_eq!(action_result.messages.len(), 0);
         assert_eq!(
             action_result.attributes,
@@ -1189,7 +1189,7 @@ mod query {
             owner: owner.clone(),
             spender: spender.clone(),
         };
-        let query_result = query(&deps, query_msg).unwrap();
+        let query_result = query(&deps, env.clone(), query_msg).unwrap();
         assert_eq!(query_result.as_slice(), b"{\"allowance\":\"42\"}");
     }
 
@@ -1210,7 +1210,7 @@ mod query {
             amount: Uint128::from(42u128),
         };
         let (env, info) = mock_env_height(&owner.clone(), 450, 550);
-        let approve_result = handle(&mut deps, env, info, approve_msg).unwrap();
+        let approve_result = handle(&mut deps, env.clone(), info, approve_msg).unwrap();
         assert_eq!(approve_result.messages.len(), 0);
         assert_eq!(
             approve_result.attributes,
@@ -1226,7 +1226,7 @@ mod query {
             owner: owner.clone(),
             spender: bob.clone(),
         };
-        let query_result = query(&deps, query_msg).unwrap();
+        let query_result = query(&deps, env.clone(), query_msg).unwrap();
         assert_eq!(query_result.as_slice(), b"{\"allowance\":\"0\"}");
 
         // differnet owner
@@ -1234,7 +1234,7 @@ mod query {
             owner: bob.clone(),
             spender: spender.clone(),
         };
-        let query_result = query(&deps, query_msg).unwrap();
+        let query_result = query(&deps, env.clone(), query_msg).unwrap();
         assert_eq!(query_result.as_slice(), b"{\"allowance\":\"0\"}");
     }
 }
