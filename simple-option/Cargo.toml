@@ -1,11 +1,8 @@
 [package]
-name = "cw-voting"
-version = "0.2.1"
-authors = ["Taariq Levack <levackt@users.noreply.github.com>"]
+name = "simple-option"
+version = "0.1.0"
+authors = ["Ethan Frey <ethanfrey@users.noreply.github.com>"]
 edition = "2018"
-license = "Apache-2.0"
-description = "Simple CosmWasm contract for voting"
-repository = "https://github.com/CosmWasm/cosmwasm-examples"
 
 exclude = [
   # Those files are rust-optimizer artifacts. You might want to commit them for convenience but they should not be part of the source code publication.
@@ -30,20 +27,15 @@ incremental = false
 overflow-checks = true
 
 [features]
-default = ["cranelift"]
-# for quicker tests, cargo test --lib
 # for more explicit tests, cargo test --features=backtraces
-backtraces = ["cosmwasm-std/backtraces", "cosmwasm-vm/backtraces"]
-cranelift = ["cosmwasm-vm/default-cranelift"]
-singlepass = ["cosmwasm-vm/default-singlepass"]
+backtraces = ["cosmwasm-std/backtraces"]
 
 [dependencies]
-cosmwasm-std = "0.10.0"
-cosmwasm-storage = "0.10.0"
+cosmwasm-std = { version = "0.10.1" }
+cosmwasm-storage = { version = "0.10.1" }
 schemars = "0.7"
 serde = { version = "1.0.103", default-features = false, features = ["derive"] }
-hex = "0.4"
+snafu = { version = "0.6.3" }
 
 [dev-dependencies]
-cosmwasm-vm = { version = "0.10.0", default-features = false }
-cosmwasm-schema = "0.10.0"
+cosmwasm-schema = { version = "0.10.1" }
