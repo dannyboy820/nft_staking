@@ -1,4 +1,4 @@
-use cosmwasm_std::{CanonicalAddr, StdError};
+use cosmwasm_std::{CanonicalAddr, StdError, Uint128};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -10,7 +10,7 @@ pub enum ContractError {
     InsufficientFundsSent {},
 
     #[error("excessive withdrawal amount (max_amount {max_amount})")]
-    ExcessiveWithdraw { max_amount: u128 },
+    ExcessiveWithdraw { max_amount: Uint128 },
 
     #[error("description too short (minimum description length {min_desc_length})")]
     DescriptionTooShort { min_desc_length: u64 },
