@@ -6,15 +6,15 @@ pub enum ContractError {
     #[error("{0}")]
     Std(#[from] StdError),
 
-    #[error("unauthorized")]
+    #[error("Unauthorized")]
     Unauthorized {},
 
-    #[error("escrow expired (end_height {end_height:?} end_time {end_time:?})")]
+    #[error("Escrow expired (end_height {end_height:?} end_time {end_time:?})")]
     Expired {
         end_height: Option<u64>,
         end_time: Option<u64>,
     },
 
-    #[error("escrow not expired")]
+    #[error("Escrow not expired")]
     NotExpired {},
 }
