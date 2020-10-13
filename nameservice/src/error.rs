@@ -6,24 +6,24 @@ pub enum ContractError {
     #[error("{0}")]
     Std(#[from] StdError),
 
-    #[error("unauthorized")]
+    #[error("Unauthorized")]
     Unauthorized {},
 
-    #[error("insufficient funds sent")]
+    #[error("Insufficient funds sent")]
     InsufficientFundsSend {},
 
-    #[error("name does not exist (name {name})")]
+    #[error("Name does not exist (name {name})")]
     NameNotExists { name: String },
 
-    #[error("name has been taken (name {name})")]
+    #[error("Name has been taken (name {name})")]
     NameTaken { name: String },
 
-    #[error("name too short (length {length} min_length {min_length})")]
+    #[error("Name too short (length {length} min_length {min_length})")]
     NameTooShort { length: u64, min_length: u64 },
 
-    #[error("name too long (length {length} min_length {max_length})")]
+    #[error("Name too long (length {length} min_length {max_length})")]
     NameTooLong { length: u64, max_length: u64 },
 
-    #[error("invalid character( char {c}")]
+    #[error("Invalid character( char {c}")]
     InvalidCharacter { c: char },
 }
