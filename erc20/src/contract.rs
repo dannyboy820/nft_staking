@@ -2,10 +2,11 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::convert::TryInto;
 
+use crate::error::ContractError;
 use crate::msg::{AllowanceResponse, BalanceResponse, HandleMsg, InitMsg, QueryMsg};
 use cosmwasm_std::{
     attr, to_binary, to_vec, Api, Binary, CanonicalAddr, Env, Extern, HandleResponse, HumanAddr,
-    InitResponse, MessageInfo, Querier, ReadonlyStorage, StdError, StdResult, Storage, Uint128,
+    InitResponse, MessageInfo, Querier, ReadonlyStorage, StdResult, Storage, Uint128,
 };
 use cosmwasm_storage::{PrefixedStorage, ReadonlyPrefixedStorage};
 
@@ -28,7 +29,7 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
     _env: Env,
     _info: MessageInfo,
     msg: InitMsg,
-) -> StdResult<InitResponse> {
+) -> Result<InitResponse, ContractError> {
     let mut total_supply: u128 = 0;
     {
         // Initial balances
@@ -43,17 +44,13 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
 
     // Check name, symbol, decimals
     if !is_valid_name(&msg.name) {
-        return Err(StdError::generic_err(
-            "Name is not in the expected format (3-30 UTF-8 bytes)",
-        ));
+        return Err(ContractError::NameWrongFormat {});
     }
     if !is_valid_symbol(&msg.symbol) {
-        return Err(StdError::generic_err(
-            "Ticker symbol is not in expected format [A-Z]{3,6}",
-        ));
+        return Err(ContractError::TickerWrongSymbolFormat {});
     }
     if msg.decimals > 18 {
-        return Err(StdError::generic_err("Decimals must not exceed 18"));
+        return Err(ContractError::DecimalsExceeded {});
     }
 
     let mut config_store = PrefixedStorage::new(&mut deps.storage, PREFIX_CONFIG);
@@ -73,7 +70,7 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
     env: Env,
     info: MessageInfo,
     msg: HandleMsg,
-) -> StdResult<HandleResponse> {
+) -> Result<HandleResponse, ContractError> {
     match msg {
         HandleMsg::Approve { spender, amount } => try_approve(deps, env, info, &spender, &amount),
         HandleMsg::Transfer { recipient, amount } => {
@@ -92,7 +89,7 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
     _env: Env,
     msg: QueryMsg,
-) -> StdResult<Binary> {
+) -> Result<Binary, ContractError> {
     match msg {
         QueryMsg::Balance { address } => {
             let address_key = deps.api.canonical_address(&address)?;
@@ -120,7 +117,7 @@ fn try_transfer<S: Storage, A: Api, Q: Querier>(
     info: MessageInfo,
     recipient: &HumanAddr,
     amount: &Uint128,
-) -> StdResult<HandleResponse> {
+) -> Result<HandleResponse, ContractError> {
     let sender_address_raw = deps.api.canonical_address(&info.sender)?;
     let recipient_address_raw = deps.api.canonical_address(recipient)?;
     let amount_raw = amount.u128();
@@ -151,7 +148,7 @@ fn try_transfer_from<S: Storage, A: Api, Q: Querier>(
     owner: &HumanAddr,
     recipient: &HumanAddr,
     amount: &Uint128,
-) -> StdResult<HandleResponse> {
+) -> Result<HandleResponse, ContractError> {
     let spender_address_raw = deps.api.canonical_address(&info.sender)?;
     let owner_address_raw = deps.api.canonical_address(owner)?;
     let recipient_address_raw = deps.api.canonical_address(recipient)?;
@@ -159,10 +156,10 @@ fn try_transfer_from<S: Storage, A: Api, Q: Querier>(
 
     let mut allowance = read_allowance(&deps.storage, &owner_address_raw, &spender_address_raw)?;
     if allowance < amount_raw {
-        return Err(StdError::generic_err(format!(
-            "Insufficient allowance: allowance={}, required={}",
-            allowance, amount_raw
-        )));
+        return Err(ContractError::InsufficientAllowance {
+            allowance,
+            required: amount_raw,
+        });
     }
     allowance -= amount_raw;
     write_allowance(
@@ -197,7 +194,7 @@ fn try_approve<S: Storage, A: Api, Q: Querier>(
     info: MessageInfo,
     spender: &HumanAddr,
     amount: &Uint128,
-) -> StdResult<HandleResponse> {
+) -> Result<HandleResponse, ContractError> {
     let owner_address_raw = deps.api.canonical_address(&info.sender)?;
     let spender_address_raw = deps.api.canonical_address(spender)?;
     write_allowance(
@@ -228,17 +225,17 @@ fn try_burn<S: Storage, A: Api, Q: Querier>(
     _env: Env,
     info: MessageInfo,
     amount: &Uint128,
-) -> StdResult<HandleResponse> {
+) -> Result<HandleResponse, ContractError> {
     let owner_address_raw = &deps.api.canonical_address(&info.sender)?;
     let amount_raw = amount.u128();
 
     let mut account_balance = read_balance(&deps.storage, owner_address_raw)?;
 
     if account_balance < amount_raw {
-        return Err(StdError::generic_err(format!(
-            "insufficient funds to burn: balance={}, required={}",
-            account_balance, amount_raw
-        )));
+        return Err(ContractError::InsufficientFunds {
+            balance: account_balance,
+            required: amount_raw,
+        });
     }
     account_balance -= amount_raw;
 
@@ -273,15 +270,15 @@ fn perform_transfer<T: Storage>(
     from: &CanonicalAddr,
     to: &CanonicalAddr,
     amount: u128,
-) -> StdResult<()> {
+) -> Result<(), ContractError> {
     let mut balances_store = PrefixedStorage::new(store, PREFIX_BALANCES);
 
     let mut from_balance = read_u128(&balances_store, from.as_slice())?;
     if from_balance < amount {
-        return Err(StdError::generic_err(format!(
-            "Insufficient funds: balance={}, required={}",
-            from_balance, amount
-        )));
+        return Err(ContractError::InsufficientFunds {
+            balance: from_balance,
+            required: amount,
+        });
     }
     from_balance -= amount;
     balances_store.set(from.as_slice(), &from_balance.to_be_bytes());
@@ -295,18 +292,16 @@ fn perform_transfer<T: Storage>(
 
 // Converts 16 bytes value into u128
 // Errors if data found that is not 16 bytes
-pub fn bytes_to_u128(data: &[u8]) -> StdResult<u128> {
+pub fn bytes_to_u128(data: &[u8]) -> Result<u128, ContractError> {
     match data[0..16].try_into() {
         Ok(bytes) => Ok(u128::from_be_bytes(bytes)),
-        Err(_) => Err(StdError::generic_err(
-            "Corrupted data found. 16 byte expected.",
-        )),
+        Err(_) => Err(ContractError::CorruptedDataFound {}),
     }
 }
 
 // Reads 16 byte storage value into u128
 // Returns zero if key does not exist. Errors if data found that is not 16 bytes
-pub fn read_u128<S: ReadonlyStorage>(store: &S, key: &[u8]) -> StdResult<u128> {
+pub fn read_u128<S: ReadonlyStorage>(store: &S, key: &[u8]) -> Result<u128, ContractError> {
     let result = store.get(key);
     match result {
         Some(data) => bytes_to_u128(&data),
@@ -314,7 +309,7 @@ pub fn read_u128<S: ReadonlyStorage>(store: &S, key: &[u8]) -> StdResult<u128> {
     }
 }
 
-fn read_balance<S: Storage>(store: &S, owner: &CanonicalAddr) -> StdResult<u128> {
+fn read_balance<S: Storage>(store: &S, owner: &CanonicalAddr) -> Result<u128, ContractError> {
     let balance_store = ReadonlyPrefixedStorage::new(store, PREFIX_BALANCES);
     read_u128(&balance_store, owner.as_slice())
 }
@@ -323,7 +318,7 @@ fn read_allowance<S: Storage>(
     store: &S,
     owner: &CanonicalAddr,
     spender: &CanonicalAddr,
-) -> StdResult<u128> {
+) -> Result<u128, ContractError> {
     let allowances_store = ReadonlyPrefixedStorage::new(store, PREFIX_ALLOWANCES);
     let owner_store = ReadonlyPrefixedStorage::new(&allowances_store, owner.as_slice());
     read_u128(&owner_store, spender.as_slice())

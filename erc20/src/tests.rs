@@ -1,6 +1,6 @@
 use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
 use cosmwasm_std::{
-    from_slice, Api, Env, HumanAddr, MessageInfo, ReadonlyStorage, StdError, Storage, Uint128,
+    from_slice, Api, Env, HumanAddr, MessageInfo, ReadonlyStorage, Storage, Uint128,
 };
 use cosmwasm_storage::ReadonlyPrefixedStorage;
 
@@ -62,6 +62,7 @@ fn get_allowance<S: ReadonlyStorage, A: Api>(
 
 mod init {
     use super::*;
+    use crate::error::ContractError;
 
     #[test]
     fn works() {
@@ -221,7 +222,7 @@ mod init {
         let result = init(&mut deps, env, info, init_msg);
         match result {
             Ok(_) => panic!("expected error"),
-            Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "Decimals must not exceed 18"),
+            Err(ContractError::DecimalsExceeded {}) => {}
             Err(e) => panic!("unexpected error: {:?}", e),
         }
     }
@@ -239,9 +240,7 @@ mod init {
         let result = init(&mut deps, env, info, init_msg);
         match result {
             Ok(_) => panic!("expected error"),
-            Err(StdError::GenericErr { msg, .. }) => {
-                assert_eq!(msg, "Name is not in the expected format (3-30 UTF-8 bytes)")
-            }
+            Err(ContractError::NameWrongFormat {}) => {}
             Err(e) => panic!("unexpected error: {:?}", e),
         }
     }
@@ -259,9 +258,7 @@ mod init {
         let result = init(&mut deps, env, info, init_msg);
         match result {
             Ok(_) => panic!("expected error"),
-            Err(StdError::GenericErr { msg, .. }) => {
-                assert_eq!(msg, "Name is not in the expected format (3-30 UTF-8 bytes)")
-            }
+            Err(ContractError::NameWrongFormat {}) => {}
             Err(e) => panic!("unexpected error: {:?}", e),
         }
     }
@@ -279,9 +276,7 @@ mod init {
         let result = init(&mut deps, env, info, init_msg);
         match result {
             Ok(_) => panic!("expected error"),
-            Err(StdError::GenericErr { msg, .. }) => {
-                assert_eq!(msg, "Ticker symbol is not in expected format [A-Z]{3,6}")
-            }
+            Err(ContractError::TickerWrongSymbolFormat {}) => {}
             Err(e) => panic!("unexpected error: {:?}", e),
         }
     }
@@ -299,9 +294,7 @@ mod init {
         let result = init(&mut deps, env, info, init_msg);
         match result {
             Ok(_) => panic!("expected error"),
-            Err(StdError::GenericErr { msg, .. }) => {
-                assert_eq!(msg, "Ticker symbol is not in expected format [A-Z]{3,6}")
-            }
+            Err(ContractError::TickerWrongSymbolFormat {}) => {}
             Err(e) => panic!("unexpected error: {:?}", e),
         }
     }
@@ -319,9 +312,7 @@ mod init {
         let result = init(&mut deps, env, info, init_msg);
         match result {
             Ok(_) => panic!("expected error"),
-            Err(StdError::GenericErr { msg, .. }) => {
-                assert_eq!(msg, "Ticker symbol is not in expected format [A-Z]{3,6}")
-            }
+            Err(ContractError::TickerWrongSymbolFormat {}) => {}
             Err(e) => panic!("unexpected error: {:?}", e),
         }
     }
@@ -329,6 +320,7 @@ mod init {
 
 mod transfer {
     use super::*;
+    use crate::error::ContractError;
     use cosmwasm_std::attr;
 
     fn make_init_msg() -> InitMsg {
@@ -591,9 +583,10 @@ mod transfer {
         let transfer_result = handle(&mut deps, env, info, transfer_msg);
         match transfer_result {
             Ok(_) => panic!("expected error"),
-            Err(StdError::GenericErr { msg, .. }) => {
-                assert_eq!(msg, "Insufficient funds: balance=11, required=12")
-            }
+            Err(ContractError::InsufficientFunds {
+                balance: 11,
+                required: 12,
+            }) => {}
             Err(e) => panic!("unexpected error: {:?}", e),
         }
 
@@ -743,6 +736,7 @@ mod approve {
 
 mod transfer_from {
     use super::*;
+    use crate::error::ContractError;
     use cosmwasm_std::attr;
 
     fn make_init_msg() -> InitMsg {
@@ -869,9 +863,10 @@ mod transfer_from {
         let transfer_result = handle(&mut deps, env, info, fransfer_from_msg);
         match transfer_result {
             Ok(_) => panic!("expected error"),
-            Err(StdError::GenericErr { msg, .. }) => {
-                assert_eq!(msg, "Insufficient allowance: allowance=2, required=3")
-            }
+            Err(ContractError::InsufficientAllowance {
+                allowance: 2,
+                required: 3,
+            }) => {}
             Err(e) => panic!("unexpected error: {:?}", e),
         }
     }
@@ -921,9 +916,10 @@ mod transfer_from {
         let transfer_result = handle(&mut deps, env, info, fransfer_from_msg);
         match transfer_result {
             Ok(_) => panic!("expected error"),
-            Err(StdError::GenericErr { msg, .. }) => {
-                assert_eq!(msg, "Insufficient funds: balance=11, required=15")
-            }
+            Err(ContractError::InsufficientFunds {
+                balance: 11,
+                required: 15,
+            }) => {}
             Err(e) => panic!("unexpected error: {:?}", e),
         }
     }
@@ -931,6 +927,7 @@ mod transfer_from {
 
 mod burn {
     use super::*;
+    use crate::error::ContractError;
     use cosmwasm_std::attr;
 
     fn make_init_msg() -> InitMsg {
@@ -1072,9 +1069,10 @@ mod burn {
         let burn_result = handle(&mut deps, env, info, burn_msg);
         match burn_result {
             Ok(_) => panic!("expected error"),
-            Err(StdError::GenericErr { msg, .. }) => {
-                assert_eq!(msg, "insufficient funds to burn: balance=11, required=12")
-            }
+            Err(ContractError::InsufficientFunds {
+                balance: 11,
+                required: 12,
+            }) => {}
             Err(e) => panic!("unexpected error: {:?}", e),
         }
 
