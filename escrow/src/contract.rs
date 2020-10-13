@@ -23,8 +23,8 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
 
     if state.is_expired(&env) {
         return Err(ContractError::Expired {
-            end_height: env.block.height,
-            end_time: env.block.time,
+            end_height: msg.end_height,
+            end_time: msg.end_time,
         });
     }
 
@@ -59,8 +59,8 @@ fn try_approve<S: Storage, A: Api, Q: Querier>(
     // throws error if state is expired
     if state.is_expired(&env) {
         return Err(ContractError::Expired {
-            end_height: env.block.height,
-            end_time: env.block.time,
+            end_height: state.end_height,
+            end_time: state.end_time,
         });
     }
 
