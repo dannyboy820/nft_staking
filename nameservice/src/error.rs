@@ -24,6 +24,6 @@ pub enum ContractError {
     #[error("Name too long (length {length} min_length {max_length})")]
     NameTooLong { length: u64, max_length: u64 },
 
-    #[error("Invalid character( char {c}")]
+    #[error("Invalid character(char {c}")]
     InvalidCharacter { c: char },
 }
