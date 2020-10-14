@@ -1,11 +1,12 @@
 pub mod contract;
-pub mod msg;
 
 mod error;
+mod msg;
 mod state;
 #[cfg(test)]
 mod tests;
 
+pub use msg::{AllowanceResponse, BalanceResponse, HandleMsg, InitMsg, InitialBalance, QueryMsg};
 pub use state::Constants;
 
 #[cfg(target_arch = "wasm32")]

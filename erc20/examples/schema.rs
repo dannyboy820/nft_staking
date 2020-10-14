@@ -3,8 +3,7 @@ use std::fs::create_dir_all;
 
 use cosmwasm_schema::{export_schema, remove_schemas, schema_for};
 
-use cw_erc20::msg::{AllowanceResponse, BalanceResponse, HandleMsg, InitMsg, QueryMsg};
-use cw_erc20::Constants;
+use cw_erc20::{AllowanceResponse, BalanceResponse, Constants, HandleMsg, InitMsg, QueryMsg};
 
 fn main() {
     let mut out_dir = current_dir().unwrap();
