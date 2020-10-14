@@ -133,8 +133,8 @@ fn try_transfer<S: Storage, A: Api, Q: Querier>(
         messages: vec![],
         attributes: vec![
             attr("action", "transfer"),
-            attr("sender", info.sender.as_str()),
-            attr("recipient", recipient.as_str()),
+            attr("sender", info.sender),
+            attr("recipient", recipient),
         ],
         data: None,
     };
@@ -179,9 +179,9 @@ fn try_transfer_from<S: Storage, A: Api, Q: Querier>(
         messages: vec![],
         attributes: vec![
             attr("action", "transfer_from"),
-            attr("spender", &info.sender.as_str()),
-            attr("sender", owner.as_str()),
-            attr("recipient", recipient.as_str()),
+            attr("spender", &info.sender),
+            attr("sender", owner),
+            attr("recipient", recipient),
         ],
         data: None,
     };
@@ -207,8 +207,8 @@ fn try_approve<S: Storage, A: Api, Q: Querier>(
         messages: vec![],
         attributes: vec![
             attr("action", "approve"),
-            attr("owner", info.sender.as_str()),
-            attr("spender", spender.as_str()),
+            attr("owner", info.sender),
+            attr("spender", spender),
         ],
         data: None,
     };
@@ -256,8 +256,8 @@ fn try_burn<S: Storage, A: Api, Q: Querier>(
         messages: vec![],
         attributes: vec![
             attr("action", "burn"),
-            attr("account", info.sender.as_str()),
-            attr("amount", &amount.to_string()),
+            attr("account", info.sender),
+            attr("amount", amount),
         ],
         data: None,
     };
