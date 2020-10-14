@@ -17,6 +17,7 @@
 //!      });
 //! 4. Anywhere you see query(&deps, ...) you must replace it with query(&mut deps, ...)
 
+use cosmwasm_std::testing::mock_info;
 use cosmwasm_std::{
     attr, from_slice, Coin, Env, HandleResponse, HumanAddr, InitResponse, MessageInfo, Uint128,
 };
@@ -24,7 +25,6 @@ use cosmwasm_storage::{to_length_prefixed, to_length_prefixed_nested};
 use cosmwasm_vm::testing::{handle, init, mock_env, mock_instance, query};
 use cosmwasm_vm::{Api, Storage};
 
-use cosmwasm_std::testing::mock_info;
 use cw_erc20::contract::{
     bytes_to_u128, KEY_CONSTANTS, KEY_TOTAL_SUPPLY, PREFIX_ALLOWANCES, PREFIX_BALANCES,
     PREFIX_CONFIG,
