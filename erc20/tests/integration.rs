@@ -249,8 +249,8 @@ fn approve_works() {
         approve_response.attributes,
         vec![
             attr("action", "approve"),
-            attr("owner", owner.as_str()),
-            attr("spender", spender.as_str()),
+            attr("owner", &owner),
+            attr("spender", &spender),
         ]
     );
 
@@ -296,8 +296,8 @@ fn transfer_from_works() {
         approve_response.attributes,
         vec![
             attr("action", "approve"),
-            attr("owner", owner.as_str()),
-            attr("spender", spender.as_str()),
+            attr("owner", &owner),
+            attr("spender", &spender),
         ]
     );
 
@@ -315,9 +315,9 @@ fn transfer_from_works() {
         transfer_from_response.attributes,
         vec![
             attr("action", "transfer_from"),
-            attr("spender", spender.as_str()),
-            attr("sender", owner.as_str()),
-            attr("recipient", recipient.as_str()),
+            attr("spender", &spender),
+            attr("sender", &owner),
+            attr("recipient", &recipient),
         ]
     );
 
@@ -360,7 +360,7 @@ fn burn_works() {
         burn_response.attributes,
         vec![
             attr("action", "burn"),
-            attr("account", owner.as_str()),
+            attr("account", &owner),
             attr("amount", "1")
         ]
     );
