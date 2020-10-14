@@ -39,7 +39,7 @@ singlepass = ["cosmwasm-vm/default-singlepass"]
 
 [dependencies]
 cosmwasm-std = "0.11.0"
-cosmwasm-storage = { version = "0.11.0", default-features = false, features = ["iterator"] }
+cosmwasm-storage = "0.11.0"
 schemars = "0.7"
 serde = { version = "1.0.103", default-features = false, features = ["derive"] }
 hex = "0.4"
