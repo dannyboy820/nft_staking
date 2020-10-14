@@ -26,10 +26,11 @@ use cosmwasm_vm::{Api, Storage};
 
 use cosmwasm_std::testing::mock_info;
 use cw_erc20::contract::{
-    bytes_to_u128, Constants, KEY_CONSTANTS, KEY_TOTAL_SUPPLY, PREFIX_ALLOWANCES, PREFIX_BALANCES,
+    bytes_to_u128, KEY_CONSTANTS, KEY_TOTAL_SUPPLY, PREFIX_ALLOWANCES, PREFIX_BALANCES,
     PREFIX_CONFIG,
 };
 use cw_erc20::msg::{HandleMsg, InitMsg, InitialBalance, QueryMsg};
+use cw_erc20::Constants;
 
 static WASM: &[u8] = include_bytes!("../target/wasm32-unknown-unknown/release/cw_erc20.wasm");
 

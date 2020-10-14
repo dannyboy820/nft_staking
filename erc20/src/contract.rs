@@ -1,21 +1,13 @@
-use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
-use std::convert::TryInto;
-
-use crate::error::ContractError;
-use crate::msg::{AllowanceResponse, BalanceResponse, HandleMsg, InitMsg, QueryMsg};
 use cosmwasm_std::{
     attr, to_binary, to_vec, Api, Binary, CanonicalAddr, Env, Extern, HandleResponse, HumanAddr,
     InitResponse, MessageInfo, Querier, ReadonlyStorage, StdResult, Storage, Uint128,
 };
 use cosmwasm_storage::{PrefixedStorage, ReadonlyPrefixedStorage};
+use std::convert::TryInto;
 
-#[derive(Serialize, Debug, Deserialize, Clone, PartialEq, JsonSchema)]
-pub struct Constants {
-    pub name: String,
-    pub symbol: String,
-    pub decimals: u8,
-}
+use crate::error::ContractError;
+use crate::msg::{AllowanceResponse, BalanceResponse, HandleMsg, InitMsg, QueryMsg};
+use crate::state::Constants;
 
 pub const PREFIX_CONFIG: &[u8] = b"config";
 pub const PREFIX_BALANCES: &[u8] = b"balances";

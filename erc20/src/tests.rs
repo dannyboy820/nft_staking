@@ -5,10 +5,11 @@ use cosmwasm_std::{
 use cosmwasm_storage::ReadonlyPrefixedStorage;
 
 use crate::contract::{
-    bytes_to_u128, handle, init, query, read_u128, Constants, KEY_CONSTANTS, KEY_TOTAL_SUPPLY,
+    bytes_to_u128, handle, init, query, read_u128, KEY_CONSTANTS, KEY_TOTAL_SUPPLY,
     PREFIX_ALLOWANCES, PREFIX_BALANCES, PREFIX_CONFIG,
 };
 use crate::msg::{HandleMsg, InitMsg, InitialBalance, QueryMsg};
+use crate::state::Constants;
 
 fn mock_env_height(signer: &HumanAddr, height: u64, time: u64) -> (Env, MessageInfo) {
     let mut env = mock_env();
