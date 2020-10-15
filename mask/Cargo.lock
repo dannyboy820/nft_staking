@@ -128,9 +128,9 @@ checksum = "245097e9a4535ee1e3e3931fcfcd55a796a44c643e8596ff6566d68f09b87bbc"
 
 [[package]]
 name = "cosmwasm-schema"
-version = "0.10.0"
+version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1592dd62fbf542dca476606d4768ae54c5febd586c5e246d147c3c90b2f4289c"
+checksum = "251a1f6fc8aec93035e3f67fdcedea40de06c1cd9e49d7d0e4d553c5d1781208"
 dependencies = [
  "schemars",
  "serde_json",
@@ -138,9 +138,9 @@ dependencies = [
 
 [[package]]
 name = "cosmwasm-std"
-version = "0.10.0"
+version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7934161da3638926acf9ac1ee92d0080993052df6dcd09fc5deb1d1ba6fbcb02"
+checksum = "1d1c145d2af46c99fedea2b6bedcd2cefcec7daeca5300230117e8f8f371604f"
 dependencies = [
  "base64",
  "schemars",
@@ -151,9 +151,9 @@ dependencies = [
 
 [[package]]
 name = "cosmwasm-storage"
-version = "0.10.0"
+version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "24d8f927309936e47b2d593f602161bb5dbef4c717ee185b19618873b1370b93"
+checksum = "a5a7af02591df36b434517f01c775bfb0d40d2fcb3934a7ec404a16a790dc812"
 dependencies = [
  "cosmwasm-std",
  "serde",
@@ -161,9 +161,9 @@ dependencies = [
 
 [[package]]
 name = "cosmwasm-vm"
-version = "0.10.0"
+version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3d78c26bef0db1e8c23369eccc1882a9822dccc55c9fb74fb107e31aabc556ec"
+checksum = "e411ee53a4297b223df112eca3870bc8e7f292460970efa7e853a988f7548012"
 dependencies = [
  "cosmwasm-std",
  "hex",
@@ -314,6 +314,7 @@ dependencies = [
  "cosmwasm-vm",
  "schemars",
  "serde",
+ "thiserror",
 ]
 
 [[package]]
@@ -594,9 +595,9 @@ dependencies = [
 
 [[package]]
 name = "parity-wasm"
-version = "0.41.0"
+version = "0.42.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ddfc878dac00da22f8f61e7af3157988424567ab01d9920b962ef7dcbd7cd865"
+checksum = "d17797de36b94bc5f73edad736fd0a77ce5ab64dd622f809c1eead8c91fa6564"
 
 [[package]]
 name = "parking_lot"
