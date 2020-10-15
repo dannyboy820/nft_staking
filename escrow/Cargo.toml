@@ -1,6 +1,6 @@
 [package]
 name = "cw-escrow"
-version = "0.6.0"
+version = "0.7.0"
 authors = ["Ethan Frey <ethanfrey@users.noreply.github.com>"]
 edition = "2018"
 license = "Apache-2.0"
@@ -9,8 +9,7 @@ repository = "https://github.com/CosmWasm/cosmwasm-examples"
 
 exclude = [
   # Those files are rust-optimizer artifacts. You might want to commit them for convenience but they should not be part of the source code publication.
-  "contract.wasm",
-  "hash.txt",
+  "artifacts/",
 ]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
