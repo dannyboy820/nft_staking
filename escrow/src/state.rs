@@ -27,7 +27,6 @@ impl State {
                 return true;
             }
         }
-
         false
     }
 }
