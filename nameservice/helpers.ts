@@ -20,24 +20,33 @@ interface Options {
   readonly httpUrl: string
   readonly networkId: string
   readonly feeToken: string
-  readonly gasPrice: number
+  readonly gasPrice: GasPrice
   readonly bech32prefix: string
   readonly hdPath: readonly Slip10RawIndex[]
   readonly faucetToken: string
   readonly faucetUrl?: string
   readonly defaultKeyFile: string
+  readonly gasLimits: Partial<GasLimits<CosmWasmFeeTable>> // only set the ones you want to override
 }
 
 const coralnetOptions: Options = {
   httpUrl: 'https://lcd.coralnet.cosmwasm.com',
   networkId: 'cosmwasm-coral',
   feeToken: 'ushell',
-  gasPrice: 0.025,
+  gasPrice:  GasPrice.fromString("0.025ushell"),
   bech32prefix: 'coral',
   faucetToken: 'SHELL',
   faucetUrl: 'https://faucet.coralnet.cosmwasm.com/credit',
   hdPath: makeCosmoshubPath(0),
   defaultKeyFile: path.join(process.env.HOME, ".coral.key"),
+  gasLimits: {
+    upload: 1500000,
+    init: 600000,
+    migrate: 600000,
+    exec: 200000,
+    send: 80000,
+    changeAdmin: 80000,
+  },
 }
 
 interface Network {
@@ -47,54 +56,34 @@ interface Network {
 
 const useOptions = (options: Options): Network => {
 
-  const loadOrCreateWallet = async (options: Options, filename: string, password: string): Promise<Secp256k1Wallet> => {
+  const loadOrCreateWallet = async (options: Options, filename: string, password: string): Promise<Secp256k1HdWallet> => {
     let encrypted: string;
     try {
       encrypted = fs.readFileSync(filename, 'utf8');
     } catch (err) {
       // generate if no file exists
-      const wallet = await Secp256k1Wallet.generate(12, options.hdPath, options.bech32prefix);
+      const wallet = await Secp256k1HdWallet.generate(12, options.hdPath, options.bech32prefix);
       const encrypted = await wallet.serialize(password);
       fs.writeFileSync(filename, encrypted, 'utf8');
       return wallet;
     }
     // otherwise, decrypt the file (we cannot put deserialize inside try or it will over-write on a bad password)
-    const wallet = await Secp256k1Wallet.deserialize(encrypted, password);
+    const wallet = await Secp256k1HdWallet.deserialize(encrypted, password);
     return wallet;
   };
 
-  const buildFeeTable = (options: Options): FeeTable => {
-    const { feeToken, gasPrice } = options;
-    const stdFee = (gas: number, denom: string, price: number) => {
-      const amount = Math.floor(gas * price)
-      return {
-        amount: [{ amount: amount.toString(), denom: denom }],
-        gas: gas.toString(),
-      }
-    }
-
-    return {
-      upload: stdFee(1500000, feeToken, gasPrice),
-      init: stdFee(600000, feeToken, gasPrice),
-      migrate: stdFee(600000, feeToken, gasPrice),
-      exec: stdFee(200000, feeToken, gasPrice),
-      send: stdFee(80000, feeToken, gasPrice),
-      changeAdmin: stdFee(80000, feeToken, gasPrice),
-    }
-  };
-
   const connect = async (
-    wallet: Secp256k1Wallet,
+    wallet: Secp256k1HdWallet,
     options: Options
   ): Promise<SigningCosmWasmClient> => {
-    const feeTable = buildFeeTable(options);
     const [{ address }] = await wallet.getAccounts();
 
     const client = new SigningCosmWasmClient(
       options.httpUrl,
       address,
       wallet,
-      feeTable
+      coralnetOptions.gasPrice,
+      coralnetOptions.gasLimits,
     );
     return client;
   };
@@ -133,18 +122,9 @@ const useOptions = (options: Options): Network => {
   return {setup, recoverMnemonic};
 }
 
-interface Coin {
-  readonly denom: string
-  readonly amount: number
-}
-
 interface Config {
   readonly purchase_price?: Coin
   readonly transfer_price?: Coin
-}
-
-interface NameRecord {
-  readonly owner: string
 }
 
 interface ResolveRecordResponse {
@@ -152,6 +132,7 @@ interface ResolveRecordResponse {
 }
 
 interface InitMsg {
+
   readonly purchase_price?: Coin
   readonly transfer_price?: Coin
 }
@@ -160,12 +141,12 @@ interface NameServiceInstance {
   readonly contractAddress: string
 
   // queries
-  record: (name: string) => Promise<string>
+  record: (name: string) => Promise<ResolveRecordResponse>
   config: () => Promise<Config>
 
   // actions
-  register: (recipient: string, amount: string) => Promise<string>
-  transfer: (recipient: string, amount: string) => Promise<string>
+  register: (name: string, amount: Coin[]) => Promise<any>
+  transfer: (name: string, to: string, amount: Coin[]) => Promise<any>
 }
 
 interface NameServiceContract {
@@ -173,12 +154,12 @@ interface NameServiceContract {
 
   instantiate: (codeId: number, initMsg: InitMsg, label: string) => Promise<NameServiceInstance>
 
-  use: (contractAddress: string) => NameServiceContract
+  use: (contractAddress: string) => NameServiceInstance
 }
 
 const NameService = (client: SigningCosmWasmClient): NameServiceContract => {
   const use = (contractAddress: string): NameServiceInstance => {
-    const resolveRecord = async (name?: string): Promise<ResolveRecordResponse> => {
+    const record = async (name: string): Promise<ResolveRecordResponse> => {
       return client.queryContractSmart(contractAddress, {resolve_record: { name }});
     };
 
@@ -186,19 +167,19 @@ const NameService = (client: SigningCosmWasmClient): NameServiceContract => {
       return client.queryContractSmart(contractAddress, {config: { }});
     };
 
-    const register = async (name: string): Promise<any> => {
-      const result = await client.execute(contractAddress, {register: { name }});
+    const register = async (name: string, amount: Coin[]): Promise<any> => {
+      const result = await client.execute(contractAddress, {register: { name }}, "", amount);
       return result.transactionHash;
     };
 
-    const transfer = async (name: string, to: string): Promise<any> => {
-      const result = await client.execute(contractAddress, {transfer: { name, to }});
+    const transfer = async (name: string, to: string, amount: Coin[]): Promise<any> => {
+      const result = await client.execute(contractAddress, {transfer: { name, to }}, "", amount);
       return result.transactionHash;
     };
 
     return {
       contractAddress,
-      resolveRecord,
+      record,
       config,
       register,
       transfer,
@@ -215,19 +196,42 @@ const NameService = (client: SigningCosmWasmClient): NameServiceContract => {
 
   const upload = async (): Promise<number> => {
     const meta = {
-      source: "https://github.com/CosmWasm/cosmwasm-examples/tree/v0.2.1/contracts/cw20-base",
-      builder: "cosmwasm/workspace-optimizer:0.10.3"
+      source: "https://github.com/CosmWasm/cosmwasm-examples/tree/nameservice-0.7.0/nameservice",
+      builder: "cosmwasm/rust-optimizer:0.10.4"
     };
-    const sourceUrl = "https://github.com/CosmWasm/cosmwasm-plus/releases/download/v0.2.1/cw20_base.wasm";
+    const sourceUrl = "https://github.com/CosmWasm/cosmwasm-examples/releases/download/nameservice-0.7.0/contract.wasm";
     const wasm = await downloadWasm(sourceUrl);
     const result = await client.upload(wasm, meta);
     return result.codeId;
   }
 
-  const instantiate = async (codeId: number, initMsg: InitMsg, label: string, admin?: string): Promise<CW20Instance> => {
-    const result = await client.instantiate(codeId, initMsg, label, { memo: `Init ${label}`, admin});
+  const instantiate = async (codeId: number, initMsg: Record<string, unknown>, label: string): Promise<NameServiceInstance> => {
+    const result = await client.instantiate(codeId, initMsg, label, { memo: `Init ${label}`});
     return use(result.contractAddress);
   }
 
   return { upload, instantiate, use };
 }
+
+// Demo:
+// const client = await useOptions(coralnetOptions).setup(PASSWORD);
+// const { address } = await client.getAccount()
+// const factory = NameService(client)
+//
+// const codeId = await factory.upload();
+// codeId -> 12
+// const initMsg = { purchase_price: { denom: "ushell", amount:1000 }, transfer_price: { denom: "SHELL", amount:1000} }
+// const contract = await factory.instantiate(12, initMsg, "My Name Service")
+// contract.contractAddress -> 'coral1267wq2zk22kt5juypdczw3k4wxhc4z47mug9fd'
+//
+// OR
+//
+// const contract = factory.use('coral1267wq2zk22kt5juypdczw3k4wxhc4z47mug9fd')
+//
+// const randomAddress = 'coral162d3zk45ufaqke5wgcd3kh336k6p3kwwkdj3ma'
+//
+// contract.config()
+// contract.register("name", [{"denom": "ushell", amount: 2000 }])
+// contract.record("name")
+// contract.transfer("name", randomAddress, [{"denom": "ushell", amount: 2000 }])
+//
