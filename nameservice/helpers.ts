@@ -42,10 +42,8 @@ const coralnetOptions: Options = {
   gasLimits: {
     upload: 1500000,
     init: 600000,
-    migrate: 600000,
-    exec: 200000,
-    send: 80000,
-    changeAdmin: 80000,
+    register:800000,
+    transfer: 80000,
   },
 }
 
@@ -220,7 +218,7 @@ const NameService = (client: SigningCosmWasmClient): NameServiceContract => {
 //
 // const codeId = await factory.upload();
 // codeId -> 12
-// const initMsg = { purchase_price: { denom: "ushell", amount:1000 }, transfer_price: { denom: "SHELL", amount:1000} }
+// const initMsg = { purchase_price: { denom: "ushell", amount:"1000" }, transfer_price: { denom: "ushell", amount:"1000" }}
 // const contract = await factory.instantiate(12, initMsg, "My Name Service")
 // contract.contractAddress -> 'coral1267wq2zk22kt5juypdczw3k4wxhc4z47mug9fd'
 //
@@ -231,7 +229,7 @@ const NameService = (client: SigningCosmWasmClient): NameServiceContract => {
 // const randomAddress = 'coral162d3zk45ufaqke5wgcd3kh336k6p3kwwkdj3ma'
 //
 // contract.config()
-// contract.register("name", [{"denom": "ushell", amount: 2000 }])
+// contract.register("name", [{"denom": "ushell", amount: "4000" }])
 // contract.record("name")
-// contract.transfer("name", randomAddress, [{"denom": "ushell", amount: 2000 }])
+// contract.transfer("name", randomAddress, [{"denom": "ushell", amount: "2000" }])
 //
