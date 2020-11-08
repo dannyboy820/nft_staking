@@ -62,17 +62,17 @@ pub fn config_read<S: Storage>(storage: &S) -> ReadonlySingleton<S, State> {
 }
 
 pub fn poll<S: Storage>(storage: &mut S) -> Bucket<S, Poll> {
-    bucket(POLL_KEY, storage)
+    bucket(storage, POLL_KEY)
 }
 
 pub fn poll_read<S: Storage>(storage: &S) -> ReadonlyBucket<S, Poll> {
-    bucket_read(POLL_KEY, storage)
+    bucket_read(storage, POLL_KEY)
 }
 
 pub fn bank<S: Storage>(storage: &mut S) -> Bucket<S, TokenManager> {
-    bucket(BANK_KEY, storage)
+    bucket(storage, BANK_KEY)
 }
 
 pub fn bank_read<S: Storage>(storage: &S) -> ReadonlyBucket<S, TokenManager> {
-    bucket_read(BANK_KEY, storage)
+    bucket_read(storage, BANK_KEY)
 }

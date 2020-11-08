@@ -47,6 +47,7 @@
       "type": "string"
     },
     "PollStatus": {
+      "type": "string",
       "enum": [
         "InProgress",
         "Tally",
