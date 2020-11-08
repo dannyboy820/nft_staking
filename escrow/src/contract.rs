@@ -1,14 +1,14 @@
 use cosmwasm_std::{
-    attr, to_binary, Api, BankMsg, Binary, Coin, CosmosMsg, Env, Extern, HandleResponse, HumanAddr,
-    InitResponse, MessageInfo, Querier, StdResult, Storage,
+    attr, to_binary, BankMsg, Binary, Coin, CosmosMsg, Deps, DepsMut, Env, HandleResponse,
+    HumanAddr, InitResponse, MessageInfo, StdResult,
 };
 
 use crate::error::ContractError;
 use crate::msg::{ArbiterResponse, HandleMsg, InitMsg, QueryMsg};
 use crate::state::{config, config_read, State};
 
-pub fn init<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
+pub fn init(
+    deps: DepsMut,
     env: Env,
     info: MessageInfo,
     msg: InitMsg,
@@ -28,25 +28,25 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
         });
     }
 
-    config(&mut deps.storage).save(&state)?;
+    config(deps.storage).save(&state)?;
     Ok(InitResponse::default())
 }
 
-pub fn handle<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
+pub fn handle(
+    deps: DepsMut,
     env: Env,
     info: MessageInfo,
     msg: HandleMsg,
 ) -> Result<HandleResponse, ContractError> {
-    let state = config_read(&deps.storage).load()?;
+    let state = config_read(deps.storage).load()?;
     match msg {
         HandleMsg::Approve { quantity } => try_approve(deps, env, state, info, quantity),
         HandleMsg::Refund {} => try_refund(deps, env, info, state),
     }
 }
 
-fn try_approve<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
+fn try_approve(
+    deps: DepsMut,
     env: Env,
     state: State,
     info: MessageInfo,
@@ -82,8 +82,8 @@ fn try_approve<S: Storage, A: Api, Q: Querier>(
     )
 }
 
-fn try_refund<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
+fn try_refund(
+    deps: DepsMut,
     env: Env,
     _info: MessageInfo,
     state: State,
@@ -125,20 +125,14 @@ fn send_tokens(
     Ok(r)
 }
 
-pub fn query<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
-    _env: Env,
-    msg: QueryMsg,
-) -> StdResult<Binary> {
+pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::Arbiter {} => to_binary(&query_arbiter(deps)?),
     }
 }
 
-fn query_arbiter<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
-) -> StdResult<ArbiterResponse> {
-    let state = config_read(&deps.storage).load()?;
+fn query_arbiter(deps: Deps) -> StdResult<ArbiterResponse> {
+    let state = config_read(deps.storage).load()?;
     let addr = deps.api.human_address(&state.arbiter)?;
     Ok(ArbiterResponse { arbiter: addr })
 }
@@ -168,7 +162,7 @@ mod tests {
         env.block.time = 0;
         let info = mock_info("creator", &coins(1000, "earth"));
 
-        let res = init(&mut deps, env, info, msg).unwrap();
+        let res = init(deps.as_mut(), env, info, msg).unwrap();
         assert_eq!(0, res.messages.len());
 
         // it worked, let's query the state
@@ -204,7 +198,7 @@ mod tests {
         env.block.time = 0;
         let info = mock_info("creator", &coins(1000, "earth"));
 
-        let res = init(&mut deps, env, info, msg);
+        let res = init(deps.as_mut(), env, info, msg);
         match res.unwrap_err() {
             ContractError::Expired { .. } => {}
             e => panic!("unexpected error: {:?}", e),
@@ -228,11 +222,11 @@ mod tests {
         env.block.height = 876;
         env.block.time = 0;
         let info = mock_info(creator, &[]);
-        let res = init(&mut deps, env, info, msg).unwrap();
+        let res = init(deps.as_mut(), env, info, msg).unwrap();
         assert_eq!(0, res.messages.len());
 
         // now let's query
-        let query_response = query_arbiter(&deps).unwrap();
+        let query_response = query_arbiter(deps.as_ref()).unwrap();
         assert_eq!(query_response.arbiter, arbiter);
     }
 
@@ -248,7 +242,7 @@ mod tests {
         env.block.time = 0;
         let info = mock_info("creator", &init_amount);
         let contract_addr = env.clone().contract.address;
-        let init_res = init(&mut deps, env, info, msg).unwrap();
+        let init_res = init(deps.as_mut(), env, info, msg).unwrap();
         assert_eq!(0, init_res.messages.len());
 
         // balance changed in init
@@ -260,7 +254,7 @@ mod tests {
         env.block.height = 900;
         env.block.time = 0;
         let info = mock_info("beneficiary", &[]);
-        let handle_res = handle(&mut deps, env, info, msg.clone());
+        let handle_res = handle(deps.as_mut(), env, info, msg.clone());
         match handle_res.unwrap_err() {
             ContractError::Unauthorized { .. } => {}
             e => panic!("unexpected error: {:?}", e),
@@ -271,7 +265,7 @@ mod tests {
         env.block.height = 1100;
         env.block.time = 0;
         let info = mock_info("verifies", &[]);
-        let handle_res = handle(&mut deps, env, info, msg.clone());
+        let handle_res = handle(deps.as_mut(), env, info, msg.clone());
         match handle_res.unwrap_err() {
             ContractError::Expired { .. } => {}
             e => panic!("unexpected error: {:?}", e),
@@ -282,7 +276,7 @@ mod tests {
         env.block.height = 999;
         env.block.time = 0;
         let info = mock_info("verifies", &[]);
-        let handle_res = handle(&mut deps, env, info, msg.clone()).unwrap();
+        let handle_res = handle(deps.as_mut(), env, info, msg.clone()).unwrap();
         assert_eq!(1, handle_res.messages.len());
         let msg = handle_res.messages.get(0).expect("no message");
         assert_eq!(
@@ -302,7 +296,7 @@ mod tests {
         env.block.height = 999;
         env.block.time = 0;
         let info = mock_info("verifies", &[]);
-        let handle_res = handle(&mut deps, env, info, partial_msg).unwrap();
+        let handle_res = handle(deps.as_mut(), env, info, partial_msg).unwrap();
         assert_eq!(1, handle_res.messages.len());
         let msg = handle_res.messages.get(0).expect("no message");
         assert_eq!(
@@ -327,7 +321,7 @@ mod tests {
         env.block.time = 0;
         let info = mock_info("creator", &init_amount);
         let contract_addr = env.clone().contract.address;
-        let init_res = init(&mut deps, env, info, msg).unwrap();
+        let init_res = init(deps.as_mut(), env, info, msg).unwrap();
         assert_eq!(0, init_res.messages.len());
 
         // balance changed in init
@@ -339,7 +333,7 @@ mod tests {
         env.block.height = 800;
         env.block.time = 0;
         let info = mock_info("anybody", &[]);
-        let handle_res = handle(&mut deps, env, info, msg.clone());
+        let handle_res = handle(deps.as_mut(), env, info, msg.clone());
         match handle_res.unwrap_err() {
             ContractError::NotExpired { .. } => {}
             e => panic!("unexpected error: {:?}", e),
@@ -351,7 +345,7 @@ mod tests {
         env.block.height = 1000;
         env.block.time = 0;
         let info = mock_info("anybody", &[]);
-        let handle_res = handle(&mut deps, env, info, msg.clone());
+        let handle_res = handle(deps.as_mut(), env, info, msg.clone());
         match handle_res.unwrap_err() {
             ContractError::NotExpired { .. } => {}
             e => panic!("unexpected error: {:?}", e),
@@ -362,7 +356,7 @@ mod tests {
         env.block.height = 1001;
         env.block.time = 0;
         let info = mock_info("anybody", &[]);
-        let handle_res = handle(&mut deps, env, info, msg.clone()).unwrap();
+        let handle_res = handle(deps.as_mut(), env, info, msg.clone()).unwrap();
         assert_eq!(1, handle_res.messages.len());
         let msg = handle_res.messages.get(0).expect("no message");
         assert_eq!(
