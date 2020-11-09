@@ -261,7 +261,11 @@ fn perform_transfer(
 ) -> Result<(), ContractError> {
     let mut balances_store = PrefixedStorage::new(store, PREFIX_BALANCES);
 
-    let mut from_balance = read_u128(&balances_store, from.as_slice())?;
+    let mut from_balance = match balances_store.get(from.as_slice()) {
+        Some(data) => bytes_to_u128(&data),
+        None => Ok(0u128),
+    }?;
+
     if from_balance < amount {
         return Err(ContractError::InsufficientFunds {
             balance: from_balance,
@@ -271,7 +275,10 @@ fn perform_transfer(
     from_balance -= amount;
     balances_store.set(from.as_slice(), &from_balance.to_be_bytes());
 
-    let mut to_balance = read_u128(&balances_store, to.as_slice())?;
+    let mut to_balance = match balances_store.get(to.as_slice()) {
+        Some(data) => bytes_to_u128(&data),
+        None => Ok(0u128),
+    }?;
     to_balance += amount;
     balances_store.set(to.as_slice(), &to_balance.to_be_bytes());
 
@@ -289,7 +296,7 @@ pub fn bytes_to_u128(data: &[u8]) -> Result<u128, ContractError> {
 
 // Reads 16 byte storage value into u128
 // Returns zero if key does not exist. Errors if data found that is not 16 bytes
-pub fn read_u128(store: &dyn Storage, key: &[u8]) -> Result<u128, ContractError> {
+pub fn read_u128(store: &ReadonlyPrefixedStorage, key: &[u8]) -> Result<u128, ContractError> {
     let result = store.get(key);
     match result {
         Some(data) => bytes_to_u128(&data),
@@ -307,8 +314,8 @@ fn read_allowance(
     owner: &CanonicalAddr,
     spender: &CanonicalAddr,
 ) -> Result<u128, ContractError> {
-    let allowances_store = ReadonlyPrefixedStorage::new(store, PREFIX_ALLOWANCES);
-    let owner_store = ReadonlyPrefixedStorage::new(&allowances_store, owner.as_slice());
+    let owner_store =
+        ReadonlyPrefixedStorage::multilevel(store, &[PREFIX_ALLOWANCES, owner.as_slice()]);
     read_u128(&owner_store, spender.as_slice())
 }
 
@@ -318,8 +325,8 @@ fn write_allowance(
     spender: &CanonicalAddr,
     amount: u128,
 ) -> StdResult<()> {
-    let mut allowances_store = PrefixedStorage::new(store, PREFIX_ALLOWANCES);
-    let mut owner_store = PrefixedStorage::new(&mut allowances_store, owner.as_slice());
+    let mut owner_store =
+        PrefixedStorage::multilevel(store, &[PREFIX_ALLOWANCES, owner.as_slice()]);
     owner_store.set(spender.as_slice(), &amount.to_be_bytes());
     Ok(())
 }
@@ -396,9 +403,10 @@ mod tests {
         let spender_raw_address = api
             .canonical_address(spender)
             .expect("canonical_address failed");
-        let allowances_storage = ReadonlyPrefixedStorage::new(storage, PREFIX_ALLOWANCES);
-        let owner_storage =
-            ReadonlyPrefixedStorage::new(&allowances_storage, owner_raw_address.as_slice());
+        let owner_storage = ReadonlyPrefixedStorage::multilevel(
+            storage,
+            &[PREFIX_ALLOWANCES, owner_raw_address.as_slice()],
+        );
         return read_u128(&owner_storage, &spender_raw_address.as_slice()).unwrap();
     }
     mod init {
