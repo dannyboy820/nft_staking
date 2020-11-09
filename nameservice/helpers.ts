@@ -23,7 +23,6 @@ interface Options {
   readonly gasPrice: GasPrice
   readonly bech32prefix: string
   readonly hdPath: HdPath
-  readonly faucetToken: string
   readonly faucetUrl?: string
   readonly defaultKeyFile: string
   readonly gasLimits: Partial<GasLimits<CosmWasmFeeTable>> // only set the ones you want to override
@@ -104,7 +103,7 @@ const useOptions = (options: Options): Network => {
       const account = await client.getAccount();
       if (!account) {
         console.log(`Getting ${options.feeToken} from faucet`);
-        await hitFaucet(options.faucetUrl, client.senderAddress, options.faucetToken);
+        await hitFaucet(options.faucetUrl, client.senderAddress, options.feeToken);
       }
     }
 
