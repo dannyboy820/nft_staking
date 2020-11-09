@@ -53,26 +53,26 @@ pub struct Poll {
     pub description: String,
 }
 
-pub fn config<S: Storage>(storage: &mut S) -> Singleton<S, State> {
+pub fn config(storage: &mut dyn Storage) -> Singleton<State> {
     singleton(storage, CONFIG_KEY)
 }
 
-pub fn config_read<S: Storage>(storage: &S) -> ReadonlySingleton<S, State> {
+pub fn config_read(storage: &dyn Storage) -> ReadonlySingleton<State> {
     singleton_read(storage, CONFIG_KEY)
 }
 
-pub fn poll<S: Storage>(storage: &mut S) -> Bucket<S, Poll> {
+pub fn poll(storage: &mut dyn Storage) -> Bucket<Poll> {
     bucket(storage, POLL_KEY)
 }
 
-pub fn poll_read<S: Storage>(storage: &S) -> ReadonlyBucket<S, Poll> {
+pub fn poll_read(storage: &dyn Storage) -> ReadonlyBucket<Poll> {
     bucket_read(storage, POLL_KEY)
 }
 
-pub fn bank<S: Storage>(storage: &mut S) -> Bucket<S, TokenManager> {
+pub fn bank(storage: &mut dyn Storage) -> Bucket<TokenManager> {
     bucket(storage, BANK_KEY)
 }
 
-pub fn bank_read<S: Storage>(storage: &S) -> ReadonlyBucket<S, TokenManager> {
+pub fn bank_read(storage: &dyn Storage) -> ReadonlyBucket<TokenManager> {
     bucket_read(storage, BANK_KEY)
 }

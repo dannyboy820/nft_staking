@@ -7,9 +7,8 @@ use crate::state::{
     bank, bank_read, config, config_read, poll, poll_read, Poll, PollStatus, State, Voter,
 };
 use cosmwasm_std::{
-    attr, coin, to_binary, Api, BankMsg, Binary, CanonicalAddr, Coin, CosmosMsg, Env, Extern,
-    HandleResponse, HumanAddr, InitResponse, MessageInfo, Querier, StdError, StdResult, Storage,
-    Uint128,
+    attr, coin, to_binary, BankMsg, Binary, CanonicalAddr, Coin, CosmosMsg, Deps, DepsMut, Env,
+    HandleResponse, HumanAddr, InitResponse, MessageInfo, StdError, StdResult, Storage, Uint128,
 };
 
 pub const VOTING_TOKEN: &str = "voting_token";
@@ -18,8 +17,8 @@ const MIN_STAKE_AMOUNT: u128 = 1;
 const MIN_DESC_LENGTH: u64 = 3;
 const MAX_DESC_LENGTH: u64 = 64;
 
-pub fn init<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
+pub fn init(
+    deps: DepsMut,
     _env: Env,
     info: MessageInfo,
     msg: InitMsg,
@@ -31,13 +30,13 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
         staked_tokens: Uint128::zero(),
     };
 
-    config(&mut deps.storage).save(&state)?;
+    config(deps.storage).save(&state)?;
 
     Ok(InitResponse::default())
 }
 
-pub fn handle<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
+pub fn handle(
+    deps: DepsMut,
     env: Env,
     info: MessageInfo,
     msg: HandleMsg,
@@ -70,17 +69,17 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
     }
 }
 
-pub fn stake_voting_tokens<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
+pub fn stake_voting_tokens(
+    deps: DepsMut,
     _env: Env,
     info: MessageInfo,
 ) -> Result<HandleResponse, ContractError> {
     let sender_address_raw = deps.api.canonical_address(&info.sender)?;
     let key = &sender_address_raw.as_slice();
 
-    let mut token_manager = bank_read(&deps.storage).may_load(key)?.unwrap_or_default();
+    let mut token_manager = bank_read(deps.storage).may_load(key)?.unwrap_or_default();
 
-    let mut state = config(&mut deps.storage).load()?;
+    let mut state = config(deps.storage).load()?;
 
     validate_sent_sufficient_coin(&info.sent_funds, Some(coin(MIN_STAKE_AMOUNT, &state.denom)))?;
     let sent_funds = info
@@ -93,16 +92,16 @@ pub fn stake_voting_tokens<S: Storage, A: Api, Q: Querier>(
 
     let staked_tokens = state.staked_tokens.u128() + sent_funds.amount.u128();
     state.staked_tokens = Uint128::from(staked_tokens);
-    config(&mut deps.storage).save(&state)?;
+    config(deps.storage).save(&state)?;
 
-    bank(&mut deps.storage).save(key, &token_manager)?;
+    bank(deps.storage).save(key, &token_manager)?;
 
     Ok(HandleResponse::default())
 }
 
 // Withdraw amount if not staked. By default all funds will be withdrawn.
-pub fn withdraw_voting_tokens<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
+pub fn withdraw_voting_tokens(
+    deps: DepsMut,
     env: Env,
     info: MessageInfo,
     amount: Option<Uint128>,
@@ -111,8 +110,8 @@ pub fn withdraw_voting_tokens<S: Storage, A: Api, Q: Querier>(
     let contract_address_raw = deps.api.canonical_address(&env.contract.address)?;
     let key = sender_address_raw.as_slice();
 
-    if let Some(mut token_manager) = bank_read(&deps.storage).may_load(key)? {
-        let largest_staked = locked_amount(&sender_address_raw, deps);
+    if let Some(mut token_manager) = bank_read(deps.storage).may_load(key)? {
+        let largest_staked = locked_amount(&sender_address_raw, deps.storage);
         let withdraw_amount = match amount {
             Some(amount) => Some(amount),
             None => Some(token_manager.token_balance),
@@ -125,15 +124,15 @@ pub fn withdraw_voting_tokens<S: Storage, A: Api, Q: Querier>(
             let balance = (token_manager.token_balance - withdraw_amount)?;
             token_manager.token_balance = balance;
 
-            bank(&mut deps.storage).save(key, &token_manager)?;
+            bank(deps.storage).save(key, &token_manager)?;
 
-            let mut state = config(&mut deps.storage).load()?;
+            let mut state = config(deps.storage).load()?;
             let staked_tokens = (state.staked_tokens - withdraw_amount)?;
             state.staked_tokens = staked_tokens;
-            config(&mut deps.storage).save(&state)?;
+            config(deps.storage).save(&state)?;
 
             send_tokens(
-                &deps.api,
+                deps.as_ref(),
                 &contract_address_raw,
                 &sender_address_raw,
                 vec![coin(withdraw_amount.u128(), &state.denom)],
@@ -186,8 +185,8 @@ fn validate_end_height(end_height: Option<u64>, env: Env) -> Result<(), Contract
 }
 
 /// create a new poll
-pub fn create_poll<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
+pub fn create_poll(
+    deps: DepsMut,
     env: Env,
     info: MessageInfo,
     quorum_percentage: Option<u8>,
@@ -199,7 +198,7 @@ pub fn create_poll<S: Storage, A: Api, Q: Querier>(
     validate_end_height(end_height, env.clone())?;
     validate_description(&description)?;
 
-    let mut state = config(&mut deps.storage).load()?;
+    let mut state = config(deps.storage).load()?;
     let poll_count = state.poll_count;
     let poll_id = poll_count + 1;
     state.poll_count = poll_id;
@@ -218,9 +217,9 @@ pub fn create_poll<S: Storage, A: Api, Q: Querier>(
         description,
     };
     let key = state.poll_count.to_be_bytes();
-    poll(&mut deps.storage).save(&key, &new_poll)?;
+    poll(deps.storage).save(&key, &new_poll)?;
 
-    config(&mut deps.storage).save(&state)?;
+    config(deps.storage).save(&state)?;
 
     let r = HandleResponse {
         messages: vec![],
@@ -240,14 +239,14 @@ pub fn create_poll<S: Storage, A: Api, Q: Querier>(
 /*
  * Ends a poll. Only the creator of a given poll can end that poll.
  */
-pub fn end_poll<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
+pub fn end_poll(
+    deps: DepsMut,
     env: Env,
     info: MessageInfo,
     poll_id: u64,
 ) -> Result<HandleResponse, ContractError> {
     let key = &poll_id.to_be_bytes();
-    let mut a_poll = poll(&mut deps.storage).load(key)?;
+    let mut a_poll = poll(deps.storage).load(key)?;
 
     let sender_address_raw = deps.api.canonical_address(&info.sender)?;
     if a_poll.creator != sender_address_raw {
@@ -289,7 +288,7 @@ pub fn end_poll<S: Storage, A: Api, Q: Querier>(
     let mut passed = false;
 
     if tallied_weight > 0 {
-        let state = config_read(&deps.storage).load()?;
+        let state = config_read(deps.storage).load()?;
 
         let staked_weight = deps
             .querier
@@ -321,10 +320,10 @@ pub fn end_poll<S: Storage, A: Api, Q: Querier>(
     if !passed {
         a_poll.status = PollStatus::Rejected
     }
-    poll(&mut deps.storage).save(key, &a_poll)?;
+    poll(deps.storage).save(key, &a_poll)?;
 
     for voter in &a_poll.voters {
-        unlock_tokens(deps, voter, poll_id)?;
+        unlock_tokens(deps.storage, voter, poll_id)?;
     }
 
     let attributes = vec![
@@ -343,27 +342,24 @@ pub fn end_poll<S: Storage, A: Api, Q: Querier>(
 }
 
 // unlock voter's tokens in a given poll
-fn unlock_tokens<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
+fn unlock_tokens(
+    storage: &mut dyn Storage,
     voter: &CanonicalAddr,
     poll_id: u64,
 ) -> Result<HandleResponse, ContractError> {
     let voter_key = &voter.as_slice();
-    let mut token_manager = bank_read(&deps.storage).load(voter_key).unwrap();
+    let mut token_manager = bank_read(storage).load(voter_key).unwrap();
 
     // unlock entails removing the mapped poll_id, retaining the rest
     token_manager.locked_tokens.retain(|(k, _)| k != &poll_id);
-    bank(&mut deps.storage).save(voter_key, &token_manager)?;
+    bank(storage).save(voter_key, &token_manager)?;
     Ok(HandleResponse::default())
 }
 
 // finds the largest locked amount in participated polls.
-fn locked_amount<S: Storage, A: Api, Q: Querier>(
-    voter: &CanonicalAddr,
-    deps: &mut Extern<S, A, Q>,
-) -> Uint128 {
+fn locked_amount(voter: &CanonicalAddr, storage: &dyn Storage) -> Uint128 {
     let voter_key = &voter.as_slice();
-    let token_manager = bank_read(&deps.storage).load(voter_key).unwrap();
+    let token_manager = bank_read(storage).load(voter_key).unwrap();
     token_manager
         .locked_tokens
         .iter()
@@ -376,8 +372,8 @@ fn has_voted(voter: &CanonicalAddr, a_poll: &Poll) -> bool {
     a_poll.voters.iter().any(|i| i == voter)
 }
 
-pub fn cast_vote<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
+pub fn cast_vote(
+    deps: DepsMut,
     _env: Env,
     info: MessageInfo,
     poll_id: u64,
@@ -386,12 +382,12 @@ pub fn cast_vote<S: Storage, A: Api, Q: Querier>(
 ) -> Result<HandleResponse, ContractError> {
     let sender_address_raw = deps.api.canonical_address(&info.sender)?;
     let poll_key = &poll_id.to_be_bytes();
-    let state = config_read(&deps.storage).load()?;
+    let state = config_read(deps.storage).load()?;
     if poll_id == 0 || state.poll_count > poll_id {
         return Err(ContractError::PollNotExist {});
     }
 
-    let mut a_poll = poll(&mut deps.storage).load(poll_key)?;
+    let mut a_poll = poll(deps.storage).load(poll_key)?;
 
     if a_poll.status != PollStatus::InProgress {
         return Err(ContractError::PollNotInProgress {});
@@ -402,21 +398,21 @@ pub fn cast_vote<S: Storage, A: Api, Q: Querier>(
     }
 
     let key = &sender_address_raw.as_slice();
-    let mut token_manager = bank_read(&deps.storage).may_load(key)?.unwrap_or_default();
+    let mut token_manager = bank_read(deps.storage).may_load(key)?.unwrap_or_default();
 
     if token_manager.token_balance < weight {
         return Err(ContractError::PollInsufficientStake {});
     }
     token_manager.participated_polls.push(poll_id);
     token_manager.locked_tokens.push((poll_id, weight));
-    bank(&mut deps.storage).save(key, &token_manager)?;
+    bank(deps.storage).save(key, &token_manager)?;
 
     a_poll.voters.push(sender_address_raw.clone());
 
     let voter_info = Voter { vote, weight };
 
     a_poll.voter_info.push(voter_info);
-    poll(&mut deps.storage).save(poll_key, &a_poll)?;
+    poll(deps.storage).save(poll_key, &a_poll)?;
 
     let attributes = vec![
         attr("action", "vote_casted"),
@@ -433,15 +429,15 @@ pub fn cast_vote<S: Storage, A: Api, Q: Querier>(
     Ok(r)
 }
 
-fn send_tokens<A: Api>(
-    api: &A,
+fn send_tokens(
+    deps: Deps,
     from_address: &CanonicalAddr,
     to_address: &CanonicalAddr,
     amount: Vec<Coin>,
     action: &str,
 ) -> Result<HandleResponse, ContractError> {
-    let from_human = api.human_address(from_address)?;
-    let to_human = api.human_address(to_address)?;
+    let from_human = deps.api.human_address(from_address)?;
+    let to_human = deps.api.human_address(to_address)?;
     let attributes = vec![attr("action", action), attr("to", to_human.clone())];
 
     let r = HandleResponse {
@@ -456,25 +452,18 @@ fn send_tokens<A: Api>(
     Ok(r)
 }
 
-pub fn query<S: Storage, A: Api, Q: Querier>(
-    _deps: &Extern<S, A, Q>,
-    _env: Env,
-    msg: QueryMsg,
-) -> StdResult<Binary> {
+pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
-        QueryMsg::Config {} => to_binary(&config_read(&_deps.storage).load()?),
-        QueryMsg::TokenStake { address } => token_balance(_deps, address),
-        QueryMsg::Poll { poll_id } => query_poll(_deps, poll_id),
+        QueryMsg::Config {} => to_binary(&config_read(deps.storage).load()?),
+        QueryMsg::TokenStake { address } => token_balance(deps, address),
+        QueryMsg::Poll { poll_id } => query_poll(deps, poll_id),
     }
 }
 
-fn query_poll<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
-    poll_id: u64,
-) -> StdResult<Binary> {
+fn query_poll(deps: Deps, poll_id: u64) -> StdResult<Binary> {
     let key = &poll_id.to_be_bytes();
 
-    let poll = match poll_read(&deps.storage).may_load(key)? {
+    let poll = match poll_read(deps.storage).may_load(key)? {
         Some(poll) => Some(poll),
         None => return Err(StdError::generic_err("Poll does not exist")),
     }
@@ -491,13 +480,10 @@ fn query_poll<S: Storage, A: Api, Q: Querier>(
     to_binary(&resp)
 }
 
-fn token_balance<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
-    address: HumanAddr,
-) -> StdResult<Binary> {
+fn token_balance(deps: Deps, address: HumanAddr) -> StdResult<Binary> {
     let key = deps.api.canonical_address(&address).unwrap();
 
-    let token_manager = bank_read(&deps.storage)
+    let token_manager = bank_read(deps.storage)
         .may_load(key.as_slice())?
         .unwrap_or_default();
 
