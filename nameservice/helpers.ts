@@ -31,7 +31,7 @@ interface Options {
 const coralnetOptions: Options = {
   httpUrl: 'https://lcd.coralnet.cosmwasm.com',
   networkId: 'cosmwasm-coral',
-  feeToken: 'ushell',
+  feeToken: 'ucosm',
   gasPrice:  GasPrice.fromString("0.025ucosm"),
   bech32prefix: 'cosmos',
   faucetToken: 'SHELL',
