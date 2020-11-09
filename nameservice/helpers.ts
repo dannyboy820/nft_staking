@@ -89,7 +89,7 @@ const useOptions = (options: Options): Network => {
   const hitFaucet = async (
     faucetUrl: string,
     address: string,
-    ticker: string
+    denom: string
   ): Promise<void> => {
     await axios.post(faucetUrl, { denom, address });
   }
