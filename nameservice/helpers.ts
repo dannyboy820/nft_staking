@@ -22,7 +22,7 @@ interface Options {
   readonly feeToken: string
   readonly gasPrice: GasPrice
   readonly bech32prefix: string
-  readonly hdPath: readonly Slip10RawIndex[]
+  readonly hdPath: HdPath
   readonly faucetToken: string
   readonly faucetUrl?: string
   readonly defaultKeyFile: string
