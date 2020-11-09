@@ -368,7 +368,7 @@ mod tests {
         (env, info)
     }
 
-    fn get_constants<S: Storage>(storage: &S) -> Constants {
+    fn get_constants(storage: &dyn Storage) -> Constants {
         let config_storage = ReadonlyPrefixedStorage::new(storage, PREFIX_CONFIG);
         let data = config_storage
             .get(KEY_CONSTANTS)
@@ -376,7 +376,7 @@ mod tests {
         from_slice(&data).expect("invalid data")
     }
 
-    fn get_total_supply<S: Storage>(storage: &S) -> u128 {
+    fn get_total_supply(storage: &dyn Storage) -> u128 {
         let config_storage = ReadonlyPrefixedStorage::new(storage, PREFIX_CONFIG);
         let data = config_storage
             .get(KEY_TOTAL_SUPPLY)
@@ -384,16 +384,16 @@ mod tests {
         return bytes_to_u128(&data).unwrap();
     }
 
-    fn get_balance<S: Storage, A: Api>(api: &A, storage: &S, address: &HumanAddr) -> u128 {
+    fn get_balance(api: &dyn Api, storage: &dyn Storage, address: &HumanAddr) -> u128 {
         let address_key = api
             .canonical_address(address)
             .expect("canonical_address failed");
         let balances_storage = ReadonlyPrefixedStorage::new(storage, PREFIX_BALANCES);
         return read_u128(&balances_storage, address_key.as_slice()).unwrap();
     }
-    fn get_allowance<S: Storage, A: Api>(
-        api: &A,
-        storage: &S,
+    fn get_allowance(
+        api: &dyn Api,
+        storage: &dyn Storage,
         owner: &HumanAddr,
         spender: &HumanAddr,
     ) -> u128 {
