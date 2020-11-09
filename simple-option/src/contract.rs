@@ -1,14 +1,14 @@
 use cosmwasm_std::{
-    to_binary, Api, BankMsg, Binary, Context, Env, Extern, HandleResponse, HumanAddr, InitResponse,
-    MessageInfo, Querier, StdResult, Storage,
+    to_binary, BankMsg, Binary, Context, Deps, DepsMut, Env, HandleResponse, HumanAddr,
+    InitResponse, MessageInfo, StdResult,
 };
 
 use crate::error::ContractError;
 use crate::msg::{ConfigResponse, HandleMsg, InitMsg, QueryMsg};
 use crate::state::{config, config_read, State};
 
-pub fn init<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
+pub fn init(
+    deps: DepsMut,
     env: Env,
     info: MessageInfo,
     msg: InitMsg,
@@ -27,13 +27,13 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
         expires: msg.expires,
     };
 
-    config(&mut deps.storage).save(&state)?;
+    config(deps.storage).save(&state)?;
 
     Ok(InitResponse::default())
 }
 
-pub fn handle<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
+pub fn handle(
+    deps: DepsMut,
     env: Env,
     info: MessageInfo,
     msg: HandleMsg,
@@ -45,21 +45,21 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
     }
 }
 
-pub fn handle_transfer<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
+pub fn handle_transfer(
+    deps: DepsMut,
     _env: Env,
     info: MessageInfo,
     recipient: HumanAddr,
 ) -> Result<HandleResponse, ContractError> {
     // ensure msg sender is the owner
-    let mut state = config(&mut deps.storage).load()?;
+    let mut state = config(deps.storage).load()?;
     if info.sender != state.owner {
         return Err(ContractError::Unauthorized {});
     }
 
     // set new owner on state
     state.owner = recipient.clone();
-    config(&mut deps.storage).save(&state)?;
+    config(deps.storage).save(&state)?;
 
     let mut res = Context::new();
     res.add_attribute("action", "transfer");
@@ -67,13 +67,13 @@ pub fn handle_transfer<S: Storage, A: Api, Q: Querier>(
     Ok(res.into())
 }
 
-pub fn handle_execute<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
+pub fn handle_execute(
+    deps: DepsMut,
     env: Env,
     info: MessageInfo,
 ) -> Result<HandleResponse, ContractError> {
     // ensure msg sender is the owner
-    let state = config(&mut deps.storage).load()?;
+    let state = config(deps.storage).load()?;
     if info.sender != state.owner {
         return Err(ContractError::Unauthorized {});
     }
@@ -109,19 +109,19 @@ pub fn handle_execute<S: Storage, A: Api, Q: Querier>(
     });
 
     // delete the option
-    config(&mut deps.storage).remove();
+    config(deps.storage).remove();
 
     res.add_attribute("action", "execute");
     Ok(res.into())
 }
 
-pub fn handle_burn<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
+pub fn handle_burn(
+    deps: DepsMut,
     env: Env,
     info: MessageInfo,
 ) -> Result<HandleResponse, ContractError> {
     // ensure is expired
-    let state = config(&mut deps.storage).load()?;
+    let state = config(deps.storage).load()?;
     if env.block.height < state.expires {
         return Err(ContractError::OptionNotExpired {
             expires: state.expires,
@@ -142,26 +142,20 @@ pub fn handle_burn<S: Storage, A: Api, Q: Querier>(
     });
 
     // delete the option
-    config(&mut deps.storage).remove();
+    config(deps.storage).remove();
 
     res.add_attribute("action", "burn");
     Ok(res.into())
 }
 
-pub fn query<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
-    _env: Env,
-    msg: QueryMsg,
-) -> StdResult<Binary> {
+pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::Config {} => to_binary(&query_config(deps)?),
     }
 }
 
-fn query_config<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
-) -> StdResult<ConfigResponse> {
-    let state = config_read(&deps.storage).load()?;
+fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
+    let state = config_read(deps.storage).load()?;
     Ok(state)
 }
 
@@ -182,11 +176,11 @@ mod tests {
         let info = mock_info("creator", &coins(1, "BTC"));
 
         // we can just call .unwrap() to assert this was a success
-        let res = init(&mut deps, mock_env(), info, msg).unwrap();
+        let res = init(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(0, res.messages.len());
 
         // it worked, let's query the state
-        let res = query_config(&deps).unwrap();
+        let res = query_config(deps.as_ref()).unwrap();
         assert_eq!(100_000, res.expires);
         assert_eq!("creator", res.owner.as_str());
         assert_eq!("creator", res.creator.as_str());
@@ -205,13 +199,13 @@ mod tests {
         let info = mock_info("creator", &coins(1, "BTC"));
 
         // we can just call .unwrap() to assert this was a success
-        let res = init(&mut deps, mock_env(), info, msg).unwrap();
+        let res = init(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(0, res.messages.len());
 
         // random cannot transfer
         let info = mock_info("anyone", &[]);
-        let err =
-            handle_transfer(&mut deps, mock_env(), info, HumanAddr::from("anyone")).unwrap_err();
+        let err = handle_transfer(deps.as_mut(), mock_env(), info, HumanAddr::from("anyone"))
+            .unwrap_err();
         match err {
             ContractError::Unauthorized {} => {}
             e => panic!("unexpected error: {}", e),
@@ -219,12 +213,13 @@ mod tests {
 
         // owner can transfer
         let info = mock_info("creator", &[]);
-        let res = handle_transfer(&mut deps, mock_env(), info, HumanAddr::from("someone")).unwrap();
+        let res =
+            handle_transfer(deps.as_mut(), mock_env(), info, HumanAddr::from("someone")).unwrap();
         assert_eq!(res.attributes.len(), 2);
         assert_eq!(res.attributes[0], attr("action", "transfer"));
 
         // check updated properly
-        let res = query_config(&deps).unwrap();
+        let res = query_config(deps.as_ref()).unwrap();
         assert_eq!("someone", res.owner.as_str());
         assert_eq!("creator", res.creator.as_str());
     }
@@ -243,15 +238,15 @@ mod tests {
         let info = mock_info("creator", &collateral);
 
         // we can just call .unwrap() to assert this was a success
-        let _ = init(&mut deps, mock_env(), info, msg).unwrap();
+        let _ = init(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         // set new owner
         let info = mock_info("creator", &[]);
-        let _ = handle_transfer(&mut deps, mock_env(), info, HumanAddr::from("owner")).unwrap();
+        let _ = handle_transfer(deps.as_mut(), mock_env(), info, HumanAddr::from("owner")).unwrap();
 
         // random cannot execute
         let info = mock_info("creator", &amount);
-        let err = handle_execute(&mut deps, mock_env(), info).unwrap_err();
+        let err = handle_execute(deps.as_mut(), mock_env(), info).unwrap_err();
         match err {
             ContractError::Unauthorized {} => {}
             e => panic!("unexpected error: {}", e),
@@ -261,7 +256,7 @@ mod tests {
         let info = mock_info("owner", &amount);
         let mut env = mock_env();
         env.block.height = 200_000;
-        let err = handle_execute(&mut deps, env, info).unwrap_err();
+        let err = handle_execute(deps.as_mut(), env, info).unwrap_err();
         match err {
             ContractError::OptionExpired { expired } => assert_eq!(expired, expires),
             e => panic!("unexpected error: {}", e),
@@ -270,7 +265,7 @@ mod tests {
         // bad counter_offer cannot execute
         let msg_offer = coins(39, "ETH");
         let info = mock_info("owner", &msg_offer);
-        let err = handle_execute(&mut deps, mock_env(), info).unwrap_err();
+        let err = handle_execute(deps.as_mut(), mock_env(), info).unwrap_err();
         match err {
             ContractError::CounterOfferMismatch {
                 offer,
@@ -284,7 +279,7 @@ mod tests {
 
         // proper execution
         let info = mock_info("owner", &amount);
-        let res = handle_execute(&mut deps, mock_env(), info).unwrap();
+        let res = handle_execute(deps.as_mut(), mock_env(), info).unwrap();
         assert_eq!(res.messages.len(), 2);
         assert_eq!(
             res.messages[0],
@@ -304,7 +299,7 @@ mod tests {
         );
 
         // check deleted
-        let _ = query_config(&deps).unwrap_err();
+        let _ = query_config(deps.as_ref()).unwrap_err();
     }
 
     #[test]
@@ -321,15 +316,15 @@ mod tests {
         let info = mock_info("creator", &collateral);
 
         // we can just call .unwrap() to assert this was a success
-        let _ = init(&mut deps, mock_env(), info, msg).unwrap();
+        let _ = init(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         // set new owner
         let info = mock_info("creator", &[]);
-        let _ = handle_transfer(&mut deps, mock_env(), info, HumanAddr::from("owner")).unwrap();
+        let _ = handle_transfer(deps.as_mut(), mock_env(), info, HumanAddr::from("owner")).unwrap();
 
         // non-expired cannot execute
         let info = mock_info("anyone", &[]);
-        let err = handle_burn(&mut deps, mock_env(), info).unwrap_err();
+        let err = handle_burn(deps.as_mut(), mock_env(), info).unwrap_err();
         match err {
             ContractError::OptionNotExpired { expires } => assert_eq!(expires, msg_expires),
             e => panic!("unexpected error: {}", e),
@@ -339,7 +334,7 @@ mod tests {
         let info = mock_info("anyone", &counter_offer);
         let mut env = mock_env();
         env.block.height = 200_000;
-        let err = handle_burn(&mut deps, env, info).unwrap_err();
+        let err = handle_burn(deps.as_mut(), env, info).unwrap_err();
         match err {
             ContractError::FundsSentWithBurn {} => {}
             e => panic!("unexpected error: {}", e),
@@ -349,7 +344,7 @@ mod tests {
         let info = mock_info("anyone", &[]);
         let mut env = mock_env();
         env.block.height = 200_000;
-        let res = handle_burn(&mut deps, env, info).unwrap();
+        let res = handle_burn(deps.as_mut(), env, info).unwrap();
         assert_eq!(res.messages.len(), 1);
         assert_eq!(
             res.messages[0],
@@ -361,6 +356,6 @@ mod tests {
         );
 
         // check deleted
-        let _ = query_config(&deps).unwrap_err();
+        let _ = query_config(deps.as_ref()).unwrap_err();
     }
 }
