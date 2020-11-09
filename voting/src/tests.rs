@@ -4,11 +4,9 @@ mod tests {
     use crate::error::ContractError;
     use crate::msg::{HandleMsg, InitMsg, PollResponse, QueryMsg};
     use crate::state::{config_read, PollStatus, State};
-    use cosmwasm_std::testing::{
-        mock_dependencies, mock_env, mock_info, MockApi, MockQuerier, MockStorage,
-    };
+    use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
     use cosmwasm_std::{
-        attr, coins, from_binary, Api, BankMsg, Coin, CosmosMsg, Env, Extern, HandleResponse,
+        attr, coins, from_binary, BankMsg, Coin, CosmosMsg, DepsMut, Env, HandleResponse,
         HumanAddr, MessageInfo, StdError, Uint128,
     };
 
@@ -17,14 +15,14 @@ mod tests {
     const TEST_VOTER: &str = "voter1";
     const TEST_VOTER_2: &str = "voter2";
 
-    fn mock_init(mut deps: &mut Extern<MockStorage, MockApi, MockQuerier>) {
+    fn mock_init(deps: DepsMut) {
         let msg = InitMsg {
             denom: String::from(VOTING_TOKEN),
         };
 
         let info = mock_info(TEST_CREATOR, &coins(2, &msg.denom));
         let _res =
-            init(&mut deps, mock_env(), info, msg).expect("contract successfully handles InitMsg");
+            init(deps, mock_env(), info, msg).expect("contract successfully handles InitMsg");
     }
 
     fn mock_info_height(sender: &str, sent: &[Coin], height: u64, time: u64) -> (Env, MessageInfo) {
@@ -47,7 +45,7 @@ mod tests {
 
         let msg = init_msg();
         let info = mock_info(TEST_CREATOR, &coins(2, VOTING_TOKEN));
-        let res = init(&mut deps, mock_env(), info, msg).unwrap();
+        let res = init(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(0, res.messages.len());
 
         let state = config_read(&mut deps.storage).load().unwrap();
@@ -56,6 +54,7 @@ mod tests {
             State {
                 denom: String::from(VOTING_TOKEN),
                 owner: deps
+                    .as_ref()
                     .api
                     .canonical_address(&HumanAddr::from(TEST_CREATOR))
                     .unwrap(),
@@ -68,9 +67,9 @@ mod tests {
     #[test]
     fn poll_not_found() {
         let mut deps = mock_dependencies(&[]);
-        mock_init(&mut deps);
+        mock_init(deps.as_mut());
 
-        let res = query(&deps, mock_env(), QueryMsg::Poll { poll_id: 1 });
+        let res = query(deps.as_ref(), mock_env(), QueryMsg::Poll { poll_id: 1 });
 
         match res {
             Err(StdError::GenericErr { msg, .. }) => assert_eq!(msg, "Poll does not exist"),
@@ -87,7 +86,7 @@ mod tests {
         let qp = 101;
         let msg = create_poll_msg(qp, "test".to_string(), None, None);
 
-        let res = handle(&mut deps, mock_env(), info, msg);
+        let res = handle(deps.as_mut(), mock_env(), info, msg);
 
         match res {
             Ok(_) => panic!("Must return error"),
@@ -105,7 +104,7 @@ mod tests {
 
         let msg = create_poll_msg(30, "a".to_string(), None, None);
 
-        match handle(&mut deps, mock_env(), info.clone(), msg) {
+        match handle(deps.as_mut(), mock_env(), info.clone(), msg) {
             Ok(_) => panic!("Must return error"),
             Err(ContractError::DescriptionTooShort { .. }) => {}
             Err(_) => panic!("Unknown error"),
@@ -118,7 +117,7 @@ mod tests {
             None,
         );
 
-        match handle(&mut deps, mock_env(), info, msg) {
+        match handle(deps.as_mut(), mock_env(), info, msg) {
             Ok(_) => panic!("Must return error"),
             Err(ContractError::DescriptionTooLong { .. }) => {}
             Err(_) => panic!("Unknown error"),
@@ -143,13 +142,13 @@ mod tests {
     #[test]
     fn happy_days_create_poll() {
         let mut deps = mock_dependencies(&[]);
-        mock_init(&mut deps);
+        mock_init(deps.as_mut());
         let (env, info) = mock_info_height(TEST_CREATOR, &coins(2, VOTING_TOKEN), 0, 10000);
 
         let quorum = 30;
         let msg = create_poll_msg(quorum, "test".to_string(), None, None);
 
-        let handle_res = handle(&mut deps, env.clone(), info.clone(), msg.clone()).unwrap();
+        let handle_res = handle(deps.as_mut(), env.clone(), info.clone(), msg.clone()).unwrap();
         assert_create_poll_result(
             1,
             quorum,
@@ -157,20 +156,20 @@ mod tests {
             0,
             TEST_CREATOR,
             handle_res,
-            &mut deps,
+            deps.as_mut(),
         );
     }
 
     #[test]
     fn create_poll_no_quorum() {
         let mut deps = mock_dependencies(&[]);
-        mock_init(&mut deps);
+        mock_init(deps.as_mut());
         let (env, info) = mock_info_height(TEST_CREATOR, &coins(2, VOTING_TOKEN), 0, 10000);
 
         let quorum = 0;
         let msg = create_poll_msg(quorum, "test".to_string(), None, None);
 
-        let handle_res = handle(&mut deps, env, info, msg.clone()).unwrap();
+        let handle_res = handle(deps.as_mut(), env, info, msg.clone()).unwrap();
         assert_create_poll_result(
             1,
             quorum,
@@ -178,29 +177,37 @@ mod tests {
             0,
             TEST_CREATOR,
             handle_res,
-            &mut deps,
+            deps.as_mut(),
         );
     }
 
     #[test]
     fn fails_end_poll_before_end_height() {
         let mut deps = mock_dependencies(&[]);
-        mock_init(&mut deps);
+        mock_init(deps.as_mut());
         let (env, info) = mock_info_height(TEST_CREATOR, &coins(2, VOTING_TOKEN), 0, 10000);
 
         let msg_end_height = 10001;
         let msg = create_poll_msg(0, "test".to_string(), None, Some(msg_end_height));
 
-        let handle_res = handle(&mut deps, env.clone(), info.clone(), msg.clone()).unwrap();
-        assert_create_poll_result(1, 0, msg_end_height, 0, TEST_CREATOR, handle_res, &mut deps);
+        let handle_res = handle(deps.as_mut(), env.clone(), info.clone(), msg.clone()).unwrap();
+        assert_create_poll_result(
+            1,
+            0,
+            msg_end_height,
+            0,
+            TEST_CREATOR,
+            handle_res,
+            deps.as_mut(),
+        );
 
-        let res = query(&deps, mock_env(), QueryMsg::Poll { poll_id: 1 }).unwrap();
+        let res = query(deps.as_ref(), mock_env(), QueryMsg::Poll { poll_id: 1 }).unwrap();
         let value: PollResponse = from_binary(&res).unwrap();
         assert_eq!(Some(10001), value.end_height);
 
         let msg = HandleMsg::EndPoll { poll_id: 1 };
 
-        let handle_res = handle(&mut deps, env.clone(), info.clone(), msg);
+        let handle_res = handle(deps.as_mut(), env.clone(), info.clone(), msg);
 
         match handle_res {
             Ok(_) => panic!("Must return error"),
@@ -218,7 +225,7 @@ mod tests {
         let stake_amount = 1000;
 
         let mut deps = mock_dependencies(&coins(1000, VOTING_TOKEN));
-        mock_init(&mut deps);
+        mock_init(deps.as_mut());
         let (mut creator_env, creator_info) = mock_info_height(
             TEST_CREATOR,
             &coins(2, VOTING_TOKEN),
@@ -233,7 +240,13 @@ mod tests {
             Some(creator_env.clone().block.height + 1),
         );
 
-        let handle_res = handle(&mut deps, creator_env.clone(), creator_info.clone(), msg).unwrap();
+        let handle_res = handle(
+            deps.as_mut(),
+            creator_env.clone(),
+            creator_info.clone(),
+            msg,
+        )
+        .unwrap();
 
         assert_create_poll_result(
             1,
@@ -242,22 +255,22 @@ mod tests {
             0,
             TEST_CREATOR,
             handle_res,
-            &mut deps,
+            deps.as_mut(),
         );
 
         let msg = HandleMsg::StakeVotingTokens {};
         let env = mock_env();
         let info = mock_info(TEST_VOTER, &coins(stake_amount, VOTING_TOKEN));
 
-        let handle_res = handle(&mut deps, env.clone(), info.clone(), msg.clone()).unwrap();
-        assert_stake_tokens_result(stake_amount, Some(1), handle_res, &mut deps);
+        let handle_res = handle(deps.as_mut(), env.clone(), info.clone(), msg.clone()).unwrap();
+        assert_stake_tokens_result(stake_amount, Some(1), handle_res, deps.as_mut());
 
         let msg = HandleMsg::CastVote {
             poll_id: 1,
             vote: "yes".to_string(),
             weight: Uint128::from(stake_amount),
         };
-        let handle_res = handle(&mut deps, env.clone(), info.clone(), msg).unwrap();
+        let handle_res = handle(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
 
         assert_eq!(
             handle_res.attributes,
@@ -273,7 +286,13 @@ mod tests {
 
         let msg = HandleMsg::EndPoll { poll_id: 1 };
 
-        let handle_res = handle(&mut deps, creator_env.clone(), creator_info.clone(), msg).unwrap();
+        let handle_res = handle(
+            deps.as_mut(),
+            creator_env.clone(),
+            creator_info.clone(),
+            msg,
+        )
+        .unwrap();
 
         assert_eq!(
             handle_res.attributes,
@@ -284,7 +303,7 @@ mod tests {
                 attr("passed", "true"),
             ]
         );
-        let res = query(&deps, mock_env(), QueryMsg::Poll { poll_id: 1 }).unwrap();
+        let res = query(deps.as_ref(), mock_env(), QueryMsg::Poll { poll_id: 1 }).unwrap();
         let value: PollResponse = from_binary(&res).unwrap();
         assert_eq!(PollStatus::Passed, value.status);
     }
@@ -292,17 +311,17 @@ mod tests {
     #[test]
     fn end_poll_zero_quorum() {
         let mut deps = mock_dependencies(&coins(1000, VOTING_TOKEN));
-        mock_init(&mut deps);
+        mock_init(deps.as_mut());
         let (mut env, info) = mock_info_height(TEST_CREATOR, &coins(2, VOTING_TOKEN), 1000, 10000);
 
         let msg = create_poll_msg(0, "test".to_string(), None, Some(env.block.height + 1));
 
-        let handle_res = handle(&mut deps, env.clone(), info.clone(), msg).unwrap();
-        assert_create_poll_result(1, 0, 1001, 0, TEST_CREATOR, handle_res, &mut deps);
+        let handle_res = handle(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
+        assert_create_poll_result(1, 0, 1001, 0, TEST_CREATOR, handle_res, deps.as_mut());
         let msg = HandleMsg::EndPoll { poll_id: 1 };
         env.block.height = &env.block.height + 2;
 
-        let handle_res = handle(&mut deps, env.clone(), info, msg).unwrap();
+        let handle_res = handle(deps.as_mut(), env.clone(), info, msg).unwrap();
 
         assert_eq!(
             handle_res.attributes,
@@ -314,7 +333,7 @@ mod tests {
             ]
         );
 
-        let res = query(&deps, env.clone(), QueryMsg::Poll { poll_id: 1 }).unwrap();
+        let res = query(deps.as_ref(), env.clone(), QueryMsg::Poll { poll_id: 1 }).unwrap();
         let value: PollResponse = from_binary(&res).unwrap();
         assert_eq!(PollStatus::Rejected, value.status);
     }
@@ -322,7 +341,7 @@ mod tests {
     #[test]
     fn end_poll_quorum_rejected() {
         let mut deps = mock_dependencies(&coins(100, VOTING_TOKEN));
-        mock_init(&mut deps);
+        mock_init(deps.as_mut());
         let (mut creator_env, creator_info) =
             mock_info_height(TEST_CREATOR, &coins(2, VOTING_TOKEN), 0, 0);
 
@@ -334,7 +353,7 @@ mod tests {
         );
 
         let handle_res = handle(
-            &mut deps,
+            deps.as_mut(),
             creator_env.clone(),
             creator_info.clone(),
             msg.clone(),
@@ -356,15 +375,15 @@ mod tests {
         let stake_amount = 100;
         let (env, info) = mock_info_height(TEST_VOTER, &coins(stake_amount, VOTING_TOKEN), 0, 0);
 
-        let handle_res = handle(&mut deps, env.clone(), info.clone(), msg.clone()).unwrap();
-        assert_stake_tokens_result(stake_amount, Some(1), handle_res, &mut deps);
+        let handle_res = handle(deps.as_mut(), env.clone(), info.clone(), msg.clone()).unwrap();
+        assert_stake_tokens_result(stake_amount, Some(1), handle_res, deps.as_mut());
 
         let msg = HandleMsg::CastVote {
             poll_id: 1,
             vote: "yes".to_string(),
             weight: Uint128::from(10u128),
         };
-        let handle_res = handle(&mut deps, env.clone(), info.clone(), msg).unwrap();
+        let handle_res = handle(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
 
         assert_eq!(
             handle_res.attributes,
@@ -381,7 +400,7 @@ mod tests {
         creator_env.block.height = &creator_env.block.height + 2;
 
         let handle_res = handle(
-            &mut deps,
+            deps.as_mut(),
             creator_env.clone(),
             creator_info.clone(),
             msg.clone(),
@@ -397,7 +416,7 @@ mod tests {
             ]
         );
 
-        let res = query(&deps, mock_env(), QueryMsg::Poll { poll_id: 1 }).unwrap();
+        let res = query(deps.as_ref(), mock_env(), QueryMsg::Poll { poll_id: 1 }).unwrap();
         let value: PollResponse = from_binary(&res).unwrap();
         assert_eq!(PollStatus::Rejected, value.status);
     }
@@ -407,7 +426,7 @@ mod tests {
         let voter1_stake = 100;
         let voter2_stake = 1000;
         let mut deps = mock_dependencies(&coins(voter1_stake, VOTING_TOKEN));
-        mock_init(&mut deps);
+        mock_init(deps.as_mut());
         let (mut creator_env, creator_info) =
             mock_info_height(TEST_CREATOR, &coins(2, VOTING_TOKEN), 0, 0);
 
@@ -419,7 +438,7 @@ mod tests {
         );
 
         let handle_res = handle(
-            &mut deps,
+            deps.as_mut(),
             creator_env.clone(),
             creator_info.clone(),
             msg.clone(),
@@ -440,14 +459,19 @@ mod tests {
         let msg = HandleMsg::StakeVotingTokens {};
         let (_, info) = mock_info_height(TEST_VOTER, &coins(voter1_stake, VOTING_TOKEN), 0, 0);
 
-        let handle_res = handle(&mut deps, mock_env(), info, msg.clone()).unwrap();
-        assert_stake_tokens_result(voter1_stake, Some(1), handle_res, &mut deps);
+        let handle_res = handle(deps.as_mut(), mock_env(), info, msg.clone()).unwrap();
+        assert_stake_tokens_result(voter1_stake, Some(1), handle_res, deps.as_mut());
 
         let msg = HandleMsg::StakeVotingTokens {};
         let info = mock_info(TEST_VOTER_2, &coins(voter2_stake, VOTING_TOKEN));
 
-        let handle_res = handle(&mut deps, mock_env(), info, msg.clone()).unwrap();
-        assert_stake_tokens_result(voter1_stake + voter2_stake, Some(1), handle_res, &mut deps);
+        let handle_res = handle(deps.as_mut(), mock_env(), info, msg.clone()).unwrap();
+        assert_stake_tokens_result(
+            voter1_stake + voter2_stake,
+            Some(1),
+            handle_res,
+            deps.as_mut(),
+        );
 
         let (env, info) = mock_info_height(TEST_VOTER_2, &[], 0, 0);
         let msg = HandleMsg::CastVote {
@@ -455,14 +479,14 @@ mod tests {
             vote: "no".to_string(),
             weight: Uint128::from(voter2_stake),
         };
-        let handle_res = handle(&mut deps, env.clone(), info.clone(), msg).unwrap();
+        let handle_res = handle(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
         assert_cast_vote_success(TEST_VOTER_2, voter2_stake, 1, handle_res);
 
         let msg = HandleMsg::EndPoll { poll_id: 1 };
 
         creator_env.block.height = &creator_env.block.height + 2;
         let handle_res = handle(
-            &mut deps,
+            deps.as_mut(),
             creator_env.clone(),
             creator_info.clone(),
             msg.clone(),
@@ -478,7 +502,7 @@ mod tests {
             ]
         );
 
-        let res = query(&deps, mock_env(), QueryMsg::Poll { poll_id: 1 }).unwrap();
+        let res = query(deps.as_ref(), mock_env(), QueryMsg::Poll { poll_id: 1 }).unwrap();
         let value: PollResponse = from_binary(&res).unwrap();
         assert_eq!(PollStatus::Rejected, value.status);
     }
@@ -486,7 +510,7 @@ mod tests {
     #[test]
     fn fails_end_poll_before_start_height() {
         let mut deps = mock_dependencies(&[]);
-        mock_init(&mut deps);
+        mock_init(deps.as_mut());
         let (env, info) = mock_info_height(TEST_CREATOR, &coins(2, VOTING_TOKEN), 0, 10000);
 
         let msg_start_height = 1001;
@@ -498,7 +522,7 @@ mod tests {
             None,
         );
 
-        let handle_res = handle(&mut deps, env.clone(), info.clone(), msg.clone()).unwrap();
+        let handle_res = handle(deps.as_mut(), env.clone(), info.clone(), msg.clone()).unwrap();
         assert_create_poll_result(
             1,
             quorum_percentage,
@@ -506,11 +530,11 @@ mod tests {
             msg_start_height,
             TEST_CREATOR,
             handle_res,
-            &mut deps,
+            deps.as_mut(),
         );
         let msg = HandleMsg::EndPoll { poll_id: 1 };
 
-        let handle_res = handle(&mut deps, env.clone(), info.clone(), msg);
+        let handle_res = handle(deps.as_mut(), env.clone(), info.clone(), msg);
 
         match handle_res {
             Ok(_) => panic!("Must return error"),
@@ -524,12 +548,12 @@ mod tests {
     #[test]
     fn fails_cast_vote_not_enough_staked() {
         let mut deps = mock_dependencies(&[]);
-        mock_init(&mut deps);
+        mock_init(deps.as_mut());
         let (env, info) = mock_info_height(TEST_CREATOR, &coins(2, VOTING_TOKEN), 0, 10000);
 
         let msg = create_poll_msg(0, "test".to_string(), None, None);
 
-        let handle_res = handle(&mut deps, env, info, msg.clone()).unwrap();
+        let handle_res = handle(deps.as_mut(), env, info, msg.clone()).unwrap();
         assert_create_poll_result(
             1,
             0,
@@ -537,7 +561,7 @@ mod tests {
             0,
             TEST_CREATOR,
             handle_res,
-            &mut deps,
+            deps.as_mut(),
         );
 
         let info = mock_info(TEST_VOTER, &coins(11, VOTING_TOKEN));
@@ -547,7 +571,7 @@ mod tests {
             weight: Uint128::from(1u128),
         };
 
-        let res = handle(&mut deps, mock_env(), info, msg);
+        let res = handle(deps.as_mut(), mock_env(), info, msg);
 
         match res {
             Ok(_) => panic!("Must return error"),
@@ -559,7 +583,7 @@ mod tests {
     #[test]
     fn happy_days_cast_vote() {
         let mut deps = mock_dependencies(&[]);
-        mock_init(&mut deps);
+        mock_init(deps.as_mut());
 
         let (env, info) = mock_info_height(TEST_CREATOR, &coins(2, VOTING_TOKEN), 0, 10000);
 
@@ -567,7 +591,7 @@ mod tests {
 
         let msg = create_poll_msg(quorum_percentage, "test".to_string(), None, None);
 
-        let handle_res = handle(&mut deps, env, info, msg.clone()).unwrap();
+        let handle_res = handle(deps.as_mut(), env, info, msg.clone()).unwrap();
         assert_create_poll_result(
             1,
             quorum_percentage,
@@ -575,14 +599,14 @@ mod tests {
             0,
             TEST_CREATOR,
             handle_res,
-            &mut deps,
+            deps.as_mut(),
         );
 
         let msg = HandleMsg::StakeVotingTokens {};
         let info = mock_info(TEST_VOTER, &coins(11, VOTING_TOKEN));
 
-        let handle_res = handle(&mut deps, mock_env(), info, msg.clone()).unwrap();
-        assert_stake_tokens_result(11, Some(1), handle_res, &mut deps);
+        let handle_res = handle(deps.as_mut(), mock_env(), info, msg.clone()).unwrap();
+        assert_stake_tokens_result(11, Some(1), handle_res, deps.as_mut());
 
         let info = mock_info(TEST_VOTER, &coins(11, VOTING_TOKEN));
         let weight = 10u128;
@@ -592,20 +616,20 @@ mod tests {
             weight: Uint128::from(weight),
         };
 
-        let handle_res = handle(&mut deps, mock_env(), info, msg.clone()).unwrap();
+        let handle_res = handle(deps.as_mut(), mock_env(), info, msg.clone()).unwrap();
         assert_cast_vote_success(TEST_VOTER, weight, 1, handle_res);
     }
 
     #[test]
     fn happy_days_withdraw_voting_tokens() {
         let mut deps = mock_dependencies(&[]);
-        mock_init(&mut deps);
+        mock_init(deps.as_mut());
 
         let msg = HandleMsg::StakeVotingTokens {};
         let info = mock_info(TEST_VOTER, &coins(11, VOTING_TOKEN));
 
-        let handle_res = handle(&mut deps, mock_env(), info, msg.clone()).unwrap();
-        assert_stake_tokens_result(11, None, handle_res, &mut deps);
+        let handle_res = handle(deps.as_mut(), mock_env(), info, msg.clone()).unwrap();
+        assert_stake_tokens_result(11, None, handle_res, deps.as_mut());
 
         let state = config_read(&mut deps.storage).load().unwrap();
         assert_eq!(
@@ -613,6 +637,7 @@ mod tests {
             State {
                 denom: String::from(VOTING_TOKEN),
                 owner: deps
+                    .as_ref()
                     .api
                     .canonical_address(&HumanAddr::from(TEST_CREATOR))
                     .unwrap(),
@@ -626,7 +651,7 @@ mod tests {
             amount: Some(Uint128::from(11u128)),
         };
 
-        let handle_res = handle(&mut deps, mock_env(), info, msg.clone()).unwrap();
+        let handle_res = handle(deps.as_mut(), mock_env(), info, msg.clone()).unwrap();
         let msg = handle_res.messages.get(0).expect("no message");
 
         assert_eq!(
@@ -644,6 +669,7 @@ mod tests {
             State {
                 denom: String::from(VOTING_TOKEN),
                 owner: deps
+                    .as_ref()
                     .api
                     .canonical_address(&HumanAddr::from(TEST_CREATOR))
                     .unwrap(),
@@ -656,14 +682,14 @@ mod tests {
     #[test]
     fn fails_withdraw_voting_tokens_no_stake() {
         let mut deps = mock_dependencies(&[]);
-        mock_init(&mut deps);
+        mock_init(deps.as_mut());
 
         let info = mock_info(TEST_VOTER, &coins(11, VOTING_TOKEN));
         let msg = HandleMsg::WithdrawVotingTokens {
             amount: Some(Uint128::from(11u128)),
         };
 
-        let res = handle(&mut deps, mock_env(), info, msg);
+        let res = handle(deps.as_mut(), mock_env(), info, msg);
 
         match res {
             Ok(_) => panic!("Must return error"),
@@ -675,20 +701,20 @@ mod tests {
     #[test]
     fn fails_withdraw_too_many_tokens() {
         let mut deps = mock_dependencies(&[]);
-        mock_init(&mut deps);
+        mock_init(deps.as_mut());
 
         let msg = HandleMsg::StakeVotingTokens {};
         let info = mock_info(TEST_VOTER, &coins(10, VOTING_TOKEN));
 
-        let handle_res = handle(&mut deps, mock_env(), info, msg.clone()).unwrap();
-        assert_stake_tokens_result(10, None, handle_res, &mut deps);
+        let handle_res = handle(deps.as_mut(), mock_env(), info, msg.clone()).unwrap();
+        assert_stake_tokens_result(10, None, handle_res, deps.as_mut());
 
         let info = mock_info(TEST_VOTER, &[]);
         let msg = HandleMsg::WithdrawVotingTokens {
             amount: Some(Uint128::from(11u128)),
         };
 
-        let res = handle(&mut deps, mock_env(), info, msg);
+        let res = handle(deps.as_mut(), mock_env(), info, msg);
 
         match res {
             Ok(_) => panic!("Must return error"),
@@ -702,13 +728,13 @@ mod tests {
     #[test]
     fn fails_cast_vote_twice() {
         let mut deps = mock_dependencies(&[]);
-        mock_init(&mut deps);
+        mock_init(deps.as_mut());
 
         let (env, info) = mock_info_height(TEST_CREATOR, &coins(2, VOTING_TOKEN), 0, 10000);
 
         let quorum_percentage = 30;
         let msg = create_poll_msg(quorum_percentage, "test".to_string(), None, None);
-        let handle_res = handle(&mut deps, env.clone(), info, msg.clone()).unwrap();
+        let handle_res = handle(deps.as_mut(), env.clone(), info, msg.clone()).unwrap();
 
         assert_create_poll_result(
             1,
@@ -717,14 +743,14 @@ mod tests {
             0,
             TEST_CREATOR,
             handle_res,
-            &mut deps,
+            deps.as_mut(),
         );
 
         let info = mock_info(TEST_VOTER, &coins(11, VOTING_TOKEN));
         let msg = HandleMsg::StakeVotingTokens {};
 
-        let handle_res = handle(&mut deps, env.clone(), info.clone(), msg.clone()).unwrap();
-        assert_stake_tokens_result(11, Some(1), handle_res, &mut deps);
+        let handle_res = handle(deps.as_mut(), env.clone(), info.clone(), msg.clone()).unwrap();
+        assert_stake_tokens_result(11, Some(1), handle_res, deps.as_mut());
 
         let weight = 1u128;
         let msg = HandleMsg::CastVote {
@@ -732,7 +758,7 @@ mod tests {
             vote: "yes".to_string(),
             weight: Uint128::from(weight),
         };
-        let handle_res = handle(&mut deps, env.clone(), info.clone(), msg).unwrap();
+        let handle_res = handle(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
         assert_cast_vote_success(TEST_VOTER, weight, 1, handle_res);
 
         let msg = HandleMsg::CastVote {
@@ -740,7 +766,7 @@ mod tests {
             vote: "yes".to_string(),
             weight: Uint128::from(weight),
         };
-        let res = handle(&mut deps, env.clone(), info.clone(), msg);
+        let res = handle(deps.as_mut(), env.clone(), info.clone(), msg);
 
         match res {
             Ok(_) => panic!("Must return error"),
@@ -752,7 +778,7 @@ mod tests {
     #[test]
     fn fails_cast_vote_without_poll() {
         let mut deps = mock_dependencies(&[]);
-        mock_init(&mut deps);
+        mock_init(deps.as_mut());
 
         let msg = HandleMsg::CastVote {
             poll_id: 0,
@@ -761,7 +787,7 @@ mod tests {
         };
         let info = mock_info(TEST_VOTER, &coins(11, VOTING_TOKEN));
 
-        let res = handle(&mut deps, mock_env(), info, msg);
+        let res = handle(deps.as_mut(), mock_env(), info, msg);
 
         match res {
             Ok(_) => panic!("Must return error"),
@@ -773,14 +799,14 @@ mod tests {
     #[test]
     fn happy_days_stake_voting_tokens() {
         let mut deps = mock_dependencies(&[]);
-        mock_init(&mut deps);
+        mock_init(deps.as_mut());
 
         let msg = HandleMsg::StakeVotingTokens {};
 
         let info = mock_info(TEST_VOTER, &coins(11, VOTING_TOKEN));
 
-        let handle_res = handle(&mut deps, mock_env(), info, msg.clone()).unwrap();
-        assert_stake_tokens_result(11, None, handle_res, &mut deps);
+        let handle_res = handle(deps.as_mut(), mock_env(), info, msg.clone()).unwrap();
+        assert_stake_tokens_result(11, None, handle_res, deps.as_mut());
     }
 
     #[test]
@@ -790,14 +816,14 @@ mod tests {
         // initialize the store
         let msg = init_msg();
         let info = mock_info(TEST_VOTER, &coins(2, VOTING_TOKEN));
-        let init_res = init(&mut deps, mock_env(), info, msg).unwrap();
+        let init_res = init(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(0, init_res.messages.len());
 
         // insufficient token
         let msg = HandleMsg::StakeVotingTokens {};
         let info = mock_info(TEST_VOTER, &coins(0, VOTING_TOKEN));
 
-        let res = handle(&mut deps, mock_env(), info, msg);
+        let res = handle(deps.as_mut(), mock_env(), info, msg);
 
         match res {
             Ok(_) => panic!("Must return error"),
@@ -813,14 +839,14 @@ mod tests {
         // initialize the store
         let msg = init_msg();
         let info = mock_info(TEST_VOTER, &coins(2, VOTING_TOKEN));
-        let init_res = init(&mut deps, mock_env(), info, msg).unwrap();
+        let init_res = init(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(0, init_res.messages.len());
 
         // wrong token
         let msg = HandleMsg::StakeVotingTokens {};
         let info = mock_info(TEST_VOTER, &coins(11, "play money"));
 
-        let res = handle(&mut deps, mock_env(), info, msg);
+        let res = handle(deps.as_mut(), mock_env(), info, msg);
 
         match res {
             Ok(_) => panic!("Must return error"),
@@ -837,7 +863,7 @@ mod tests {
         start_height: u64,
         creator: &str,
         handle_res: HandleResponse,
-        deps: &mut Extern<MockStorage, MockApi, MockQuerier>,
+        deps: DepsMut,
     ) {
         assert_eq!(
             handle_res.attributes,
@@ -852,7 +878,7 @@ mod tests {
         );
 
         //confirm poll count
-        let state = config_read(&deps.storage).load().unwrap();
+        let state = config_read(deps.storage).load().unwrap();
         assert_eq!(
             state,
             State {
@@ -871,11 +897,11 @@ mod tests {
         staked_tokens: u128,
         poll_count: Option<u64>,
         handle_res: HandleResponse,
-        deps: &mut Extern<MockStorage, MockApi, MockQuerier>,
+        deps: DepsMut,
     ) {
         assert_eq!(handle_res, HandleResponse::default());
 
-        let state = config_read(&mut deps.storage).load().unwrap();
+        let state = config_read(deps.storage).load().unwrap();
         assert_eq!(
             state,
             State {
