@@ -33,7 +33,7 @@ const coralnetOptions: Options = {
   networkId: 'cosmwasm-coral',
   feeToken: 'ushell',
   gasPrice:  GasPrice.fromString("0.025ushell"),
-  bech32prefix: 'coral',
+  bech32prefix: 'cosmos',
   faucetToken: 'SHELL',
   faucetUrl: 'https://faucet.coralnet.cosmwasm.com/credit',
   hdPath: makeCosmoshubPath(0),
