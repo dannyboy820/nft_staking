@@ -91,7 +91,7 @@ const useOptions = (options: Options): Network => {
     address: string,
     ticker: string
   ): Promise<void> => {
-    await axios.post(faucetUrl, { ticker, address });
+    await axios.post(faucetUrl, { denom, address });
   }
 
   const setup = async (password: string, filename?: string): Promise<SigningCosmWasmClient> => {
