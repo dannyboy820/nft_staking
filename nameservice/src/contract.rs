@@ -1,6 +1,6 @@
 use cosmwasm_std::{
-    to_binary, Api, Binary, Env, Extern, HandleResponse, HumanAddr, InitResponse, InitResult,
-    MessageInfo, Querier, StdResult, Storage,
+    to_binary, Binary, Deps, DepsMut, Env, HandleResponse, HumanAddr, InitResponse, InitResult,
+    MessageInfo, StdResult,
 };
 
 use crate::coin_helpers::assert_sent_sufficient_coin;
@@ -11,24 +11,19 @@ use crate::state::{config, config_read, resolver, resolver_read, Config, NameRec
 const MIN_NAME_LENGTH: u64 = 3;
 const MAX_NAME_LENGTH: u64 = 64;
 
-pub fn init<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
-    _env: Env,
-    _info: MessageInfo,
-    msg: InitMsg,
-) -> InitResult {
+pub fn init(deps: DepsMut, _env: Env, _info: MessageInfo, msg: InitMsg) -> InitResult {
     let config_state = Config {
         purchase_price: msg.purchase_price,
         transfer_price: msg.transfer_price,
     };
 
-    config(&mut deps.storage).save(&config_state)?;
+    config(deps.storage).save(&config_state)?;
 
     Ok(InitResponse::default())
 }
 
-pub fn handle<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
+pub fn handle(
+    deps: DepsMut,
     env: Env,
     info: MessageInfo,
     msg: HandleMsg,
@@ -39,15 +34,15 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
     }
 }
 
-pub fn try_register<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
+pub fn try_register(
+    deps: DepsMut,
     _env: Env,
     info: MessageInfo,
     name: String,
 ) -> Result<HandleResponse, ContractError> {
     // we only need to check here - at point of registration
     validate_name(&name)?;
-    let config_state = config(&mut deps.storage).load()?;
+    let config_state = config(deps.storage).load()?;
     assert_sent_sufficient_coin(&info.sent_funds, config_state.purchase_price)?;
 
     let key = name.as_bytes();
@@ -55,31 +50,31 @@ pub fn try_register<S: Storage, A: Api, Q: Querier>(
         owner: deps.api.canonical_address(&info.sender)?,
     };
 
-    if (resolver(&mut deps.storage).may_load(key)?).is_some() {
+    if (resolver(deps.storage).may_load(key)?).is_some() {
         // name is already taken
         return Err(ContractError::NameTaken { name });
     }
 
     // name is available
-    resolver(&mut deps.storage).save(key, &record)?;
+    resolver(deps.storage).save(key, &record)?;
 
     Ok(HandleResponse::default())
 }
 
-pub fn try_transfer<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
+pub fn try_transfer(
+    deps: DepsMut,
     _env: Env,
     info: MessageInfo,
     name: String,
     to: HumanAddr,
 ) -> Result<HandleResponse, ContractError> {
     let api = deps.api;
-    let config_state = config(&mut deps.storage).load()?;
+    let config_state = config(deps.storage).load()?;
     assert_sent_sufficient_coin(&info.sent_funds, config_state.transfer_price)?;
 
     let new_owner = deps.api.canonical_address(&to)?;
     let key = name.as_bytes();
-    resolver(&mut deps.storage).update(key, |record| {
+    resolver(deps.storage).update(key, |record| {
         if let Some(mut record) = record {
             if api.canonical_address(&info.sender)? != record.owner {
                 return Err(ContractError::Unauthorized {});
@@ -94,25 +89,17 @@ pub fn try_transfer<S: Storage, A: Api, Q: Querier>(
     Ok(HandleResponse::default())
 }
 
-pub fn query<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
-    env: Env,
-    msg: QueryMsg,
-) -> StdResult<Binary> {
+pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::ResolveRecord { name } => query_resolver(deps, env, name),
-        QueryMsg::Config {} => to_binary(&config_read(&deps.storage).load()?),
+        QueryMsg::Config {} => to_binary(&config_read(deps.storage).load()?),
     }
 }
 
-fn query_resolver<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
-    _env: Env,
-    name: String,
-) -> StdResult<Binary> {
+fn query_resolver(deps: Deps, _env: Env, name: String) -> StdResult<Binary> {
     let key = name.as_bytes();
 
-    let address = match resolver_read(&deps.storage).may_load(key)? {
+    let address = match resolver_read(deps.storage).may_load(key)? {
         Some(record) => Some(deps.api.human_address(&record.owner)?),
         None => None,
     };
