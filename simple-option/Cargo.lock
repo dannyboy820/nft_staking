@@ -145,7 +145,7 @@ dependencies = [
 
 [[package]]
 name = "simple-option"
-version = "0.2.0"
+version = "0.8.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
