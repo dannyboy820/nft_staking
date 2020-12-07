@@ -4,7 +4,7 @@
 
 This repo is a collection of simple contracts built with the
 [cosmwasm](https://github.com/CosmWasm/cosmwasm) framework.
-Smart contracts here are for only demonstration purposes, **not production ready**. 
+Smart contracts here are for only demonstration purposes, **not production ready**.
 Production grade smart contracts are collected under [cosmwasm-plus](https://github.com/CosmWasm/cosmwasm-plus).
 
 This repo's organization is relatively simple. The top-level directory is just a placeholder
@@ -33,32 +33,10 @@ template - it explains a lot).
 
 ### Preparing for merge
 
-Before you merge the code, make sure it builds and passes all tests, both in the package,
-and when calling it from the root packages `cargo wasm && cargo test`. This should
-show your package is covered by the CI.
+Before you merge the code, make sure it builds and passes all tests:
 
-There is also quite some useful information in `Development.md` and `Publishing.md` in the newly generated
-contract.
-
-You should also prepare a compiled `contract.wasm` before each merge to master.
-This is not enforced by the CI (a full build each commit), but should be tested
-on merge. See [`rust-optimizer`](https://github.com/CosmWasm/rust-optimizer/blob/master/README.md#usage)
-for an explanation of how to make a deterministic build.
-
-```sh
-rm -rf artifacts
-
-docker run --rm -v "$(pwd)":/code \
-  --mount type=volume,source="$(basename "$(pwd)")_cache",target=/code/target \
-  --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
-  cosmwasm/rust-optimizer:0.10.1
-
-# verify output - these should be the same
-sha256sum artifacts/*.wasm
-cat artifacts/checksums.txt
 ```
-
-If the sha256 hash changes without any code changes, even when compiling on different machines,
-or removing those cache volumes, then please submit an issue on [rust-optimizer](https://github.com/CosmWasm/rust-optimizer).
+./.devtools/build_test_all.sh
+```
 
 Once you pass these checks, please open a [PR on this repo](https://github.com/CosmWasm/cosmwasm-examples/pulls).
