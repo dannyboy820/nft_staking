@@ -4,3 +4,6 @@
 
 # macOS stuff
 .DS_Store
+
+# Build results
+artifacts/
