@@ -153,7 +153,7 @@ fn init_works() {
     assert_eq!(0, res.messages.len());
 
     // query the store directly
-    let api = deps.api;
+    let api = deps.api().clone();
     deps.with_storage(|storage| {
         assert_eq!(
             get_constants(storage),
@@ -184,7 +184,7 @@ fn transfer_works() {
     let recipient = address(2);
 
     // Before
-    let api = deps.api;
+    let api = deps.api().clone();
     deps.with_storage(|storage| {
         assert_eq!(get_balance(&api, storage, &sender), 11);
         assert_eq!(get_balance(&api, storage, &recipient), 22);
@@ -230,7 +230,7 @@ fn approve_works() {
     let spender = address(2);
 
     // Before
-    let api = deps.api;
+    let api = deps.api().clone();
     deps.with_storage(|storage| {
         assert_eq!(get_allowance(&api, storage, &owner, &spender), 0);
         Ok(())
@@ -275,7 +275,7 @@ fn transfer_from_works() {
     let recipient = address(3);
 
     // Before
-    let api = deps.api;
+    let api = deps.api().clone();
     deps.with_storage(|storage| {
         assert_eq!(get_balance(&api, storage, &owner), 11);
         assert_eq!(get_balance(&api, storage, &recipient), 33);
@@ -342,7 +342,7 @@ fn burn_works() {
     let owner = address(1);
 
     // Before
-    let api = deps.api;
+    let api = deps.api().clone();
     deps.with_storage(|storage| {
         assert_eq!(get_balance(&api, storage, &owner), 11);
         Ok(())
