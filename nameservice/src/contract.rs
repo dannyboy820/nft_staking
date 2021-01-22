@@ -1,6 +1,6 @@
 use cosmwasm_std::{
-    to_binary, Binary, Deps, DepsMut, Env, HandleResponse, HumanAddr, InitResponse, InitResult,
-    MessageInfo, StdResult,
+    to_binary, Binary, Deps, DepsMut, Env, HandleResponse, HumanAddr, InitResponse, MessageInfo,
+    StdError, StdResult,
 };
 
 use crate::coin_helpers::assert_sent_sufficient_coin;
@@ -11,7 +11,12 @@ use crate::state::{config, config_read, resolver, resolver_read, Config, NameRec
 const MIN_NAME_LENGTH: u64 = 3;
 const MAX_NAME_LENGTH: u64 = 64;
 
-pub fn init(deps: DepsMut, _env: Env, _info: MessageInfo, msg: InitMsg) -> InitResult {
+pub fn init(
+    deps: DepsMut,
+    _env: Env,
+    _info: MessageInfo,
+    msg: InitMsg,
+) -> Result<InitResponse, StdError> {
     let config_state = Config {
         purchase_price: msg.purchase_price,
         transfer_price: msg.transfer_price,

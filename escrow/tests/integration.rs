@@ -67,7 +67,7 @@ fn proper_initialization() {
     assert_eq!(0, res.messages.len());
 
     // it worked, let's query the state
-    let api = deps.api;
+    let api = deps.api().clone();
     deps.with_storage(|store| {
         let config_key_raw = to_length_prefixed(b"config");
         let state: State = from_slice(&store.get(&config_key_raw).0.unwrap().unwrap()).unwrap();

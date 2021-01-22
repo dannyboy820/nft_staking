@@ -34,7 +34,7 @@ static WASM: &[u8] = include_bytes!("../target/wasm32-unknown-unknown/release/cw
 // static WASM: &[u8] = include_bytes!("../contract.wasm");
 
 fn assert_name_owner(
-    mut deps: &mut Instance<MockStorage, MockApi, MockQuerier>,
+    mut deps: &mut Instance<MockApi, MockStorage, MockQuerier>,
     name: &str,
     owner: &str,
 ) {
@@ -52,7 +52,7 @@ fn assert_name_owner(
 }
 
 fn mock_init_with_price(
-    mut deps: &mut Instance<MockStorage, MockApi, MockQuerier>,
+    mut deps: &mut Instance<MockApi, MockStorage, MockQuerier>,
     purchase_price: Coin,
     transfer_price: Coin,
 ) {
@@ -66,7 +66,7 @@ fn mock_init_with_price(
     let _res: InitResponse = init(&mut deps, mock_env(), params, msg).unwrap();
 }
 
-fn mock_init_no_price(mut deps: &mut Instance<MockStorage, MockApi, MockQuerier>) {
+fn mock_init_no_price(mut deps: &mut Instance<MockApi, MockStorage, MockQuerier>) {
     let msg = InitMsg {
         purchase_price: None,
         transfer_price: None,
@@ -78,7 +78,7 @@ fn mock_init_no_price(mut deps: &mut Instance<MockStorage, MockApi, MockQuerier>
 }
 
 fn mock_alice_registers_name(
-    mut deps: &mut Instance<MockStorage, MockApi, MockQuerier>,
+    mut deps: &mut Instance<MockApi, MockStorage, MockQuerier>,
     sent: &[Coin],
 ) {
     // alice can register an available name

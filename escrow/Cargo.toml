@@ -24,20 +24,15 @@ incremental = false
 overflow-checks = true
 
 [features]
-default = ["cranelift"]
-# for quicker tests, cargo test --lib
-# for more explicit tests, cargo test --features=backtraces
-backtraces = ["cosmwasm-std/backtraces", "cosmwasm-vm/backtraces"]
-cranelift = ["cosmwasm-vm/default-cranelift"]
-singlepass = ["cosmwasm-vm/default-singlepass"]
+backtraces = ["cosmwasm-std/backtraces"]
 
 [dependencies]
-cosmwasm-std = "0.12.0"
-cosmwasm-storage = "0.12.0"
+cosmwasm-std = "0.13.2"
+cosmwasm-storage = "0.13.2"
 schemars = "0.7"
 thiserror = "1.0.20"
 serde = { version = "1.0.103", default-features = false, features = ["derive"] }
 
 [dev-dependencies]
-cosmwasm-vm = { version = "0.12.0", default-features = false }
-cosmwasm-schema = "0.12.0"
+cosmwasm-vm = { version = "0.13.2", default-features = false }
+cosmwasm-schema = "0.13.2"

@@ -74,7 +74,7 @@ fn proper_initialization() {
     let res: InitResponse = init(&mut deps, mock_env(), info, msg).unwrap();
     assert_eq!(0, res.messages.len());
 
-    let api = deps.api;
+    let api = deps.api().clone();
 
     deps.with_storage(|store| {
         let config_key_raw = to_length_prefixed(b"config");
@@ -482,7 +482,7 @@ fn happy_days_withdraw_voting_tokens() {
     let handle_res: HandleResponse = handle(&mut deps, env, info, msg.clone()).unwrap();
     assert_eq!(handle_res, HandleResponse::default());
 
-    let api = deps.api;
+    let api = deps.api().clone();
     //confirm stake increased
     deps.with_storage(|store| {
         let config_key_raw = to_length_prefixed(b"config");
