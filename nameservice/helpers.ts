@@ -2,7 +2,7 @@
  * This is a set of helpers meant for use with @cosmjs/cli
  * With these you can easily use the cw20 contract without worrying about forming messages and parsing queries.
  *
- * Usage: npx @cosmjs/cli@^0.23 --init https://raw.githubusercontent.com/CosmWasm/cosmwasm-examples/master/nameservice/helpers.ts
+ * Usage: npx @cosmjs/cli@^0.23 --init https://raw.githubusercontent.com/CosmWasm/cosmwasm-examples/main/nameservice/helpers.ts
  *
  * Create a client:
  *   const client = await useOptions(coralnetOptions).setup(password);
