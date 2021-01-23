@@ -1,6 +1,6 @@
-# Cosmwasm Examples
+# CosmWasm Examples
 
-[![CircleCI](https://circleci.com/gh/confio/cosmwasm-examples/tree/master.svg?style=shield)](https://circleci.com/gh/confio/cosmwasm-examples/tree/master)
+[![CircleCI](https://circleci.com/gh/CosmWasm/cosmwasm-examples/tree/master.svg?style=shield)](https://circleci.com/gh/CosmWasm/cosmwasm-examples/tree/master)
 
 This repo is a collection of simple contracts built with the
 [cosmwasm](https://github.com/CosmWasm/cosmwasm) framework.
