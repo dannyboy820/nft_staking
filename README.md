@@ -36,7 +36,7 @@ template - it explains a lot).
 Before you merge the code, make sure it builds and passes all tests:
 
 ```
-./.devtools/build_test_all.sh
+./devtools/build_test_all.sh
 ```
 
 Once you pass these checks, please open a [PR on this repo](https://github.com/CosmWasm/cosmwasm-examples/pulls).
