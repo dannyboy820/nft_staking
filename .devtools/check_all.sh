@@ -14,6 +14,7 @@ for example in ./contracts/*; do
     (
         cd "$example"
         cargo fmt
+        cargo wasm # to make integration tests compile
         cargo check --tests
     )
   fi
