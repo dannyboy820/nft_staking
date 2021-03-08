@@ -21,7 +21,7 @@ jobs:
   simple-option:
     docker:
       - image: rust:1.47.0
-    working_directory: ~/project/simple-option
+    working_directory: ~/project/contracts/simple-option
     steps:
       - checkout:
           path: ~/project
@@ -70,7 +70,7 @@ jobs:
   erc20:
     docker:
       - image: rust:1.47.0
-    working_directory: ~/project/erc20
+    working_directory: ~/project/contracts/erc20
     steps:
       - checkout:
           path: ~/project
@@ -122,7 +122,7 @@ jobs:
   escrow:
     docker:
       - image: rust:1.47.0
-    working_directory: ~/project/escrow
+    working_directory: ~/project/contracts/escrow
     steps:
       - checkout:
           path: ~/project
@@ -174,7 +174,7 @@ jobs:
   nameservice:
     docker:
       - image: rust:1.47.0
-    working_directory: ~/project/nameservice
+    working_directory: ~/project/contracts/nameservice
     steps:
       - checkout:
           path: ~/project
@@ -226,7 +226,7 @@ jobs:
   voting:
     docker:
       - image: rust:1.47.0
-    working_directory: ~/project/voting
+    working_directory: ~/project/contracts/voting
     steps:
       - checkout:
           path: ~/project
@@ -298,7 +298,7 @@ jobs:
       - run:
           name: Build development contracts
           command: |
-            docker run --volumes-from with_code cosmwasm/rust-optimizer:0.10.7 ./*/
+            docker run --volumes-from with_code cosmwasm/rust-optimizer:0.10.8 ./contracts/*/
 
             docker cp with_code:/code/artifacts ./artifacts
       - run:

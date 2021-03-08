@@ -33,7 +33,7 @@ fi
 NEW="$1"
 
 FILES_MODIFIED=()
-for contract_dir in ./*/; do
+for contract_dir in ./contracts/*/; do
   CARGO_TOML="$contract_dir/Cargo.toml"
   CARGO_LOCK="$contract_dir/Cargo.lock"
 

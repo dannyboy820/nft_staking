@@ -8,7 +8,7 @@ command -v shellcheck > /dev/null && shellcheck "$0"
 
 export RUST_BACKTRACE=1
 
-for example in ./*; do
+for example in ./contracts/*; do
   if [[ -d "$example" ]]; then
     echo "Building and testing $example ..."
 

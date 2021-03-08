@@ -7,7 +7,7 @@ command -v shellcheck > /dev/null && shellcheck "$0"
 # This script is for development purposes only. In the CI, each example project
 # is configured separately.
 
-for example in ./*; do
+for example in ./contracts/*; do
   if [[ -d "$example" ]]; then
     echo "Checking $example ..."
 
