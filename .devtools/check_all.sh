@@ -7,15 +7,12 @@ command -v shellcheck > /dev/null && shellcheck "$0"
 # This script is for development purposes only. In the CI, each example project
 # is configured separately.
 
-for example in ./contracts/*; do
-  if [[ -d "$example" ]]; then
-    echo "Checking $example ..."
-
-    (
-        cd "$example"
-        cargo fmt
-        cargo wasm # to make integration tests compile
-        cargo check --tests
-    )
-  fi
+for example in ./contracts/*/; do
+  echo "Checking $example ..."
+  (
+    cd "$example"
+    cargo fmt
+    cargo wasm # to make integration tests compile
+    cargo check --tests
+  )
 done

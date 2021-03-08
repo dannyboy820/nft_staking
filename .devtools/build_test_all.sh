@@ -8,18 +8,15 @@ command -v shellcheck > /dev/null && shellcheck "$0"
 
 export RUST_BACKTRACE=1
 
-for example in ./contracts/*; do
-  if [[ -d "$example" ]]; then
-    echo "Building and testing $example ..."
-
-    (
-        cd "$example"
-        cargo fmt
-        cargo build --locked
-        cargo unit-test --locked
-        cargo wasm --locked
-        cargo integration-test --locked
-        cargo schema --locked
-    )
-  fi
+for example in ./contracts/*/; do
+  echo "Building and testing $example ..."
+  (
+    cd "$example"
+    cargo fmt
+    cargo build --locked
+    cargo unit-test --locked
+    cargo wasm --locked
+    cargo integration-test --locked
+    cargo schema --locked
+  )
 done
