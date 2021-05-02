@@ -16,8 +16,8 @@ This allows us to compile all contracts with one command.
 The following contracts are available for use. You can view the source code under `src`
 and a precompiled wasm ready for deployment under `contract.wasm`. Take a look here:
 
-* [escrow](https://github.com/CosmWasm/cosmwasm-examples/tree/main/escrow) - A basic escrow with timeout and partial release
-* [erc20](https://github.com/CosmWasm/cosmwasm-examples/tree/main/erc20) - Basic implementation the erc20 interface for CosmWasm, as a base for token designers
+* [escrow](https://github.com/CosmWasm/cosmwasm-examples/tree/main/contracts/escrow) - A basic escrow with timeout and partial release
+* [erc20](https://github.com/CosmWasm/cosmwasm-examples/tree/main/contracts/erc20) - Basic implementation the erc20 interface for CosmWasm, as a base for token designers
 
 ## Development
 
