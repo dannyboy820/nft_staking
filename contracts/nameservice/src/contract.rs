@@ -1,22 +1,22 @@
 use cosmwasm_std::{
-    to_binary, Binary, Deps, DepsMut, Env, HandleResponse, HumanAddr, InitResponse, MessageInfo,
-    StdError, StdResult,
+    entry_point, to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdError, StdResult,
 };
 
 use crate::coin_helpers::assert_sent_sufficient_coin;
 use crate::error::ContractError;
-use crate::msg::{HandleMsg, InitMsg, QueryMsg, ResolveRecordResponse};
+use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, ResolveRecordResponse};
 use crate::state::{config, config_read, resolver, resolver_read, Config, NameRecord};
 
 const MIN_NAME_LENGTH: u64 = 3;
 const MAX_NAME_LENGTH: u64 = 64;
 
-pub fn init(
+#[entry_point]
+pub fn instantiate(
     deps: DepsMut,
     _env: Env,
     _info: MessageInfo,
-    msg: InitMsg,
-) -> Result<InitResponse, StdError> {
+    msg: InstantiateMsg,
+) -> Result<Response, StdError> {
     let config_state = Config {
         purchase_price: msg.purchase_price,
         transfer_price: msg.transfer_price,
@@ -24,18 +24,19 @@ pub fn init(
 
     config(deps.storage).save(&config_state)?;
 
-    Ok(InitResponse::default())
+    Ok(Response::default())
 }
 
-pub fn handle(
+#[entry_point]
+pub fn execute(
     deps: DepsMut,
     env: Env,
     info: MessageInfo,
-    msg: HandleMsg,
-) -> Result<HandleResponse, ContractError> {
+    msg: ExecuteMsg,
+) -> Result<Response, ContractError> {
     match msg {
-        HandleMsg::Register { name } => try_register(deps, env, info, name),
-        HandleMsg::Transfer { name, to } => try_transfer(deps, env, info, name, to),
+        ExecuteMsg::Register { name } => try_register(deps, env, info, name),
+        ExecuteMsg::Transfer { name, to } => try_transfer(deps, env, info, name, to),
     }
 }
 
@@ -44,16 +45,14 @@ pub fn try_register(
     _env: Env,
     info: MessageInfo,
     name: String,
-) -> Result<HandleResponse, ContractError> {
+) -> Result<Response, ContractError> {
     // we only need to check here - at point of registration
     validate_name(&name)?;
     let config_state = config(deps.storage).load()?;
-    assert_sent_sufficient_coin(&info.sent_funds, config_state.purchase_price)?;
+    assert_sent_sufficient_coin(&info.funds, config_state.purchase_price)?;
 
     let key = name.as_bytes();
-    let record = NameRecord {
-        owner: deps.api.canonical_address(&info.sender)?,
-    };
+    let record = NameRecord { owner: info.sender };
 
     if (resolver(deps.storage).may_load(key)?).is_some() {
         // name is already taken
@@ -63,7 +62,7 @@ pub fn try_register(
     // name is available
     resolver(deps.storage).save(key, &record)?;
 
-    Ok(HandleResponse::default())
+    Ok(Response::default())
 }
 
 pub fn try_transfer(
@@ -71,17 +70,16 @@ pub fn try_transfer(
     _env: Env,
     info: MessageInfo,
     name: String,
-    to: HumanAddr,
-) -> Result<HandleResponse, ContractError> {
-    let api = deps.api;
+    to: String,
+) -> Result<Response, ContractError> {
     let config_state = config(deps.storage).load()?;
-    assert_sent_sufficient_coin(&info.sent_funds, config_state.transfer_price)?;
+    assert_sent_sufficient_coin(&info.funds, config_state.transfer_price)?;
 
-    let new_owner = deps.api.canonical_address(&to)?;
+    let new_owner = deps.api.addr_validate(&to)?;
     let key = name.as_bytes();
     resolver(deps.storage).update(key, |record| {
         if let Some(mut record) = record {
-            if api.canonical_address(&info.sender)? != record.owner {
+            if info.sender != record.owner {
                 return Err(ContractError::Unauthorized {});
             }
 
@@ -91,9 +89,10 @@ pub fn try_transfer(
             Err(ContractError::NameNotExists { name: name.clone() })
         }
     })?;
-    Ok(HandleResponse::default())
+    Ok(Response::default())
 }
 
+#[entry_point]
 pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::ResolveRecord { name } => query_resolver(deps, env, name),
@@ -105,7 +104,7 @@ fn query_resolver(deps: Deps, _env: Env, name: String) -> StdResult<Binary> {
     let key = name.as_bytes();
 
     let address = match resolver_read(deps.storage).may_load(key)? {
-        Some(record) => Some(deps.api.human_address(&record.owner)?),
+        Some(record) => Some(String::from(&record.owner)),
         None => None,
     };
     let resp = ResolveRecordResponse { address };
@@ -115,8 +114,7 @@ fn query_resolver(deps: Deps, _env: Env, name: String) -> StdResult<Binary> {
 
 // let's not import a regexp library and just do these checks by hand
 fn invalid_char(c: char) -> bool {
-    let is_valid =
-        (c >= '0' && c <= '9') || (c >= 'a' && c <= 'z') || (c == '.' || c == '-' || c == '_');
+    let is_valid = c.is_digit(10) || c.is_ascii_lowercase() || (c == '.' || c == '-' || c == '_');
     !is_valid
 }
 
