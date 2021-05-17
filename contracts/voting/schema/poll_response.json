@@ -9,7 +9,7 @@
   ],
   "properties": {
     "creator": {
-      "$ref": "#/definitions/HumanAddr"
+      "type": "string"
     },
     "description": {
       "type": "string"
@@ -43,9 +43,6 @@
     }
   },
   "definitions": {
-    "HumanAddr": {
-      "type": "string"
-    },
     "PollStatus": {
       "type": "string",
       "enum": [
