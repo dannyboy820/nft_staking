@@ -260,7 +260,7 @@ fn perform_transfer(
         });
     }
     from_balance -= amount;
-    balances_store.set(from.as_str().as_ref(), &from_balance.to_be_bytes());
+    balances_store.set(from.as_str().as_bytes(), &from_balance.to_be_bytes());
 
     let mut to_balance = match balances_store.get(to.as_str().as_bytes()) {
         Some(data) => bytes_to_u128(&data),
@@ -284,7 +284,7 @@ pub fn bytes_to_u128(data: &[u8]) -> Result<u128, ContractError> {
 // Reads 16 byte storage value into u128
 // Returns zero if key does not exist. Errors if data found that is not 16 bytes
 pub fn read_u128(store: &ReadonlyPrefixedStorage, key: &Addr) -> Result<u128, ContractError> {
-    let result = store.get(key.as_ref().as_bytes());
+    let result = store.get(key.as_str().as_bytes());
     match result {
         Some(data) => bytes_to_u128(&data),
         None => Ok(0u128),
@@ -376,13 +376,15 @@ mod tests {
         let balances_storage = ReadonlyPrefixedStorage::new(storage, PREFIX_BALANCES);
         return read_u128(&balances_storage, address).unwrap();
     }
+
     fn get_allowance(storage: &dyn Storage, owner: &Addr, spender: &Addr) -> u128 {
         let owner_storage = ReadonlyPrefixedStorage::multilevel(
             storage,
-            &[PREFIX_ALLOWANCES, owner.as_ref().as_bytes()],
+            &[PREFIX_ALLOWANCES, owner.as_str().as_bytes()],
         );
         return read_u128(&owner_storage, spender).unwrap();
     }
+
     mod instantiate {
         use super::*;
         use crate::error::ContractError;
