@@ -10,7 +10,7 @@ use crate::state::{config, config_read, resolver, resolver_read, Config, NameRec
 const MIN_NAME_LENGTH: u64 = 3;
 const MAX_NAME_LENGTH: u64 = 64;
 
-#[entry_point]
+#[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
     deps: DepsMut,
     _env: Env,
@@ -27,7 +27,7 @@ pub fn instantiate(
     Ok(Response::default())
 }
 
-#[entry_point]
+#[cfg_attr(not(feature = "library"), entry_point)]
 pub fn execute(
     deps: DepsMut,
     env: Env,
@@ -35,12 +35,12 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
     match msg {
-        ExecuteMsg::Register { name } => try_register(deps, env, info, name),
-        ExecuteMsg::Transfer { name, to } => try_transfer(deps, env, info, name, to),
+        ExecuteMsg::Register { name } => execute_register(deps, env, info, name),
+        ExecuteMsg::Transfer { name, to } => execute_transfer(deps, env, info, name, to),
     }
 }
 
-pub fn try_register(
+pub fn execute_register(
     deps: DepsMut,
     _env: Env,
     info: MessageInfo,
@@ -65,7 +65,7 @@ pub fn try_register(
     Ok(Response::default())
 }
 
-pub fn try_transfer(
+pub fn execute_transfer(
     deps: DepsMut,
     _env: Env,
     info: MessageInfo,
@@ -92,7 +92,7 @@ pub fn try_transfer(
     Ok(Response::default())
 }
 
-#[entry_point]
+#[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::ResolveRecord { name } => query_resolver(deps, env, name),

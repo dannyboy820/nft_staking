@@ -264,7 +264,7 @@ mod tests {
         mock_alice_registers_name(deps.as_mut(), &coins(2, "token"));
 
         // alice can transfer her name successfully to bob
-        let info = mock_info("alice_key", &vec![coin(1, "earth"), coin(2, "token")]);
+        let info = mock_info("alice_key", &[coin(1, "earth"), coin(2, "token")]);
         let msg = ExecuteMsg::Transfer {
             name: "alice".to_string(),
             to: "bob_key".to_string(),
@@ -333,7 +333,7 @@ mod tests {
         mock_alice_registers_name(deps.as_mut(), &coins(2, "token"));
 
         // alice can transfer her name successfully to bob
-        let info = mock_info("alice_key", &vec![coin(1, "earth"), coin(2, "token")]);
+        let info = mock_info("alice_key", &[coin(1, "earth"), coin(2, "token")]);
         let msg = ExecuteMsg::Transfer {
             name: "alice".to_string(),
             to: "bob_key".to_string(),
