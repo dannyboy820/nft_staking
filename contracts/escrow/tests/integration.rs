@@ -69,7 +69,8 @@ fn proper_initialization() {
     // it worked, let's query the state
     deps.with_storage(|store| {
         let config_key_raw = to_length_prefixed(b"config");
-        let state: State = from_slice(&store.get(&config_key_raw).0.unwrap().unwrap()).unwrap();
+        let state: State =
+            from_slice(&store.get(&config_key_raw).0.unwrap().unwrap(), 2048).unwrap();
         assert_eq!(
             state,
             State {
