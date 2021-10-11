@@ -19,6 +19,7 @@
 
 use cosmwasm_std::{
     coins, Addr, BlockInfo, Coin, ContractInfo, Env, MessageInfo, Response, Timestamp,
+    TransactionInfo,
 };
 use cosmwasm_storage::to_length_prefixed;
 use cosmwasm_vm::testing::{instantiate, mock_info, mock_instance};
@@ -52,6 +53,7 @@ fn mock_env_info_height(signer: &str, sent: &[Coin], height: u64, time: u64) -> 
         contract: ContractInfo {
             address: Addr::unchecked(MOCK_CONTRACT_ADDR),
         },
+        transaction: Some(TransactionInfo { index: 3 }),
     };
     let info = mock_info(signer, sent);
     return (env, info);
