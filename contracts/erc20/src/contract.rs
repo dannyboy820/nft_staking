@@ -1,5 +1,5 @@
 use cosmwasm_std::{
-    attr, entry_point, to_binary, to_vec, Addr, Binary, Deps, DepsMut, Env, MessageInfo, Response,
+    entry_point, to_binary, to_vec, Addr, Binary, Deps, DepsMut, Env, MessageInfo, Response,
     StdResult, Storage, Uint128,
 };
 use cosmwasm_storage::{PrefixedStorage, ReadonlyPrefixedStorage};
@@ -114,18 +114,10 @@ fn try_transfer(
         &deps.api.addr_validate(recipient.as_str())?,
         amount.u128(),
     )?;
-
-    let res = Response {
-        submessages: vec![],
-        messages: vec![],
-        attributes: vec![
-            attr("action", "transfer"),
-            attr("sender", info.sender),
-            attr("recipient", recipient),
-        ],
-        data: None,
-    };
-    Ok(res)
+    Ok(Response::new()
+        .add_attribute("action", "transfer")
+        .add_attribute("sender", info.sender)
+        .add_attribute("recipient", recipient))
 }
 
 fn try_transfer_from(
@@ -151,18 +143,11 @@ fn try_transfer_from(
     write_allowance(deps.storage, &owner_address, &info.sender, allowance)?;
     perform_transfer(deps.storage, &owner_address, &recipient_address, amount_raw)?;
 
-    let res = Response {
-        submessages: vec![],
-        messages: vec![],
-        attributes: vec![
-            attr("action", "transfer_from"),
-            attr("spender", &info.sender),
-            attr("sender", owner),
-            attr("recipient", recipient),
-        ],
-        data: None,
-    };
-    Ok(res)
+    Ok(Response::new()
+        .add_attribute("action", "transfer_from")
+        .add_attribute("spender", &info.sender)
+        .add_attribute("sender", owner)
+        .add_attribute("recipient", recipient))
 }
 
 fn try_approve(
@@ -174,17 +159,10 @@ fn try_approve(
 ) -> Result<Response, ContractError> {
     let spender_address = deps.api.addr_validate(spender.as_str())?;
     write_allowance(deps.storage, &info.sender, &spender_address, amount.u128())?;
-    let res = Response {
-        submessages: vec![],
-        messages: vec![],
-        attributes: vec![
-            attr("action", "approve"),
-            attr("owner", info.sender),
-            attr("spender", spender),
-        ],
-        data: None,
-    };
-    Ok(res)
+    Ok(Response::new()
+        .add_attribute("action", "approve")
+        .add_attribute("owner", info.sender)
+        .add_attribute("spender", spender))
 }
 
 /// Burn tokens
@@ -226,18 +204,10 @@ fn try_burn(
 
     config_store.set(KEY_TOTAL_SUPPLY, &total_supply.to_be_bytes());
 
-    let res = Response {
-        submessages: vec![],
-        messages: vec![],
-        attributes: vec![
-            attr("action", "burn"),
-            attr("account", info.sender),
-            attr("amount", amount),
-        ],
-        data: None,
-    };
-
-    Ok(res)
+    Ok(Response::new()
+        .add_attribute("action", "burn")
+        .add_attribute("account", info.sender)
+        .add_attribute("amount", amount.to_string()))
 }
 
 fn perform_transfer(
