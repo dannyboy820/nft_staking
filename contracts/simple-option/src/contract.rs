@@ -4,7 +4,7 @@ use cosmwasm_std::{
 
 use crate::error::ContractError;
 use crate::msg::{ConfigResponse, ExecuteMsg, InstantiateMsg, QueryMsg};
-use crate::state::{config, config_read, State};
+use crate::state::{State, CONFIG};
 
 #[entry_point]
 pub fn instantiate(
@@ -27,7 +27,7 @@ pub fn instantiate(
         expires: msg.expires,
     };
 
-    config(deps.storage).save(&state)?;
+    CONFIG.save(deps.storage, &state)?;
 
     Ok(Response::default())
 }
@@ -53,18 +53,17 @@ pub fn execute_transfer(
     recipient: String,
 ) -> Result<Response, ContractError> {
     // ensure msg sender is the owner
-    let mut state = config(deps.storage).load()?;
+    let mut state = CONFIG.load(deps.storage)?;
     if info.sender != state.owner {
         return Err(ContractError::Unauthorized {});
     }
 
     // set new owner on state
     state.owner = deps.api.addr_validate(&recipient)?;
-    config(deps.storage).save(&state)?;
+    CONFIG.save(deps.storage, &state)?;
 
-    let mut res = Response::new();
-    res.add_attribute("action", "transfer");
-    res.add_attribute("owner", recipient);
+    let res =
+        Response::new().add_attributes([("action", "transfer"), ("owner", recipient.as_str())]);
     Ok(res)
 }
 
@@ -74,7 +73,7 @@ pub fn execute_execute(
     info: MessageInfo,
 ) -> Result<Response, ContractError> {
     // ensure msg sender is the owner
-    let state = config(deps.storage).load()?;
+    let state = CONFIG.load(deps.storage)?;
     if info.sender != state.owner {
         return Err(ContractError::Unauthorized {});
     }
@@ -96,27 +95,27 @@ pub fn execute_execute(
 
     // release counter_offer to creator
     let mut res = Response::new();
-    res.add_message(BankMsg::Send {
+    res = res.add_message(BankMsg::Send {
         to_address: state.creator.to_string(),
         amount: state.counter_offer,
     });
 
     // release collateral to sender
-    res.add_message(BankMsg::Send {
+    res = res.add_message(BankMsg::Send {
         to_address: state.owner.to_string(),
         amount: state.collateral,
     });
 
     // delete the option
-    config(deps.storage).remove();
+    CONFIG.remove(deps.storage);
 
-    res.add_attribute("action", "execute");
+    res = res.add_attribute("action", "execute");
     Ok(res)
 }
 
 pub fn execute_burn(deps: DepsMut, env: Env, info: MessageInfo) -> Result<Response, ContractError> {
     // ensure is expired
-    let state = config(deps.storage).load()?;
+    let state = CONFIG.load(deps.storage)?;
     if env.block.height < state.expires {
         return Err(ContractError::OptionNotExpired {
             expires: state.expires,
@@ -130,15 +129,15 @@ pub fn execute_burn(deps: DepsMut, env: Env, info: MessageInfo) -> Result<Respon
 
     // release collateral to creator
     let mut res = Response::new();
-    res.add_message(BankMsg::Send {
+    res = res.add_message(BankMsg::Send {
         to_address: state.creator.to_string(),
         amount: state.collateral,
     });
 
     // delete the option
-    config(deps.storage).remove();
+    CONFIG.remove(deps.storage);
 
-    res.add_attribute("action", "burn");
+    res = res.add_attribute("action", "burn");
     Ok(res)
 }
 
@@ -150,7 +149,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
 }
 
 fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
-    let state = config_read(deps.storage).load()?;
+    let state = CONFIG.load(deps.storage)?;
     Ok(state)
 }
 
@@ -162,7 +161,7 @@ mod tests {
 
     #[test]
     fn proper_initialization() {
-        let mut deps = mock_dependencies(&[]);
+        let mut deps = mock_dependencies();
 
         let msg = InstantiateMsg {
             counter_offer: coins(40, "ETH"),
@@ -185,7 +184,7 @@ mod tests {
 
     #[test]
     fn transfer() {
-        let mut deps = mock_dependencies(&[]);
+        let mut deps = mock_dependencies();
 
         let msg = InstantiateMsg {
             counter_offer: coins(40, "ETH"),
@@ -220,14 +219,14 @@ mod tests {
 
     #[test]
     fn execute() {
-        let mut deps = mock_dependencies(&[]);
+        let mut deps = mock_dependencies();
 
         let amount = coins(40, "ETH");
         let collateral = coins(1, "BTC");
         let expires = 100_000;
         let msg = InstantiateMsg {
             counter_offer: amount.clone(),
-            expires: expires,
+            expires,
         };
         let info = mock_info("creator", &collateral);
 
@@ -276,14 +275,14 @@ mod tests {
         let res = execute_execute(deps.as_mut(), mock_env(), info).unwrap();
         assert_eq!(res.messages.len(), 2);
         assert_eq!(
-            res.messages[0],
+            res.messages[0].msg,
             CosmosMsg::Bank(BankMsg::Send {
                 to_address: "creator".into(),
                 amount,
             })
         );
         assert_eq!(
-            res.messages[1],
+            res.messages[1].msg,
             CosmosMsg::Bank(BankMsg::Send {
                 to_address: "owner".into(),
                 amount: collateral,
@@ -296,7 +295,7 @@ mod tests {
 
     #[test]
     fn burn() {
-        let mut deps = mock_dependencies(&[]);
+        let mut deps = mock_dependencies();
 
         let counter_offer = coins(40, "ETH");
         let collateral = coins(1, "BTC");
@@ -339,7 +338,7 @@ mod tests {
         let res = execute_burn(deps.as_mut(), env, info).unwrap();
         assert_eq!(res.messages.len(), 1);
         assert_eq!(
-            res.messages[0],
+            res.messages[0].msg,
             CosmosMsg::Bank(BankMsg::Send {
                 to_address: "creator".into(),
                 amount: collateral,
