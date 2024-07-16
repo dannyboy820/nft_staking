@@ -1,16 +1,3 @@
-# CosmWasm Examples
-
-[![CircleCI](https://circleci.com/gh/InterWasm/cw-contacts/tree/main.svg?style=shield)](https://app.circleci.com/pipelines/github/InterWasm/cw-contracts)
-
-This repo is a collection of simple contracts built with the
-[cosmwasm](https://github.com/CosmWasm/cosmwasm) framework.
-Smart contracts here are for only demonstration purposes, **not production ready**.
-Production grade smart contracts are collected under [cw-plus](https://github.com/CosmWasm/cw-plus).
-
-This repo's organization is relatively simple. The top-level directory is just a placeholder
-and has no real code. And we use workspaces to add multiple contracts below.
-This allows us to compile all contracts with one command.
-
 ## Usage:
 
 The following contracts are available for use. For each of the contracts in `contracts`, you can view the source code under `src`
